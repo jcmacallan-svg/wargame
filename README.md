@@ -72,3 +72,6 @@ It then chooses one of three outputs:
 - saved exercises and facilitator accounts
 - richer adjudication logic
 - live player feed and AAR report builder
+
+## Scenario format
+Use `schema/scenario.schema.json` as the standard upload/download format. The web UI can now generate a random scenario, download it as JSON, and upload a previously saved scenario JSON file.

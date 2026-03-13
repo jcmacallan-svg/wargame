@@ -1,20 +1,28 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Open War Game Engine Scenario Schema",
+  "title": "OWGE Scenario",
   "type": "object",
   "required": [
     "name",
+    "overview",
     "level",
     "conflict_mode",
     "domains",
     "turns",
-    "objectives"
+    "objectives",
+    "starting_phase",
+    "red_commander_profile",
+    "initial_blue_situation"
   ],
   "properties": {
     "name": {
       "type": "string"
     },
+    "overview": {
+      "type": "string"
+    },
     "level": {
+      "type": "string",
       "enum": [
         "strategic",
         "operational",
@@ -22,16 +30,22 @@
       ]
     },
     "conflict_mode": {
+      "type": "string",
       "enum": [
         "hybrid",
         "peer",
-        "counterinsurgency",
+        "coin",
         "grey_zone"
       ]
     },
+    "geography": {
+      "type": "string"
+    },
     "domains": {
       "type": "array",
+      "minItems": 1,
       "items": {
+        "type": "string",
         "enum": [
           "land",
           "air",
@@ -41,8 +55,7 @@
           "information",
           "logistics"
         ]
-      },
-      "minItems": 1
+      }
     },
     "turns": {
       "type": "integer",
@@ -51,33 +64,35 @@
     },
     "objectives": {
       "type": "array",
+      "minItems": 1,
       "items": {
-        "enum": [
-          "command_and_control",
-          "multi_domain_coordination",
-          "crisis_management",
-          "decision_making",
-          "civil_military_integration"
-        ]
+        "type": "string"
       }
-    },
-    "setting": {
-      "type": "string"
     },
     "starting_phase": {
       "type": "integer",
       "minimum": 1,
       "maximum": 4
     },
-    "facilitator_notes": {
-      "type": "string"
-    },
     "red_commander_profile": {
+      "type": "string",
       "enum": [
         "grey_zone_opportunist",
         "peer_competitor",
         "insurgent_network"
       ]
+    },
+    "initial_blue_situation": {
+      "type": "string"
+    },
+    "seed_events": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "facilitator_notes": {
+      "type": "string"
     }
   }
 }

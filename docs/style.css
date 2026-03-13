@@ -71,3 +71,13 @@ button:hover { background: #1b3b74; }
   .card { break-inside: avoid; border: 1px solid #333; background: white; color: black; }
   button { display: none; }
 }
+
+
+.scenario-box { margin-bottom: 1rem; }
+#scenarioSummary p { margin: 0.35rem 0 0.7rem; }
+#scenarioSummary ul { margin: 0.35rem 0 0.9rem 1.2rem; }
+.button-stack { display: grid; gap: 0.6rem; }
+.upload-label { display: block; border: 1px dashed #6b7280; border-radius: 8px; padding: 0.65rem; cursor: pointer; }
+.upload-label input { display: block; margin-top: 0.5rem; }
+.help { font-size: 0.86rem; opacity: 0.86; }
+code { background: rgba(255,255,255,0.08); padding: 0.1rem 0.3rem; border-radius: 4px; }

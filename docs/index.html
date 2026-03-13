@@ -36,6 +36,9 @@
       <section>
         <h3>Scenario Builder</h3>
         <label>Scenario name <input id="scenarioName" value="Northern Corridor Crisis" /></label>
+        <label>Geography <input id="scenarioGeography" value="Fictional northern littoral region" /></label>
+        <label>Overview <textarea id="scenarioOverview" rows="4">A fictional regional crisis is unfolding around a contested maritime corridor.</textarea></label>
+        <label>Initial Blue situation <textarea id="initialBlueSituation" rows="4">Blue naval forces are protecting territorial waters and commercial shipping while authorities assess attribution for maritime and cyber disruption.</textarea></label>
         <label>Turns <input id="scenarioTurns" type="number" min="3" max="20" value="8" /></label>
         <label>Red commander profile
           <select id="redProfile">
@@ -44,7 +47,14 @@
             <option value="insurgent_network">insurgent_network</option>
           </select>
         </label>
-        <button id="downloadScenario">Download scenario JSON</button>
+        <div class="button-stack">
+          <button id="generateScenario">Generate random scenario</button>
+          <button id="downloadScenario">Download scenario JSON</button>
+          <label class="upload-label">Upload scenario JSON
+            <input id="uploadScenario" type="file" accept="application/json,.json" />
+          </label>
+        </div>
+        <p class="help">Use <code>schema/scenario.schema.json</code> as the standard format for saved scenarios.</p>
       </section>
 
       <section>
@@ -73,6 +83,13 @@
     </aside>
 
     <section class="panel main-panel">
+      <section class="scenario-box">
+        <div class="section-head">
+          <h2>Scenario Overview</h2>
+          <div id="scenarioMeta"></div>
+        </div>
+        <div id="scenarioSummary"></div>
+      </section>
       <div class="section-head">
         <h2>Inject Library</h2>
         <div id="injectCount"></div>
