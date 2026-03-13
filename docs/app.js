@@ -348,22 +348,26 @@ function generateRedResponse() {
     `Turn ${state.turn} · Stage ${state.stage}`
   ];
   if (matched) {
-    blocks.push(`
+  blocks.push(`
 Recommended library inject
 ${matched.id} · ${matched.title}
 ${matched.situation}
-Decision required: ${matched.decision_required}`);
-    selectInject(matched.id);
-  } else {
-    blocks.push('
-No matching library inject found.');
-  }
+Decision required: ${matched.decision_required}
+`);
+  selectInject(matched.id);
+} else {
   blocks.push(`
+No matching library inject found.
+`);
+}
+
+blocks.push(`
 Synthesised Red response
 ${synth.title}
-${synth.text}`);
-  output.textContent = blocks.join('
-');
+${synth.text}
+`);
+
+output.textContent = blocks.join('\n');
 
   if (blueAction) logEntry(`Blue action entered: ${blueAction}`);
   logEntry(`Red Commander generated a response in the ${domain} domain.`);
