@@ -4,46 +4,122 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Open War Game Engine</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div class="container">
-    <section class="hero">
-      <h1>Open War Game Engine</h1>
-      <p>Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.</p>
+  <header class="hero">
+    <h1>Open War Game Engine</h1>
+    <p>Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.</p>
+  </header>
+
+  <main class="layout">
+    <aside class="panel left-panel">
+      <section>
+        <h2>Facilitator Control</h2>
+        <label>Level
+          <select id="levelFilter"><option value="all">all</option></select>
+        </label>
+        <label>Conflict mode
+          <select id="conflictFilter"><option value="all">all</option></select>
+        </label>
+        <label>Domain
+          <select id="domainFilter"><option value="all">all</option></select>
+        </label>
+        <label>Phase
+          <select id="phaseFilter"><option value="all">all</option></select>
+        </label>
+        <label>Severity
+          <select id="severityFilter"><option value="all">all</option></select>
+        </label>
+      </section>
+
+      <section>
+        <h3>Scenario Builder</h3>
+        <label>Scenario name <input id="scenarioName" value="Northern Corridor Crisis" /></label>
+        <label>Turns <input id="scenarioTurns" type="number" min="3" max="20" value="8" /></label>
+        <label>Red commander profile
+          <select id="redProfile">
+            <option value="grey_zone_opportunist">grey_zone_opportunist</option>
+            <option value="peer_competitor">peer_competitor</option>
+            <option value="insurgent_network">insurgent_network</option>
+          </select>
+        </label>
+        <button id="downloadScenario">Download scenario JSON</button>
+      </section>
+
+      <section>
+        <h3>Turn System</h3>
+        <div class="turn-box">
+          <div>Current turn: <strong id="currentTurn">1</strong></div>
+          <div>Escalation stage: <strong id="currentStage">1</strong></div>
+          <div>Released injects: <strong id="releasedCount">0</strong></div>
+        </div>
+        <div class="button-row">
+          <button id="prevTurn">Previous turn</button>
+          <button id="nextTurn">Next turn</button>
+        </div>
+      </section>
+
+      <section>
+        <h3>Action / Reaction</h3>
+        <label>Blue action
+          <textarea id="blueAction" rows="5" placeholder="Example: Blue increases maritime patrols and shifts ISR to the chokepoint."></textarea>
+        </label>
+        <div class="button-row">
+          <button id="generateRed">Generate Red Response</button>
+          <button id="printView">Print selected cards</button>
+        </div>
+      </section>
+    </aside>
+
+    <section class="panel main-panel">
+      <div class="section-head">
+        <h2>Inject Library</h2>
+        <div id="injectCount"></div>
+      </div>
+      <div id="injectGrid" class="grid"></div>
     </section>
 
-    <div class="grid">
-      <aside class="panel filters">
-        <h2>Control Panel</h2>
-        <label for="level">Level</label>
-        <select id="level">
-          <option value="all">all</option>
-        </select>
+    <aside class="panel right-panel">
+      <section>
+        <h2>Selected Injects</h2>
+        <div id="selectedCards" class="stack"></div>
+      </section>
+      <section>
+        <h2>AI Red Commander</h2>
+        <div id="redOutput" class="red-box">No Red response generated yet.</div>
+      </section>
+      <section>
+        <h2>Action Log</h2>
+        <div id="actionLog" class="log"></div>
+      </section>
+    </aside>
+  </main>
 
-        <label for="conflict_mode">Conflict mode</label>
-        <select id="conflict_mode">
-          <option value="all">all</option>
-        </select>
+  <template id="cardTemplate">
+    <article class="card">
+      <div class="tag-row"></div>
+      <h3 class="title"></h3>
+      <div class="phase"></div>
+      <div class="block">
+        <div class="label">Situation</div>
+        <p class="situation"></p>
+      </div>
+      <div class="block">
+        <div class="label">Decision required</div>
+        <p class="decision"></p>
+      </div>
+      <div class="block">
+        <div class="label">White cell notes</div>
+        <p class="white"></p>
+      </div>
+      <div class="button-row">
+        <button class="select-btn">Select</button>
+        <button class="release-btn">Release</button>
+      </div>
+    </article>
+  </template>
 
-        <label for="domain">Domain</label>
-        <select id="domain">
-          <option value="all">all</option>
-        </select>
-
-        <div class="footer-note">
-          Use this demo page as a starter control surface for GitHub Pages. Expand later with printable NATO-style cards, branching adjudication, and an AI Red Commander.
-        </div>
-      </aside>
-
-      <main class="panel">
-        <h2>Inject Browser</h2>
-        <div id="resultCount" class="footer-note"></div>
-        <div id="cards" class="cards"></div>
-      </main>
-    </div>
-  </div>
-
-  <script src="app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Open War Game Engine Scenario Schema",
+  "type": "object",
+  "required": [
+    "name",
+    "level",
+    "conflict_mode",
+    "domains",
+    "turns",
+    "objectives"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "level": {
+      "enum": [
+        "strategic",
+        "operational",
+        "tactical"
+      ]
+    },
+    "conflict_mode": {
+      "enum": [
+        "hybrid",
+        "peer",
+        "counterinsurgency",
+        "grey_zone"
+      ]
+    },
+    "domains": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "land",
+          "air",
+          "maritime",
+          "cyber",
+          "space",
+          "information",
+          "logistics"
+        ]
+      },
+      "minItems": 1
+    },
+    "turns": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 20
+    },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "command_and_control",
+          "multi_domain_coordination",
+          "crisis_management",
+          "decision_making",
+          "civil_military_integration"
+        ]
+      }
+    },
+    "setting": {
+      "type": "string"
+    },
+    "starting_phase": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "facilitator_notes": {
+      "type": "string"
+    },
+    "red_commander_profile": {
+      "enum": [
+        "grey_zone_opportunist",
+        "peer_competitor",
+        "insurgent_network"
+      ]
+    }
+  }
+}

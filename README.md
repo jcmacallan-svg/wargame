@@ -1,111 +1,74 @@
 # Open War Game Engine
 
-**Tagline:** Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.
+**Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.**
 
-Open War Game Engine is a non-classified, modular starter framework for designing and running multi-level wargames. It supports strategic, operational and tactical play, conflict-mode selection, NATO-style inject cards, and a static GitHub Pages demo site.
+Open War Game Engine is a facilitator-first design tool for building, browsing, printing, and running non-classified wargame injects in a static GitHub Pages site.
 
-## What is included
-
-- `docs/` — static web demo for GitHub Pages
-- `data/injects.sample.json` — sample inject library
-- `schemas/scenario.schema.yaml` — scenario definition schema
-- `engine/generate_injects.py` — starter CLI to generate injects from a YAML scenario
-- `.github/workflows/pages.yml` — GitHub Pages deployment workflow
+## What this version includes
+- 252 injects across strategic, operational, and tactical levels
+- conflict packs for hybrid, peer, counterinsurgency, and grey zone play
+- scenario schema for consistent design inputs
+- facilitator turn system with action log
+- browser-based AI Red Commander that generates adversary reactions
+- print-friendly inject cards for handouts and white-cell use
 
 ## Quick start
+1. Create a GitHub repository named `wargame` or `open-war-game-engine`.
+2. Upload the contents of this project.
+3. In GitHub, go to **Settings → Pages**.
+4. Choose **Deploy from branch**.
+5. Set branch to `main` and folder to `/docs`.
+6. Save and wait for Pages deployment.
 
-### Option A — Fastest route using GitHub Pages
+Your site will then appear at:
 
-1. Create a new empty GitHub repository named `open-wargame-engine`.
-2. Upload all files from this project to the root of that repository.
-3. Push to the `main` branch.
-4. In GitHub, open **Settings → Pages**.
-5. Under **Build and deployment**, choose **GitHub Actions**.
-6. The included workflow will publish the contents of `docs/` automatically.
-7. After the workflow finishes, your site will be available at:
+`https://YOUR-USERNAME.github.io/REPOSITORY-NAME/`
 
-```text
-https://YOUR-USERNAME.github.io/open-wargame-engine/
-```
-
-### Option B — Local preview before pushing
-
-You can preview the static site locally.
-
-#### With Python
+## Local preview
+From the project root:
 
 ```bash
 cd docs
 python3 -m http.server 8000
 ```
 
-Then open:
+Open `http://localhost:8000`.
 
-```text
-http://localhost:8000
-```
+## Repository layout
+- `docs/` static site for GitHub Pages
+- `docs/data/injects.json` inject library
+- `schema/scenario.schema.json` scenario schema
+- `scenarios/sample_scenario.json` example scenario
+- `engine/` notes for future Python-backed extensions
 
-## Local development for the Python engine
+## Facilitator workflow
+1. Load the site.
+2. Set level, conflict mode, domain, and scenario preferences.
+3. Start the turn system.
+4. Enter Blue action summaries into the action log.
+5. Use **Generate Red Response** to create a counter-move.
+6. Print selected inject cards for players or white cell staff.
 
-Create a virtual environment and install dependencies:
+## How the AI Red Commander works in this release
+This version uses a transparent rule-based adversary model rather than a remote AI service.
+That keeps it stable on GitHub Pages and suitable for public non-classified use.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+It evaluates:
+- current turn
+- phase/escalation stage
+- level
+- conflict mode
+- selected domain focus
+- Blue action text
 
-Run the sample generator:
+It then chooses one of three outputs:
+- reuse a fitting inject from the library
+- escalate to a higher-stage inject in the same conflict pack
+- synthesize a new Red response card from embedded doctrine rules
 
-```bash
-python engine/generate_injects.py --scenario scenarios/sample_scenario.yaml --output data/generated_injects.json
-```
-
-## Suggested repo growth path
-
-### v1
-- Static browser for injects
-- Scenario schema
-- Sample inject generator
-- GitHub Pages deployment
-
-### v2
-- PDF/DOCX scenario ingestion
-- NATO-style printable inject cards
-- White cell control board
-- Escalation ladder editor
-
-### v3
-- AI-assisted scenario drafting
-- Branching adjudication support
-- Red Commander module
-- After Action Review generation
-
-## Directory layout
-
-```text
-open-wargame-engine/
-├── .github/
-│   └── workflows/
-│       └── pages.yml
-├── data/
-│   └── injects.sample.json
-├── docs/
-│   ├── index.html
-│   ├── app.js
-│   └── styles.css
-├── engine/
-│   └── generate_injects.py
-├── scenarios/
-│   └── sample_scenario.yaml
-├── schemas/
-│   └── scenario.schema.yaml
-├── requirements.txt
-└── README.md
-```
-
-## Notes
-
-- This repository is deliberately non-classified and fictional.
-- It is meant as a design and prototyping framework, not as an authoritative military planning tool.
-- The static web app is intentionally simple so that it runs cleanly on GitHub Pages.
+## Next recommended extensions
+- PDF export deck builder
+- scenario import from DOCX/PDF through a backend service
+- saved exercises and facilitator accounts
+- richer adjudication logic
+- live player feed and AAR report builder

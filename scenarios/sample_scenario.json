@@ -1,0 +1,22 @@
+{
+  "name": "Northern Corridor Crisis",
+  "level": "operational",
+  "conflict_mode": "hybrid",
+  "domains": [
+    "maritime",
+    "cyber",
+    "information",
+    "logistics"
+  ],
+  "turns": 8,
+  "objectives": [
+    "command_and_control",
+    "multi_domain_coordination",
+    "crisis_management",
+    "decision_making"
+  ],
+  "setting": "Fictional littoral region with coalition shipping and contested narratives.",
+  "starting_phase": 1,
+  "facilitator_notes": "Use civilian and alliance friction to force prioritisation choices.",
+  "red_commander_profile": "grey_zone_opportunist"
+}
