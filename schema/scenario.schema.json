@@ -4,21 +4,16 @@
   "type": "object",
   "required": [
     "name",
-    "overview",
     "level",
     "conflict_mode",
     "domains",
+    "overview",
+    "initial_blue_situation",
     "turns",
-    "objectives",
-    "starting_phase",
-    "red_commander_profile",
-    "initial_blue_situation"
+    "red_commander_profile"
   ],
   "properties": {
     "name": {
-      "type": "string"
-    },
-    "overview": {
       "type": "string"
     },
     "level": {
@@ -34,16 +29,12 @@
       "enum": [
         "hybrid",
         "peer",
-        "coin",
-        "grey_zone"
+        "grey_zone",
+        "coin"
       ]
-    },
-    "geography": {
-      "type": "string"
     },
     "domains": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "string",
         "enum": [
@@ -55,21 +46,25 @@
           "information",
           "logistics"
         ]
-      }
+      },
+      "minItems": 1
+    },
+    "overview": {
+      "type": "string"
+    },
+    "initial_blue_situation": {
+      "type": "string"
     },
     "turns": {
       "type": "integer",
-      "minimum": 3,
+      "minimum": 1,
       "maximum": 20
     },
-    "objectives": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "string"
-      }
+    "turn": {
+      "type": "integer",
+      "minimum": 1
     },
-    "starting_phase": {
+    "escalation_stage": {
       "type": "integer",
       "minimum": 1,
       "maximum": 4
@@ -79,20 +74,21 @@
       "enum": [
         "grey_zone_opportunist",
         "peer_competitor",
-        "insurgent_network"
+        "insurgent_network",
+        "regional_coercer"
       ]
     },
-    "initial_blue_situation": {
-      "type": "string"
+    "objectives": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "seed_events": {
       "type": "array",
       "items": {
         "type": "string"
       }
-    },
-    "facilitator_notes": {
-      "type": "string"
     }
   }
 }

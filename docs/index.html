@@ -1,142 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Open War Game Engine</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="hero">
-    <h1>Open War Game Engine</h1>
-    <p>Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.</p>
+  <header class="topbar">
+    <div>
+      <h1 id="appTitle">Open War Game Engine</h1>
+      <p id="tagline" class="tagline"></p>
+    </div>
+    <div class="language-box">
+      <label id="languageLabel" for="languageSelect">Language</label>
+      <select id="languageSelect">
+        <option value="en">English</option>
+        <option value="nl">Nederlands</option>
+      </select>
+    </div>
   </header>
 
   <main class="layout">
-    <aside class="panel left-panel">
-      <section>
-        <h2>Facilitator Control</h2>
-        <label>Level
-          <select id="levelFilter"><option value="all">all</option></select>
-        </label>
-        <label>Conflict mode
-          <select id="conflictFilter"><option value="all">all</option></select>
-        </label>
-        <label>Domain
-          <select id="domainFilter"><option value="all">all</option></select>
-        </label>
-        <label>Phase
-          <select id="phaseFilter"><option value="all">all</option></select>
-        </label>
-        <label>Severity
-          <select id="severityFilter"><option value="all">all</option></select>
-        </label>
-      </section>
+    <section class="panel left-panel">
+      <h2 id="controlPanelTitle"></h2>
 
-      <section>
-        <h3>Scenario Builder</h3>
-        <label>Scenario name <input id="scenarioName" value="Northern Corridor Crisis" /></label>
-        <label>Geography <input id="scenarioGeography" value="Fictional northern littoral region" /></label>
-        <label>Overview <textarea id="scenarioOverview" rows="4">A fictional regional crisis is unfolding around a contested maritime corridor.</textarea></label>
-        <label>Initial Blue situation <textarea id="initialBlueSituation" rows="4">Blue naval forces are protecting territorial waters and commercial shipping while authorities assess attribution for maritime and cyber disruption.</textarea></label>
-        <label>Turns <input id="scenarioTurns" type="number" min="3" max="20" value="8" /></label>
-        <label>Red commander profile
-          <select id="redProfile">
-            <option value="grey_zone_opportunist">grey_zone_opportunist</option>
-            <option value="peer_competitor">peer_competitor</option>
-            <option value="insurgent_network">insurgent_network</option>
-          </select>
-        </label>
-        <div class="button-stack">
-          <button id="generateScenario">Generate random scenario</button>
-          <button id="downloadScenario">Download scenario JSON</button>
-          <label class="upload-label">Upload scenario JSON
-            <input id="uploadScenario" type="file" accept="application/json,.json" />
+      <div class="panel nested">
+        <h3 id="scenarioEditorTitle"></h3>
+
+        <label id="scenarioNameLabel" for="scenarioName"></label>
+        <input id="scenarioName" type="text" placeholder="Northern Corridor Crisis">
+
+        <div class="grid-two">
+          <div>
+            <label id="scenarioLevelLabel" for="scenarioLevel"></label>
+            <select id="scenarioLevel">
+              <option value="strategic">Strategic</option>
+              <option value="operational">Operational</option>
+              <option value="tactical">Tactical</option>
+            </select>
+          </div>
+          <div>
+            <label id="scenarioConflictLabel" for="scenarioConflict"></label>
+            <select id="scenarioConflict">
+              <option value="hybrid">Hybrid</option>
+              <option value="peer">Peer conflict</option>
+              <option value="grey_zone">Grey zone</option>
+              <option value="coin">Counterinsurgency</option>
+            </select>
+          </div>
+        </div>
+
+        <label id="scenarioDomainsLabel"></label>
+        <div class="domain-grid" id="domainCheckboxes">
+          <label><input type="checkbox" value="land"> <span data-domain="land">Land</span></label>
+          <label><input type="checkbox" value="air"> <span data-domain="air">Air</span></label>
+          <label><input type="checkbox" value="maritime"> <span data-domain="maritime">Maritime</span></label>
+          <label><input type="checkbox" value="cyber"> <span data-domain="cyber">Cyber</span></label>
+          <label><input type="checkbox" value="space"> <span data-domain="space">Space</span></label>
+          <label><input type="checkbox" value="information"> <span data-domain="information">Information</span></label>
+          <label><input type="checkbox" value="logistics"> <span data-domain="logistics">Logistics</span></label>
+        </div>
+
+        <label id="scenarioOverviewLabel" for="scenarioOverviewInput"></label>
+        <textarea id="scenarioOverviewInput" rows="4"></textarea>
+
+        <label id="scenarioBlueLabel" for="scenarioBlue"></label>
+        <textarea id="scenarioBlue" rows="4"></textarea>
+
+        <div class="grid-two">
+          <div>
+            <label id="scenarioTurnsLabel" for="scenarioTurns"></label>
+            <input id="scenarioTurns" type="number" min="1" max="20" value="8">
+          </div>
+          <div>
+            <label id="scenarioRedProfileLabel" for="scenarioRedProfile"></label>
+            <select id="scenarioRedProfile">
+              <option value="grey_zone_opportunist">Grey-zone opportunist</option>
+              <option value="peer_competitor">Peer competitor</option>
+              <option value="insurgent_network">Insurgent network</option>
+              <option value="regional_coercer">Regional coercer</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="createScenarioBtn"></button>
+          <button id="randomScenarioBtn"></button>
+        </div>
+        <div class="button-row">
+          <button id="downloadScenarioBtn"></button>
+          <label class="file-label">
+            <span id="uploadScenarioLabel"></span>
+            <input type="file" id="uploadScenarioFile" accept=".json">
           </label>
         </div>
-        <p class="help">Use <code>schema/scenario.schema.json</code> as the standard format for saved scenarios.</p>
-      </section>
-
-      <section>
-        <h3>Turn System</h3>
-        <div class="turn-box">
-          <div>Current turn: <strong id="currentTurn">1</strong></div>
-          <div>Escalation stage: <strong id="currentStage">1</strong></div>
-          <div>Released injects: <strong id="releasedCount">0</strong></div>
-        </div>
-        <div class="button-row">
-          <button id="prevTurn">Previous turn</button>
-          <button id="nextTurn">Next turn</button>
-        </div>
-      </section>
-
-      <section>
-        <h3>Action / Reaction</h3>
-        <label>Blue action
-          <textarea id="blueAction" rows="5" placeholder="Example: Blue increases maritime patrols and shifts ISR to the chokepoint."></textarea>
-        </label>
-        <div class="button-row">
-          <button id="generateRed">Generate Red Response</button>
-          <button id="printView">Print selected cards</button>
-        </div>
-      </section>
-    </aside>
-
-    <section class="panel main-panel">
-      <section class="scenario-box">
-        <div class="section-head">
-          <h2>Scenario Overview</h2>
-          <div id="scenarioMeta"></div>
-        </div>
-        <div id="scenarioSummary"></div>
-      </section>
-      <div class="section-head">
-        <h2>Inject Library</h2>
-        <div id="injectCount"></div>
       </div>
-      <div id="injectGrid" class="grid"></div>
+
+      <div class="panel nested">
+        <h3 id="scenarioOverviewTitle"></h3>
+        <div id="scenarioOverviewPanel" class="scenario-overview">No scenario loaded.</div>
+        <div class="stats">
+          <div><strong id="currentTurnLabel"></strong> <span id="currentTurnValue">1</span></div>
+          <div><strong id="escalationStageLabel"></strong> <span id="escalationStageValue">1</span></div>
+          <div><strong id="releasedInjectsLabel"></strong> <span id="releasedInjectsValue">0</span></div>
+        </div>
+      </div>
+
+      <div class="panel nested">
+        <label id="blueActionLabel" for="blueActionInput"></label>
+        <textarea id="blueActionInput" rows="4" placeholder="Blue forces increase the number of ships at sea to protect territorial waters."></textarea>
+        <div class="button-row">
+          <button id="generateRedBtn"></button>
+          <button id="nextTurnBtn"></button>
+        </div>
+        <div class="button-row">
+          <button id="releaseSelectedBtn"></button>
+          <button id="printCardsBtn"></button>
+        </div>
+      </div>
     </section>
 
-    <aside class="panel right-panel">
-      <section>
-        <h2>Selected Injects</h2>
-        <div id="selectedCards" class="stack"></div>
-      </section>
-      <section>
-        <h2>AI Red Commander</h2>
-        <div id="redOutput" class="red-box">No Red response generated yet.</div>
-      </section>
-      <section>
-        <h2>Action Log</h2>
-        <div id="actionLog" class="log"></div>
-      </section>
-    </aside>
+    <section class="panel middle-panel">
+      <h2 id="injectBrowserTitle"></h2>
+      <div class="filters">
+        <select id="filterLevel"></select>
+        <select id="filterConflict"></select>
+        <select id="filterDomain"></select>
+      </div>
+      <div id="injectList" class="inject-list"></div>
+    </section>
+
+    <section class="panel right-panel">
+      <div class="panel nested">
+        <h3 id="selectedInjectsTitle"></h3>
+        <div id="releasedList" class="released-list"></div>
+      </div>
+      <div class="panel nested">
+        <h3 id="redOutputTitle"></h3>
+        <pre id="redOutput" class="red-output"></pre>
+      </div>
+      <div class="panel nested">
+        <h3 id="actionLogTitle"></h3>
+        <div id="actionLog" class="action-log"></div>
+      </div>
+    </section>
   </main>
 
-  <template id="cardTemplate">
-    <article class="card">
-      <div class="tag-row"></div>
-      <h3 class="title"></h3>
-      <div class="phase"></div>
-      <div class="block">
-        <div class="label">Situation</div>
-        <p class="situation"></p>
-      </div>
-      <div class="block">
-        <div class="label">Decision required</div>
-        <p class="decision"></p>
-      </div>
-      <div class="block">
-        <div class="label">White cell notes</div>
-        <p class="white"></p>
-      </div>
-      <div class="button-row">
-        <button class="select-btn">Select</button>
-        <button class="release-btn">Release</button>
-      </div>
-    </article>
-  </template>
-
-  <script src="./app.js"></script>
+  <script src="i18n/en.js"></script>
+  <script src="i18n/nl.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

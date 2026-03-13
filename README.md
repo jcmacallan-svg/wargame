@@ -1,77 +1,90 @@
-# Open War Game Engine
+# Open War Game Engine v5
 
-**Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.**
+**Open War Game Engine**  
+Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.
 
-Open War Game Engine is a facilitator-first design tool for building, browsing, printing, and running non-classified wargame injects in a static GitHub Pages site.
+## What changed in v5
+This is a full working package focused on facilitators.
 
-## What this version includes
-- 252 injects across strategic, operational, and tactical levels
-- conflict packs for hybrid, peer, counterinsurgency, and grey zone play
-- scenario schema for consistent design inputs
-- facilitator turn system with action log
-- browser-based AI Red Commander that generates adversary reactions
-- print-friendly inject cards for handouts and white-cell use
+- 252 injects in the library
+- Scenario editor in the browser
+- Random scenario generator
+- Upload and download scenario JSON
+- Turn system with escalation stage progression
+- Bilingual UI (English / Nederlands)
+- AI Red Commander v1 doctrine model
+- Print-friendly released inject cards
+- GitHub Pages ready static site
 
-## Quick start
-1. Create a GitHub repository named `wargame` or `open-war-game-engine`.
-2. Upload the contents of this project.
-3. In GitHub, go to **Settings → Pages**.
-4. Choose **Deploy from branch**.
-5. Set branch to `main` and folder to `/docs`.
-6. Save and wait for Pages deployment.
+## Repo structure
 
-Your site will then appear at:
+```text
+open-war-game-engine-v5/
+├── docs/
+│   ├── index.html
+│   ├── style.css
+│   ├── app.js
+│   ├── data/
+│   │   └── injects.json
+│   └── i18n/
+│       ├── en.js
+│       └── nl.js
+├── schema/
+│   └── scenario.schema.json
+└── scenarios/
+    └── sample_scenario.json
+```
 
-`https://YOUR-USERNAME.github.io/REPOSITORY-NAME/`
+## Run locally
 
-## Local preview
-From the project root:
+From the repo root:
 
 ```bash
 cd docs
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000`.
+Open:
 
-## Repository layout
-- `docs/` static site for GitHub Pages
-- `docs/data/injects.json` inject library
-- `schema/scenario.schema.json` scenario schema
-- `scenarios/sample_scenario.json` example scenario
-- `engine/` notes for future Python-backed extensions
+```text
+http://localhost:8000
+```
 
-## Facilitator workflow
-1. Load the site.
-2. Set level, conflict mode, domain, and scenario preferences.
-3. Start the turn system.
-4. Enter Blue action summaries into the action log.
-5. Use **Generate Red Response** to create a counter-move.
-6. Print selected inject cards for players or white cell staff.
+## Deploy to GitHub Pages
 
-## How the AI Red Commander works in this release
-This version uses a transparent rule-based adversary model rather than a remote AI service.
-That keeps it stable on GitHub Pages and suitable for public non-classified use.
+1. Create or open your GitHub repository.
+2. Upload the contents of this zip to the root of the repo.
+3. In GitHub go to **Settings → Pages**.
+4. Set:
+   - **Source:** Deploy from branch
+   - **Branch:** `main`
+   - **Folder:** `/docs`
+5. Save.
 
-It evaluates:
-- current turn
-- phase/escalation stage
-- level
-- conflict mode
-- selected domain focus
-- Blue action text
+Your site will appear at:
 
-It then chooses one of three outputs:
-- reuse a fitting inject from the library
-- escalate to a higher-stage inject in the same conflict pack
-- synthesize a new Red response card from embedded doctrine rules
+```text
+https://YOUR-USERNAME.github.io/YOUR-REPO/
+```
 
-## Next recommended extensions
-- PDF export deck builder
-- scenario import from DOCX/PDF through a backend service
-- saved exercises and facilitator accounts
-- richer adjudication logic
-- live player feed and AAR report builder
+## How to use
 
-## Scenario format
-Use `schema/scenario.schema.json` as the standard upload/download format. The web UI can now generate a random scenario, download it as JSON, and upload a previously saved scenario JSON file.
+1. Open the site.
+2. Create a scenario in the Scenario Editor, or click **Generate Random Scenario**.
+3. Enter a Blue action.
+4. Click **Generate Red Response**.
+5. Review the recommended inject and release it to the facilitator deck if needed.
+6. Use **Next Turn** to progress the scenario and escalation stage.
+7. Use **Print released cards** to print the released injects.
+
+## Scenario JSON format
+
+See `schema/scenario.schema.json` for the expected structure.
+
+A sample is provided in `scenarios/sample_scenario.json`.
+
+## Notes
+
+- The Red Commander in v5 is rule-based and transparent by design.
+- It uses scenario level, conflict mode, doctrine profile, escalation stage, and domain detection from the Blue action.
+- This keeps the site stable on GitHub Pages without requiring a backend.

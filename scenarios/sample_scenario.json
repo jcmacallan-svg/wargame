@@ -1,29 +1,28 @@
 {
   "name": "Northern Corridor Crisis",
-  "overview": "A fictional regional crisis is unfolding around a contested maritime corridor. Ambiguous cyber activity, disinformation, and shadow-fleet behaviour are challenging coalition freedom of movement.",
   "level": "operational",
   "conflict_mode": "grey_zone",
-  "geography": "Fictional northern littoral region",
   "domains": [
     "maritime",
     "cyber",
     "information",
     "logistics"
   ],
+  "overview": "A fictional regional crisis is unfolding around a contested maritime corridor where AIS anomalies, contractor-linked cyber issues, and coordinated narratives are increasing pressure below the threshold of open war.",
+  "initial_blue_situation": "Blue naval and coast guard forces are increasing patrols in territorial waters while national authorities assess attribution for spoofing, cyber disruption, and malign media activity.",
   "turns": 8,
+  "turn": 1,
+  "escalation_stage": 1,
+  "red_commander_profile": "grey_zone_opportunist",
   "objectives": [
     "command_and_control",
     "multi_domain_coordination",
     "crisis_management",
     "decision_making"
   ],
-  "starting_phase": 1,
-  "red_commander_profile": "grey_zone_opportunist",
-  "initial_blue_situation": "Blue naval forces are protecting territorial waters and a commercial transit corridor while national authorities assess attribution for spoofing and cyber disruption.",
   "seed_events": [
     "AIS anomalies reported near a chokepoint.",
-    "A contractor-managed logistics platform shows intermittent latency.",
+    "A logistics platform shows intermittent latency.",
     "Manipulated social media clips question Blue rules of engagement."
-  ],
-  "facilitator_notes": "Start with ambiguity. Force Blue to prioritise attribution, maritime security, and public messaging before escalating."
+  ]
 }
