@@ -1,97 +1,82 @@
-# Open War Game Engine v6
-
-**Open War Game Engine**  
-Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.
-
-## What changed in v6
-This is a full working package focused on facilitators.
-
-- 252 injects in the library
-- Scenario editor in the browser
-- Random scenario generator
-- Upload and download scenario JSON
-- Turn system with escalation stage progression
-- Bilingual UI (English / Nederlands)
-- AI Red Commander v1 doctrine model
-- Print-friendly released inject cards
-- GitHub Pages ready static site
-
-## Repo structure
-
-```text
-open-war-game-engine-v6/
-├── docs/
-│   ├── index.html
-│   ├── style.css
-│   ├── app.js
-│   ├── data/
-│   │   └── injects.json
-│   └── i18n/
-│       ├── en.js
-│       └── nl.js
-├── schema/
-│   └── scenario.schema.json
-└── scenarios/
-    └── sample_scenario.json
-```
-
-## Run locally
-
-From the repo root:
-
-```bash
-cd docs
-python3 -m http.server 8000
-```
-
-Open:
-
-```text
-http://localhost:8000
-```
-
-## Deploy to GitHub Pages
-
-1. Create or open your GitHub repository.
-2. Upload the contents of this zip to the root of the repo.
-3. In GitHub go to **Settings → Pages**.
-4. Set:
-   - **Source:** Deploy from branch
-   - **Branch:** `main`
-   - **Folder:** `/docs`
-5. Save.
-
-Your site will appear at:
-
-```text
-https://YOUR-USERNAME.github.io/YOUR-REPO/
-```
-
-## How to use
-
-1. Open the site.
-2. Create a scenario in the Scenario Editor, or click **Generate Random Scenario**.
-3. Enter a Blue action.
-4. Click **Generate Red Response**.
-5. Review the recommended inject and release it to the facilitator deck if needed.
-6. Use **Next Turn** to progress the scenario and escalation stage.
-7. Use **Print released cards** to print the released injects.
-
-## Scenario JSON format
-
-See `schema/scenario.schema.json` for the expected structure.
-
-A sample is provided in `scenarios/sample_scenario.json`.
-
-## Notes
-
-- The Red Commander in v6 is rule-based and transparent by design.
-- It uses scenario level, conflict mode, doctrine profile, escalation stage, and domain detection from the Blue action.
-- This keeps the site stable on GitHub Pages without requiring a backend.
-
-
-## v6 highlights
-- Refresh/reset button for current scenario state
-- Suggested inject ladder after Blue actions, ordered by severity
-- Turn-by-turn situation update timeline
-- Scenario current situation refreshes after each turn
+window.i18n_nl = {
+  "app_title": "Open War Game Engine",
+  "tagline": "Niet-geclassificeerde modulaire wargamegenerator voor strategische, operationele en tactische oefeningen.",
+  "language": "Taal",
+  "control_panel": "Facilitator-bedieningspaneel",
+  "scenario_editor": "Scenario-editor",
+  "scenario_name": "Scenarionaam",
+  "level": "Niveau",
+  "conflict_mode": "Conflictmodus",
+  "domains": "Betrokken domeinen",
+  "overview": "Scenario-overzicht",
+  "blue_situation": "Initiële blauwe situatie",
+  "current_situation": "Huidige situatie",
+  "red_profile": "Red commander-profiel",
+  "turns": "Geplande beurten",
+  "create_scenario": "Scenario maken",
+  "random_scenario": "Genereer willekeurig scenario",
+  "download_scenario": "Download Scenario JSON",
+  "upload_scenario": "Upload Scenario JSON",
+  "scenario_overview": "Scenario-overzicht",
+  "current_turn": "Huidige beurt",
+  "escalation_stage": "Escalatieniveau",
+  "released_injects": "Vrijgegeven injects",
+  "current_time": "Huidige tijd",
+  "time_window": "Tijdvenster",
+  "blue_action": "Blauwe actie",
+  "generate_red": "Genereer rode reactie",
+  "next_turn": "Volgende beurt",
+  "release_selected": "Geef geselecteerde inject vrij",
+  "reset_scenario": "Refresh / reset beurtsituatie",
+  "inject_browser": "Inject-browser",
+  "inject_browser_default_hint": "Bekijk de volledige injectbibliotheek of gebruik de filters hieronder.",
+  "inject_browser_suggested_hint": "Toont alleen voorgestelde injects voor de huidige blauwe actie, gerangschikt van lage naar hoge intensiteit.",
+  "selected_injects": "Vrijgegeven injects",
+  "red_output": "Red Commander-output",
+  "situation_update": "Tijdlijn situatie-updates",
+  "action_log": "Actielog",
+  "all": "Alle",
+  "strategic": "Strategisch",
+  "operational": "Operationeel",
+  "tactical": "Tactisch",
+  "hybrid": "Hybride",
+  "peer": "Peer conflict",
+  "grey_zone": "Grey zone",
+  "coin": "Counterinsurgency",
+  "land": "Land",
+  "air": "Lucht",
+  "maritime": "Maritiem",
+  "cyber": "Cyber",
+  "space": "Ruimte",
+  "information": "Informatie",
+  "logistics": "Logistiek",
+  "recommended_inject": "Aanbevolen inject uit bibliotheek",
+  "suggested_stack": "Voorgestelde injectladder",
+  "no_inject_found": "Geen passende inject gevonden.",
+  "red_response": "Gegenereerde rode reactie",
+  "create_or_load": "Maak of laad eerst een scenario.",
+  "released": "Vrijgeven",
+  "selected": "Selecteer",
+  "print": "Print",
+  "print_cards": "Print vrijgegeven kaarten",
+  "notes": "Facilitator-opmerkingen",
+  "decision_required": "Besluit vereist",
+  "phase": "Fase",
+  "severity": "Hevigheid",
+  "profile_grey_zone_opportunist": "Grey-zone opportunist",
+  "profile_peer_competitor": "Peer-concurrent",
+  "profile_insurgent_network": "Opstandelingennetwerk",
+  "profile_regional_coercer": "Regionale dwangactor",
+  "initial_state": "Startsituatie",
+  "turn_summary": "Samenvatting beurt",
+  "turn_advanced": "Beurt opgehoogd naar",
+  "no_updates_yet": "Nog geen situatie-updates.",
+  "no_actions_yet": "Nog geen acties gelogd.",
+  "no_released_yet": "Nog geen injects vrijgegeven.",
+  "scenario_reset_done": "Scenariostaat is teruggezet naar de beginsituatie.",
+  "scenario_created": "Scenario gemaakt",
+  "random_generated": "Willekeurig scenario gegenereerd",
+  "scenario_loaded": "Scenario geladen",
+  "no_scenario_loaded": "Geen scenario geladen.",
+  "blue_action_captured": "Blauwe actie vastgelegd"
+};

@@ -1,0 +1,784 @@
+let currentLanguage = 'en';
+let injectLibrary = [];
+let filteredInjects = [];
+let selectedInjectId = null;
+let currentScenario = null;
+let releasedInjects = [];
+let actionLog = [];
+let suggestionMode = false;
+let suggestionInjects = [];
+let pendingDecision = null;
+let situationHistory = [];
+let currentTurnInjectIds = [];
+
+const severityRank = { Low: 1, Medium: 2, High: 3, Strategic: 4 };
+const scenarioTemplates = [
+  {
+    name: 'Northern Corridor Crisis',
+    overview: 'A fictional regional crisis is unfolding around a contested maritime corridor where spoofing, cyber disruption, and coordinated narratives are increasing pressure below the threshold of open war.',
+    level: 'operational',
+    conflict_mode: 'grey_zone',
+    domains: ['maritime', 'cyber', 'information', 'logistics'],
+    initial_blue_situation: 'Blue naval and coast guard forces are increasing patrols in territorial waters while national authorities assess attribution for spoofing, cyber disruption, and malign media activity.',
+    turns: 8,
+    red_commander_profile: 'grey_zone_opportunist'
+  },
+  {
+    name: 'Forward Shield Air-Sea Standoff',
+    overview: 'A peer competitor is probing air and maritime defenses through electronic attack, ambiguous military signaling, and pressure on alliance cohesion.',
+    level: 'strategic',
+    conflict_mode: 'peer',
+    domains: ['air', 'maritime', 'space', 'information', 'logistics'],
+    initial_blue_situation: 'Blue coalition leaders are considering force posture adjustments while frontline commanders report radar irregularities, media pressure, and maritime congestion.',
+    turns: 10,
+    red_commander_profile: 'peer_competitor'
+  },
+  {
+    name: 'Interior Stability Campaign',
+    overview: 'A counterinsurgency campaign faces mounting legitimacy pressure, supply friction, and information manipulation around local population centers.',
+    level: 'tactical',
+    conflict_mode: 'coin',
+    domains: ['land', 'information', 'logistics', 'cyber'],
+    initial_blue_situation: 'Blue forces support local authorities while managing patrol security, civilian contact, and contested online narratives.',
+    turns: 6,
+    red_commander_profile: 'insurgent_network'
+  }
+];
+
+const doctrineProfiles = {
+  grey_zone_opportunist: {
+    displayKey: 'profile_grey_zone_opportunist',
+    objective: {
+      en: 'Delay Blue decisions, create ambiguity, and remain below open-war thresholds.',
+      nl: 'Vertraag Blauwe besluitvorming, creëer ambiguïteit en blijf onder de drempel van open oorlog.'
+    },
+    emphasis: ['maritime', 'information', 'cyber', 'logistics']
+  },
+  peer_competitor: {
+    displayKey: 'profile_peer_competitor',
+    objective: {
+      en: 'Shape the battlespace by degrading awareness, logistics, and coalition timing.',
+      nl: 'Vorm het gevechtsveld door awareness, logistiek en coalitietiming te verstoren.'
+    },
+    emphasis: ['air', 'space', 'cyber', 'maritime', 'logistics']
+  },
+  insurgent_network: {
+    displayKey: 'profile_insurgent_network',
+    objective: {
+      en: 'Erode legitimacy, provoke overreaction, and stress local command relationships.',
+      nl: 'Ondergraven legitimiteit, lok overreactie uit en zet lokale commandorelaties onder druk.'
+    },
+    emphasis: ['land', 'information', 'logistics', 'cyber']
+  },
+  regional_coercer: {
+    displayKey: 'profile_regional_coercer',
+    objective: {
+      en: 'Apply coercive regional pressure through military signaling, disruption, and brinkmanship.',
+      nl: 'Oefen regionale dwang uit met militaire signalering, verstoring en brinkmanship.'
+    },
+    emphasis: ['maritime', 'air', 'land', 'information']
+  }
+};
+
+const el = (id) => document.getElementById(id);
+
+function t(key) {
+  const dict = currentLanguage === 'nl' ? window.i18n_nl : window.i18n_en;
+  return dict?.[key] || key;
+}
+
+function profileLabel(profileKey) {
+  return t(doctrineProfiles[profileKey]?.displayKey || profileKey);
+}
+
+async function init() {
+  attachEvents();
+  restoreLanguage();
+  applyTranslations();
+  await loadInjects();
+  populateFilters();
+  loadSampleScenario();
+  renderInjects();
+}
+
+function attachEvents() {
+  el('languageSelect').addEventListener('change', (e) => {
+    currentLanguage = e.target.value;
+    localStorage.setItem('owge_lang', currentLanguage);
+    applyTranslations();
+    renderInjects();
+    renderReleased();
+    renderActionLog();
+    renderScenarioOverview();
+    renderSituationUpdate();
+  });
+
+  el('filterLevel').addEventListener('change', renderInjects);
+  el('filterConflict').addEventListener('change', renderInjects);
+  el('filterDomain').addEventListener('change', renderInjects);
+
+  el('createScenarioBtn').addEventListener('click', buildScenarioFromForm);
+  el('randomScenarioBtn').addEventListener('click', generateRandomScenario);
+  el('downloadScenarioBtn').addEventListener('click', downloadScenario);
+  el('uploadScenarioFile').addEventListener('change', uploadScenario);
+
+  el('generateRedBtn').addEventListener('click', handleGenerateRedResponse);
+  el('nextTurnBtn').addEventListener('click', nextTurn);
+  el('releaseSelectedBtn').addEventListener('click', releaseSelectedInject);
+  el('resetScenarioBtn').addEventListener('click', resetScenarioState);
+  el('printCardsBtn').addEventListener('click', () => window.print());
+}
+
+function restoreLanguage() {
+  const savedLang = localStorage.getItem('owge_lang');
+  if (savedLang) {
+    currentLanguage = savedLang;
+    el('languageSelect').value = savedLang;
+  }
+}
+
+async function loadInjects() {
+  const resp = await fetch('./data/injects.json');
+  injectLibrary = await resp.json();
+}
+
+function populateFilters() {
+  const fill = (selectId, values, translator = (v) => v) => {
+    const select = el(selectId);
+    const currentValue = select.value;
+    select.innerHTML = '';
+    const optAll = document.createElement('option');
+    optAll.value = '';
+    optAll.textContent = t('all');
+    select.appendChild(optAll);
+    values.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = translator(v);
+      select.appendChild(opt);
+    });
+    select.value = currentValue;
+  };
+  fill('filterLevel', ['strategic', 'operational', 'tactical'], (v) => t(v));
+  fill('filterConflict', ['hybrid', 'peer', 'grey_zone', 'coin'], (v) => t(v));
+  fill('filterDomain', ['land', 'air', 'maritime', 'cyber', 'space', 'information', 'logistics'], (v) => t(v));
+}
+
+function applyTranslations() {
+  document.documentElement.lang = currentLanguage;
+  el('appTitle').textContent = t('app_title');
+  el('tagline').textContent = t('tagline');
+  el('languageLabel').textContent = t('language');
+  el('controlPanelTitle').textContent = t('control_panel');
+  el('scenarioEditorTitle').textContent = t('scenario_editor');
+  el('scenarioNameLabel').textContent = t('scenario_name');
+  el('scenarioLevelLabel').textContent = t('level');
+  el('scenarioConflictLabel').textContent = t('conflict_mode');
+  el('scenarioDomainsLabel').textContent = t('domains');
+  el('scenarioOverviewLabel').textContent = t('overview');
+  el('scenarioBlueLabel').textContent = t('blue_situation');
+  el('scenarioTurnsLabel').textContent = t('turns');
+  el('scenarioRedProfileLabel').textContent = t('red_profile');
+  el('createScenarioBtn').textContent = t('create_scenario');
+  el('randomScenarioBtn').textContent = t('random_scenario');
+  el('downloadScenarioBtn').textContent = t('download_scenario');
+  el('uploadScenarioLabel').textContent = t('upload_scenario');
+  el('scenarioOverviewTitle').textContent = t('scenario_overview');
+  el('currentTurnLabel').textContent = `${t('current_turn')}:`;
+  el('escalationStageLabel').textContent = `${t('escalation_stage')}:`;
+  el('releasedInjectsLabel').textContent = `${t('released_injects')}:`;
+  el('currentTimeLabel').textContent = `${t('current_time')}:`;
+  el('blueActionLabel').textContent = t('blue_action');
+  el('generateRedBtn').textContent = t('generate_red');
+  el('nextTurnBtn').textContent = t('next_turn');
+  el('releaseSelectedBtn').textContent = t('release_selected');
+  el('resetScenarioBtn').textContent = t('reset_scenario');
+  el('printCardsBtn').textContent = t('print_cards');
+  el('injectBrowserTitle').textContent = t('inject_browser');
+  el('selectedInjectsTitle').textContent = t('selected_injects');
+  el('redOutputTitle').textContent = t('red_output');
+  el('situationUpdateTitle').textContent = t('situation_update');
+  el('actionLogTitle').textContent = t('action_log');
+  document.querySelectorAll('[data-domain]').forEach((node) => {
+    node.textContent = t(node.dataset.domain);
+  });
+  updateRedProfileOptions();
+  populateFilters();
+  updateInjectBrowserHint();
+}
+
+function updateRedProfileOptions() {
+  ['grey_zone_opportunist', 'peer_competitor', 'insurgent_network', 'regional_coercer'].forEach((value) => {
+    const opt = el('scenarioRedProfile').querySelector(`option[value="${value}"]`);
+    if (opt) opt.textContent = profileLabel(value);
+  });
+}
+
+function updateInjectBrowserHint() {
+  el('injectBrowserHint').textContent = suggestionMode && suggestionInjects.length
+    ? t('inject_browser_suggested_hint')
+    : t('inject_browser_default_hint');
+}
+
+function severityClass(sev) {
+  return `sev-${sev}`;
+}
+
+function renderInjects() {
+  if (suggestionMode && suggestionInjects.length) {
+    filteredInjects = [...suggestionInjects].sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  } else {
+    const level = el('filterLevel').value;
+    const conflict = el('filterConflict').value;
+    const domain = el('filterDomain').value;
+    filteredInjects = injectLibrary.filter((inj) =>
+      (!level || inj.level === level) &&
+      (!conflict || inj.conflict_mode === conflict) &&
+      (!domain || inj.domain === domain)
+    );
+    filteredInjects.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  }
+
+  updateInjectBrowserHint();
+  const list = el('injectList');
+  list.innerHTML = '';
+  filteredInjects.forEach((inj) => list.appendChild(injectCard(inj)));
+}
+
+function injectCard(inj, released = false) {
+  const card = document.createElement('div');
+  card.className = 'inject-card' + (selectedInjectId === inj.id ? ' selected' : '');
+  const primaryButton = released ? '' : `<button data-action="select">${t('selected')}</button>`;
+  const secondaryButton = released
+    ? `<button data-action="print">${t('print')}</button>`
+    : `<button data-action="release">${t('released')}</button>`;
+  card.innerHTML = `
+    <div class="inject-head">
+      <div>
+        <div class="inject-id">${inj.id}</div>
+        <strong>${inj.title}</strong>
+      </div>
+      <span class="tag ${severityClass(inj.severity)}">${t('severity')}: ${inj.severity}</span>
+    </div>
+    <div class="tags">
+      <span class="tag">${t(inj.level)}</span>
+      <span class="tag">${t(inj.conflict_mode)}</span>
+      <span class="tag">${t(inj.domain)}</span>
+      <span class="tag">${t('phase')}: ${inj.phase}</span>
+    </div>
+    <div class="inject-meta">${inj.situation}</div>
+    <div><strong>${t('decision_required')}:</strong> ${inj.decision_required}</div>
+    <div class="inject-meta"><strong>${t('notes')}:</strong> ${inj.white_cell_notes}</div>
+    <div class="inject-actions">
+      ${primaryButton}
+      ${secondaryButton}
+    </div>
+  `;
+  card.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'select') selectInject(inj.id);
+      if (action === 'release') releaseInject(inj.id);
+      if (action === 'print') window.print();
+    });
+  });
+  return card;
+}
+
+function selectInject(id) {
+  selectedInjectId = id;
+  renderInjects();
+  renderReleased();
+}
+
+function releaseInject(id) {
+  const inj = injectLibrary.find((item) => item.id === id);
+  if (!inj) return;
+  if (!releasedInjects.some((item) => item.id === id)) {
+    releasedInjects.unshift(inj);
+    el('releasedInjectsValue').textContent = String(releasedInjects.length);
+    logAction(`${t('released')}: ${inj.id} · ${inj.title}`);
+  }
+  if (!currentTurnInjectIds.includes(id)) currentTurnInjectIds.push(id);
+  selectedInjectId = id;
+  renderReleased();
+  renderInjects();
+}
+
+function releaseSelectedInject() {
+  if (!selectedInjectId) return;
+  releaseInject(selectedInjectId);
+}
+
+function renderReleased() {
+  const container = el('releasedList');
+  container.innerHTML = '';
+  if (!releasedInjects.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted-box';
+    empty.textContent = t('no_released_yet');
+    container.appendChild(empty);
+    return;
+  }
+  releasedInjects.forEach((inj) => container.appendChild(injectCard(inj, true)));
+}
+
+function buildScenarioFromForm() {
+  const domains = Array.from(document.querySelectorAll('#domainCheckboxes input:checked')).map((x) => x.value);
+  currentScenario = {
+    name: el('scenarioName').value || 'Unnamed Scenario',
+    level: el('scenarioLevel').value,
+    conflict_mode: el('scenarioConflict').value,
+    domains: domains.length ? domains : ['maritime'],
+    overview: el('scenarioOverviewInput').value || '',
+    initial_blue_situation: el('scenarioBlue').value || '',
+    current_situation: el('scenarioBlue').value || '',
+    turns: Number(el('scenarioTurns').value) || 8,
+    turn: 1,
+    escalation_stage: 1,
+    elapsed_hours: 0,
+    red_commander_profile: el('scenarioRedProfile').value,
+    objectives: ['command_and_control', 'multi_domain_coordination', 'crisis_management', 'decision_making'],
+    seed_events: []
+  };
+  syncScenarioToForm();
+  resetScenarioState(false);
+  logAction(`${t('scenario_created')}: ${currentScenario.name}`);
+}
+
+function generateRandomScenario() {
+  const pick = scenarioTemplates[Math.floor(Math.random() * scenarioTemplates.length)];
+  currentScenario = {
+    ...pick,
+    domains: [...pick.domains],
+    current_situation: pick.initial_blue_situation,
+    turn: 1,
+    escalation_stage: 1,
+    elapsed_hours: 0,
+    objectives: ['command_and_control', 'multi_domain_coordination', 'crisis_management', 'decision_making'],
+    seed_events: []
+  };
+  syncScenarioToForm();
+  resetScenarioState(false);
+  logAction(`${t('random_generated')}: ${currentScenario.name}`);
+}
+
+function loadSampleScenario() {
+  currentScenario = {
+    name: 'Northern Corridor Crisis',
+    level: 'operational',
+    conflict_mode: 'grey_zone',
+    domains: ['maritime', 'cyber', 'information', 'logistics'],
+    overview: 'A fictional regional crisis is unfolding around a contested maritime corridor where spoofing, cyber disruption, and coordinated narratives are increasing pressure below the threshold of open war.',
+    initial_blue_situation: 'Blue naval and coast guard forces are increasing patrols in territorial waters while national authorities assess attribution for spoofing, cyber disruption, and malign media activity.',
+    current_situation: 'Blue naval and coast guard forces are increasing patrols in territorial waters while national authorities assess attribution for spoofing, cyber disruption, and malign media activity.',
+    turns: 8,
+    turn: 1,
+    escalation_stage: 1,
+    elapsed_hours: 0,
+    red_commander_profile: 'grey_zone_opportunist',
+    objectives: ['command_and_control', 'multi_domain_coordination', 'crisis_management', 'decision_making'],
+    seed_events: ['AIS anomalies reported near a chokepoint.', 'A logistics platform shows intermittent latency.', 'Manipulated social media clips question Blue rules of engagement.']
+  };
+  syncScenarioToForm();
+  resetScenarioState(false);
+}
+
+function syncScenarioToForm() {
+  if (!currentScenario) return;
+  el('scenarioName').value = currentScenario.name || '';
+  el('scenarioLevel').value = currentScenario.level || 'operational';
+  el('scenarioConflict').value = currentScenario.conflict_mode || 'grey_zone';
+  el('scenarioOverviewInput').value = currentScenario.overview || '';
+  el('scenarioBlue').value = currentScenario.initial_blue_situation || '';
+  el('scenarioTurns').value = currentScenario.turns || 8;
+  el('scenarioRedProfile').value = currentScenario.red_commander_profile || 'grey_zone_opportunist';
+  document.querySelectorAll('#domainCheckboxes input').forEach((box) => {
+    box.checked = (currentScenario.domains || []).includes(box.value);
+  });
+}
+
+function renderScenarioOverview() {
+  const panel = el('scenarioOverviewPanel');
+  if (!currentScenario) {
+    panel.textContent = t('no_scenario_loaded');
+    return;
+  }
+  const doctrine = doctrineProfiles[currentScenario.red_commander_profile];
+  const doctrineText = doctrine ? doctrine.objective[currentLanguage] : currentScenario.red_commander_profile;
+  panel.textContent = `${currentScenario.name}
+
+${t('level')}: ${t(currentScenario.level)}
+${t('conflict_mode')}: ${t(currentScenario.conflict_mode)}
+${t('domains')}: ${currentScenario.domains.map((d) => t(d)).join(', ')}
+${t('red_profile')}: ${profileLabel(currentScenario.red_commander_profile)}
+
+${t('overview')}:
+${currentScenario.overview}
+
+${t('blue_situation')}:
+${currentScenario.initial_blue_situation}
+
+${t('current_situation')}:
+${currentScenario.current_situation || currentScenario.initial_blue_situation}
+
+Red intent:
+${doctrineText}`;
+  el('currentTurnValue').textContent = String(currentScenario.turn || 1);
+  el('escalationStageValue').textContent = String(currentScenario.escalation_stage || 1);
+  el('releasedInjectsValue').textContent = String(releasedInjects.length);
+  el('currentTimeValue').textContent = formatGameTime(currentScenario.elapsed_hours || 0);
+}
+
+function renderSituationUpdate() {
+  const container = el('situationUpdate');
+  container.innerHTML = '';
+  if (!situationHistory.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted-box';
+    empty.textContent = t('no_updates_yet');
+    container.appendChild(empty);
+    return;
+  }
+  [...situationHistory].reverse().forEach((entry) => {
+    const node = document.createElement('div');
+    node.className = 'situation-card';
+    node.innerHTML = `<strong>${entry.title}</strong><div class="inject-meta">${entry.meta}</div><div>${entry.text}</div>`;
+    container.appendChild(node);
+  });
+}
+
+function resetScenarioState(logReset = true) {
+  if (!currentScenario) return;
+  currentScenario.turn = 1;
+  currentScenario.escalation_stage = 1;
+  currentScenario.elapsed_hours = 0;
+  currentScenario.current_situation = currentScenario.initial_blue_situation || '';
+  releasedInjects = [];
+  actionLog = [];
+  selectedInjectId = null;
+  suggestionMode = false;
+  suggestionInjects = [];
+  pendingDecision = null;
+  currentTurnInjectIds = [];
+  el('redOutput').textContent = '';
+  el('blueActionInput').value = '';
+  situationHistory = [{
+    title: t('initial_state'),
+    meta: `${t('current_turn')}: 1 · ${t('escalation_stage')}: 1 · ${t('current_time')}: ${formatGameTime(0)}`,
+    text: currentScenario.current_situation || t('no_scenario_loaded')
+  }];
+  renderScenarioOverview();
+  renderSituationUpdate();
+  renderReleased();
+  renderInjects();
+  renderActionLog();
+  if (logReset) logAction(t('scenario_reset_done'));
+}
+
+function downloadScenario() {
+  if (!currentScenario) return;
+  const blob = new Blob([JSON.stringify(currentScenario, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${slugify(currentScenario.name)}.json`;
+  a.click();
+}
+
+function uploadScenario(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      currentScenario = JSON.parse(reader.result);
+      currentScenario.turn = 1;
+      currentScenario.escalation_stage = 1;
+      currentScenario.current_situation = currentScenario.current_situation || currentScenario.initial_blue_situation || '';
+      currentScenario.elapsed_hours = currentScenario.elapsed_hours || 0;
+      syncScenarioToForm();
+      resetScenarioState(false);
+      logAction(`${t('scenario_loaded')}: ${currentScenario.name}`);
+    } catch (err) {
+      alert(`Scenario JSON error: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function slugify(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function nextTurn() {
+  if (!currentScenario) return;
+
+  const timeInfo = getNextTimeStep(currentScenario.elapsed_hours || 0);
+  const turnSummary = buildTurnSummary(timeInfo);
+  situationHistory.push({
+    title: `${t('turn_summary')} ${currentScenario.turn}`,
+    meta: `${t('time_window')}: ${timeInfo.label[currentLanguage]} · ${t('escalation_stage')}: ${currentScenario.escalation_stage}`,
+    text: turnSummary
+  });
+  currentScenario.current_situation = turnSummary;
+  currentScenario.elapsed_hours = (currentScenario.elapsed_hours || 0) + timeInfo.hours;
+
+  currentScenario.turn += 1;
+  currentScenario.escalation_stage = Math.min(4, Math.floor((currentScenario.turn - 1) / 3) + 1);
+
+  suggestionMode = false;
+  suggestionInjects = [];
+  selectedInjectId = null;
+  pendingDecision = null;
+  currentTurnInjectIds = [];
+  el('blueActionInput').value = '';
+  el('redOutput').textContent = '';
+
+  renderScenarioOverview();
+  renderSituationUpdate();
+  renderInjects();
+  renderReleased();
+  logAction(`${t('turn_advanced')} ${currentScenario.turn}. ${t('escalation_stage')} ${currentScenario.escalation_stage}. ${t('current_time')} ${formatGameTime(currentScenario.elapsed_hours)}.`);
+}
+
+function detectDomain(text) {
+  const lower = (text || '').toLowerCase();
+  const patterns = [
+    ['maritime', /(ship|ships|fleet|naval|sea|port|harbor|harbour|coast|maritime|vessel|territorial waters|patrol boat|ais)/],
+    ['air', /(air|aircraft|fighter|drone|sortie|radar|awacs|adiz|runway|helicopter|jet)/],
+    ['cyber', /(cyber|network|server|malware|credential|latency|intrusion|system|phishing|ransomware|software)/],
+    ['space', /(satellite|gps|space|orbit|telemetry|ground station|positioning)/],
+    ['information', /(media|narrative|deepfake|social|propaganda|messaging|journalist|online|information)/],
+    ['logistics', /(fuel|supply|supplies|logistics|warehouse|convoy|maintenance|medical|shipment)/],
+    ['land', /(ground|border|patrol|checkpoint|brigade|battalion|artillery|infantry|vehicle|route)/]
+  ];
+  for (const [domain, pattern] of patterns) {
+    if (pattern.test(lower)) return domain;
+  }
+  return currentScenario?.domains?.[0] || 'maritime';
+}
+
+function scoreInject(inj, domain, emphasis) {
+  let score = 0;
+  if (inj.domain === domain) score += 6;
+  if ((currentScenario?.domains || []).includes(inj.domain)) score += 3;
+  if (emphasis.includes(inj.domain)) score += 2;
+  if (inj.red_profile_fit === currentScenario?.red_commander_profile) score += 2;
+  score += Math.max(0, 3 - Math.abs((inj.escalation_stage || 1) - (currentScenario?.escalation_stage || 1)));
+  return score;
+}
+
+function buildSuggestedInjects(domain) {
+  if (!currentScenario) return [];
+  const doctrine = doctrineProfiles[currentScenario.red_commander_profile] || { emphasis: [] };
+  const base = injectLibrary.filter((inj) =>
+    inj.level === currentScenario.level &&
+    inj.conflict_mode === currentScenario.conflict_mode &&
+    inj.escalation_stage <= Math.min(4, currentScenario.escalation_stage + 1) &&
+    (inj.domain === domain || (currentScenario.domains || []).includes(inj.domain) || doctrine.emphasis.includes(inj.domain))
+  );
+
+  const severities = ['Low', 'Medium', 'High', 'Strategic'];
+  const chosen = [];
+  severities.forEach((severity) => {
+    const perSeverity = base
+      .filter((inj) => inj.severity === severity)
+      .sort((a, b) => scoreInject(b, domain, doctrine.emphasis) - scoreInject(a, domain, doctrine.emphasis));
+    const picks = [];
+    if (perSeverity[0]) picks.push(perSeverity[0]);
+    const alt = perSeverity.find((inj) => inj.domain !== (perSeverity[0]?.domain || ''));
+    if (alt) picks.push(alt);
+    picks.forEach((inj) => {
+      if (!chosen.some((item) => item.id === inj.id)) chosen.push(inj);
+    });
+  });
+  return chosen.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+}
+
+function chooseInjectForRed(domain) {
+  const suggestions = buildSuggestedInjects(domain);
+  return suggestions[0] || null;
+}
+
+function synthesizeResponse(blueAction, domain) {
+  const doctrine = doctrineProfiles[currentScenario.red_commander_profile];
+  const titleMap = {
+    maritime: { en: 'Maritime pressure response', nl: 'Maritieme drukreactie' },
+    air: { en: 'Air contest response', nl: 'Luchtrespons' },
+    cyber: { en: 'Cyber disruption response', nl: 'Cyberverstoringsreactie' },
+    space: { en: 'Space support degradation', nl: 'Ruimtesteunverstoring' },
+    information: { en: 'Narrative manipulation response', nl: 'Narratiefmanipulatierespons' },
+    logistics: { en: 'Logistics friction response', nl: 'Logistieke frictierespons' },
+    land: { en: 'Ground pressure response', nl: 'Grondrespons' }
+  };
+  const text = {
+    en: `Red assesses the Blue action "${blueAction}" as an opportunity to increase friction in the ${domain} domain while supporting ${doctrine.objective.en.toLowerCase()}`,
+    nl: `Red beoordeelt de blauwe actie "${blueAction}" als een kans om frictie te vergroten in het domein ${t(domain)} en daarmee ${doctrine.objective.nl.toLowerCase()}`
+  };
+  return {
+    title: titleMap[domain]?.[currentLanguage] || (currentLanguage === 'nl' ? 'Rode reactie' : 'Red response'),
+    text: text[currentLanguage]
+  };
+}
+
+function handleGenerateRedResponse() {
+  if (!currentScenario) {
+    alert(t('create_or_load'));
+    return;
+  }
+  const blueAction = el('blueActionInput').value.trim();
+  if (!blueAction) return;
+  const domain = detectDomain(blueAction);
+  suggestionInjects = buildSuggestedInjects(domain);
+  suggestionMode = suggestionInjects.length > 0;
+  const matched = chooseInjectForRed(domain);
+  const synth = synthesizeResponse(blueAction, domain);
+
+  if (matched) selectInject(matched.id);
+  pendingDecision = {
+    blueAction,
+    domain,
+    synth,
+    suggestedIds: suggestionInjects.map((inj) => inj.id),
+    matchedId: matched?.id || null
+  };
+
+  const blocks = [];
+  if (matched) {
+    blocks.push(`${t('recommended_inject')}
+${matched.id} · ${matched.title}
+${matched.situation}
+${t('decision_required')}: ${matched.decision_required}`);
+  } else {
+    blocks.push(t('no_inject_found'));
+  }
+  if (suggestionInjects.length) {
+    blocks.push(`${t('suggested_stack')}
+${suggestionInjects.map((inj) => `${inj.severity} · ${inj.id} · ${inj.title}`).join('\n')}`);
+  }
+  blocks.push(`${t('red_response')}
+${synth.title}
+${synth.text}`);
+
+  el('redOutput').textContent = blocks.join('\n\n');
+  renderInjects();
+  logAction(`${t('blue_action_captured')}: ${blueAction}`);
+}
+
+function buildTurnSummary(timeInfo) {
+  if (!currentScenario) return '';
+  const turnInjects = currentTurnInjectIds
+    .map((id) => injectLibrary.find((item) => item.id === id))
+    .filter(Boolean);
+  const domain = pendingDecision?.domain || currentScenario.domains[0];
+  const redText = pendingDecision?.synth?.text || '';
+  const injectText = buildInjectEffectText(turnInjects, currentLanguage);
+  const outcomeTail = composeOutcomeTail(turnInjects, domain, currentLanguage);
+
+  if (currentLanguage === 'nl') {
+    return `Blue voerde de gekozen actie uit. ${timeInfo.bridge.nl} ${injectText} Tegelijkertijd reageerde Red door extra druk te zetten in het domein ${t(domain)}. ${redText} De situatie ontwikkelde zich zodanig dat ${outcomeTail}`;
+  }
+  return `Blue executed its action. ${timeInfo.bridge.en} ${injectText} Meanwhile, Red applied additional pressure in the ${t(domain)} domain. ${redText} The situation developed so that ${outcomeTail}`;
+}
+
+function buildInjectEffectText(injects, lang) {
+  if (!injects.length) {
+    return lang === 'nl'
+      ? 'In deze periode deden zich geen extra facilitator-gekozen injects voor.'
+      : 'No additional facilitator-selected injects materialized during this period.';
+  }
+  const situations = injects.map((inj) => inj.situation.trim().replace(/\.$/, ''));
+  if (lang === 'nl') {
+    if (situations.length === 1) return `${situations[0]}.`;
+    if (situations.length === 2) return `${situations[0]}, terwijl ook ${situations[1].charAt(0).toLowerCase() + situations[1].slice(1)}.`;
+    return `${situations.slice(0, -1).join(', ')}, en daarnaast ${situations[situations.length - 1].charAt(0).toLowerCase() + situations[situations.length - 1].slice(1)}.`;
+  }
+  if (situations.length === 1) return `${situations[0]}.`;
+  if (situations.length === 2) return `${situations[0]}, while ${situations[1].charAt(0).toLowerCase() + situations[1].slice(1)}.`;
+  return `${situations.slice(0, -1).join(', ')}, and additionally ${situations[situations.length - 1].charAt(0).toLowerCase() + situations[situations.length - 1].slice(1)}.`;
+}
+
+function composeOutcomeTail(injects, domain, lang) {
+  const highestSeverity = injects.reduce((acc, inj) => Math.max(acc, severityRank[inj.severity] || 0), 0);
+  const map = {
+    en: {
+      maritime: 'maritime posture tightened, civilian traffic became more cautious, and commanders demanded a clearer operational picture before the next move.',
+      air: 'air surveillance tempo increased, identification procedures came under strain, and commanders began reassessing coverage priorities.',
+      cyber: 'network assurance demanded more command attention, trust in digital reporting fell, and fallback procedures were activated more often.',
+      space: 'space-enabled support became less trusted, timing confidence fell, and alternate sensing options were reviewed.',
+      information: 'the information environment became more contested, public messaging required tighter synchronization, and attribution pressure increased.',
+      logistics: 'logistics timelines tightened, confidence in resupply fell, and commanders had to balance tempo against resilience.',
+      land: 'ground posture became more cautious, demand for reconnaissance increased, and local commanders balanced speed against control.'
+    },
+    nl: {
+      maritime: 'de maritieme houding strakker werd, civiel verkeer voorzichtiger opereerde en commandanten een scherper operationeel beeld eisten vóór de volgende stap.',
+      air: 'het tempo van luchttoezicht toenam, identificatieprocedures onder druk kwamen te staan en commandanten hun dekkingsprioriteiten begonnen te herzien.',
+      cyber: 'netwerkzekerheid meer command-aandacht vroeg, vertrouwen in digitale rapportage afnam en fallbackprocedures vaker werden geactiveerd.',
+      space: 'ruimte-ondersteuning minder vertrouwd werd, timing minder zeker was en alternatieve sensormogelijkheden werden beoordeeld.',
+      information: 'de informatieomgeving sterker werd betwist, publieke messaging strakker moest worden gesynchroniseerd en attributiedruk toenam.',
+      logistics: 'logistieke tijdlijnen krapper werden, vertrouwen in bevoorrading afnam en commandanten tempo tegen veerkracht moesten afwegen.',
+      land: 'de grondhouding voorzichtiger werd, de vraag naar verkenning toenam en lokale commandanten snelheid tegen controle afwogen.'
+    }
+  };
+  if (highestSeverity >= 4 && lang === 'en') return 'decision-makers faced strategic pressure, escalation signaling became more visible, and alliance coordination turned critical.';
+  if (highestSeverity >= 4 && lang === 'nl') return 'besluitvormers strategische druk ervoeren, escalatiesignalering zichtbaarder werd en coalitiecoördinatie kritiek werd.';
+  return map[lang]?.[domain] || map[lang].maritime;
+}
+
+function getNextTimeStep(elapsedHours) {
+  if (elapsedHours < 24) {
+    return {
+      hours: 1,
+      label: { en: `H+${elapsedHours} to H+${elapsedHours + 1}`, nl: `U+${elapsedHours} tot U+${elapsedHours + 1}` },
+      bridge: { en: 'Over the next hour,', nl: 'In het volgende uur,' }
+    };
+  }
+  if (elapsedHours < 24 * 7) {
+    const dayStart = Math.floor(elapsedHours / 24) + 1;
+    const dayEnd = dayStart + 1;
+    return {
+      hours: 24,
+      label: { en: `Day ${dayStart} to Day ${dayEnd}`, nl: `Dag ${dayStart} tot dag ${dayEnd}` },
+      bridge: { en: 'Over the next day,', nl: 'Gedurende de volgende dag,' }
+    };
+  }
+  const weekStart = Math.floor(elapsedHours / (24 * 7)) + 1;
+  const weekEnd = weekStart + 1;
+  return {
+    hours: 24 * 7,
+    label: { en: `Week ${weekStart} to Week ${weekEnd}`, nl: `Week ${weekStart} tot week ${weekEnd}` },
+    bridge: { en: 'Over the next week,', nl: 'Gedurende de volgende week,' }
+  };
+}
+
+function formatGameTime(hours) {
+  if (hours < 24) return `H+${hours}`;
+  if (hours < 24 * 7) return `D+${Math.floor(hours / 24)}`;
+  return `W+${Math.floor(hours / (24 * 7))}`;
+}
+
+function logAction(text) {
+  actionLog.unshift({ time: new Date().toLocaleTimeString(), text });
+  actionLog = actionLog.slice(0, 25);
+  renderActionLog();
+}
+
+function renderActionLog() {
+  const container = el('actionLog');
+  container.innerHTML = '';
+  if (!actionLog.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted-box';
+    empty.textContent = t('no_actions_yet');
+    container.appendChild(empty);
+    return;
+  }
+  actionLog.forEach((item) => {
+    const node = document.createElement('div');
+    node.className = 'log-item';
+    node.textContent = `[${item.time}] ${item.text}`;
+    container.appendChild(node);
+  });
+}
+
+window.addEventListener('DOMContentLoaded', init);
