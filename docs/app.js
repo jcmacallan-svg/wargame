@@ -1,4 +1,3 @@
-
 let currentLanguage = 'en';
 let injectLibrary = [];
 let filteredInjects = [];
@@ -6,14 +5,19 @@ let selectedInjectId = null;
 let currentScenario = null;
 let releasedInjects = [];
 let actionLog = [];
+let suggestionMode = false;
+let suggestionInjects = [];
+let pendingDecision = null;
+let situationHistory = [];
 
+const severityRank = { Low: 1, Medium: 2, High: 3, Strategic: 4 };
 const scenarioTemplates = [
   {
     name: 'Northern Corridor Crisis',
     overview: 'A fictional regional crisis is unfolding around a contested maritime corridor where spoofing, cyber disruption, and coordinated narratives are increasing pressure below the threshold of open war.',
     level: 'operational',
     conflict_mode: 'grey_zone',
-    domains: ['maritime','cyber','information','logistics'],
+    domains: ['maritime', 'cyber', 'information', 'logistics'],
     initial_blue_situation: 'Blue naval and coast guard forces are increasing patrols in territorial waters while national authorities assess attribution for spoofing, cyber disruption, and malign media activity.',
     turns: 8,
     red_commander_profile: 'grey_zone_opportunist'
@@ -23,7 +27,7 @@ const scenarioTemplates = [
     overview: 'A peer competitor is probing air and maritime defenses through electronic attack, ambiguous military signaling, and pressure on alliance cohesion.',
     level: 'strategic',
     conflict_mode: 'peer',
-    domains: ['air','maritime','space','information','logistics'],
+    domains: ['air', 'maritime', 'space', 'information', 'logistics'],
     initial_blue_situation: 'Blue coalition leaders are considering force posture adjustments while frontline commanders report radar irregularities, media pressure, and maritime congestion.',
     turns: 10,
     red_commander_profile: 'peer_competitor'
@@ -33,7 +37,7 @@ const scenarioTemplates = [
     overview: 'A counterinsurgency campaign faces mounting legitimacy pressure, supply friction, and information manipulation around local population centers.',
     level: 'tactical',
     conflict_mode: 'coin',
-    domains: ['land','information','logistics','cyber'],
+    domains: ['land', 'information', 'logistics', 'cyber'],
     initial_blue_situation: 'Blue forces support local authorities while managing patrol security, civilian contact, and contested online narratives.',
     turns: 6,
     red_commander_profile: 'insurgent_network'
@@ -47,7 +51,7 @@ const doctrineProfiles = {
       en: 'Delay Blue decisions, create ambiguity, and remain below open-war thresholds.',
       nl: 'Vertraag Blauwe besluitvorming, creëer ambiguïteit en blijf onder de drempel van open oorlog.'
     },
-    emphasis: ['maritime','information','cyber','logistics']
+    emphasis: ['maritime', 'information', 'cyber', 'logistics']
   },
   peer_competitor: {
     displayKey: 'profile_peer_competitor',
@@ -55,7 +59,7 @@ const doctrineProfiles = {
       en: 'Shape the battlespace by degrading awareness, logistics, and coalition timing.',
       nl: 'Vorm het gevechtsveld door awareness, logistiek en coalitietiming te verstoren.'
     },
-    emphasis: ['air','space','cyber','maritime','logistics']
+    emphasis: ['air', 'space', 'cyber', 'maritime', 'logistics']
   },
   insurgent_network: {
     displayKey: 'profile_insurgent_network',
@@ -63,7 +67,7 @@ const doctrineProfiles = {
       en: 'Erode legitimacy, provoke overreaction, and stress local command relationships.',
       nl: 'Ondergraven legitimiteit, lok overreactie uit en zet lokale commandorelaties onder druk.'
     },
-    emphasis: ['land','information','logistics','cyber']
+    emphasis: ['land', 'information', 'logistics', 'cyber']
   },
   regional_coercer: {
     displayKey: 'profile_regional_coercer',
@@ -71,7 +75,7 @@ const doctrineProfiles = {
       en: 'Apply coercive regional pressure through military signaling, disruption, and brinkmanship.',
       nl: 'Oefen regionale dwang uit met militaire signalering, verstoring en brinkmanship.'
     },
-    emphasis: ['maritime','air','land','information']
+    emphasis: ['maritime', 'air', 'land', 'information']
   }
 };
 
@@ -88,11 +92,12 @@ function profileLabel(profileKey) {
 
 async function init() {
   attachEvents();
+  restoreLanguage();
   applyTranslations();
   await loadInjects();
   populateFilters();
-  renderInjects();
   loadSampleScenario();
+  renderInjects();
 }
 
 function attachEvents() {
@@ -104,14 +109,8 @@ function attachEvents() {
     renderReleased();
     renderActionLog();
     renderScenarioOverview();
-    refreshRedOutputHeader();
+    renderSituationUpdate();
   });
-
-  const savedLang = localStorage.getItem('owge_lang');
-  if (savedLang) {
-    currentLanguage = savedLang;
-    el('languageSelect').value = savedLang;
-  }
 
   el('filterLevel').addEventListener('change', renderInjects);
   el('filterConflict').addEventListener('change', renderInjects);
@@ -125,7 +124,16 @@ function attachEvents() {
   el('generateRedBtn').addEventListener('click', handleGenerateRedResponse);
   el('nextTurnBtn').addEventListener('click', nextTurn);
   el('releaseSelectedBtn').addEventListener('click', releaseSelectedInject);
+  el('resetScenarioBtn').addEventListener('click', resetScenarioState);
   el('printCardsBtn').addEventListener('click', () => window.print());
+}
+
+function restoreLanguage() {
+  const savedLang = localStorage.getItem('owge_lang');
+  if (savedLang) {
+    currentLanguage = savedLang;
+    el('languageSelect').value = savedLang;
+  }
 }
 
 async function loadInjects() {
@@ -136,21 +144,23 @@ async function loadInjects() {
 function populateFilters() {
   const fill = (selectId, values, translator = (v) => v) => {
     const select = el(selectId);
+    const currentValue = select.value;
     select.innerHTML = '';
     const optAll = document.createElement('option');
     optAll.value = '';
     optAll.textContent = t('all');
     select.appendChild(optAll);
-    values.forEach(v => {
+    values.forEach((v) => {
       const opt = document.createElement('option');
       opt.value = v;
       opt.textContent = translator(v);
       select.appendChild(opt);
     });
+    select.value = currentValue;
   };
-  fill('filterLevel', ['strategic','operational','tactical'], v => t(v));
-  fill('filterConflict', ['hybrid','peer','grey_zone','coin'], v => t(v));
-  fill('filterDomain', ['land','air','maritime','cyber','space','information','logistics'], v => t(v));
+  fill('filterLevel', ['strategic', 'operational', 'tactical'], (v) => t(v));
+  fill('filterConflict', ['hybrid', 'peer', 'grey_zone', 'coin'], (v) => t(v));
+  fill('filterDomain', ['land', 'air', 'maritime', 'cyber', 'space', 'information', 'logistics'], (v) => t(v));
 }
 
 function applyTranslations() {
@@ -180,21 +190,32 @@ function applyTranslations() {
   el('generateRedBtn').textContent = t('generate_red');
   el('nextTurnBtn').textContent = t('next_turn');
   el('releaseSelectedBtn').textContent = t('release_selected');
+  el('resetScenarioBtn').textContent = t('reset_scenario');
   el('printCardsBtn').textContent = t('print_cards');
   el('injectBrowserTitle').textContent = t('inject_browser');
   el('selectedInjectsTitle').textContent = t('selected_injects');
   el('redOutputTitle').textContent = t('red_output');
+  el('situationUpdateTitle').textContent = t('situation_update');
   el('actionLogTitle').textContent = t('action_log');
-  document.querySelectorAll('[data-domain]').forEach(node => node.textContent = t(node.dataset.domain));
+  document.querySelectorAll('[data-domain]').forEach((node) => {
+    node.textContent = t(node.dataset.domain);
+  });
   updateRedProfileOptions();
   populateFilters();
+  updateInjectBrowserHint();
 }
 
 function updateRedProfileOptions() {
-  ['grey_zone_opportunist','peer_competitor','insurgent_network','regional_coercer'].forEach(value => {
+  ['grey_zone_opportunist', 'peer_competitor', 'insurgent_network', 'regional_coercer'].forEach((value) => {
     const opt = el('scenarioRedProfile').querySelector(`option[value="${value}"]`);
     if (opt) opt.textContent = profileLabel(value);
   });
+}
+
+function updateInjectBrowserHint() {
+  el('injectBrowserHint').textContent = suggestionMode && suggestionInjects.length
+    ? t('inject_browser_suggested_hint')
+    : t('inject_browser_default_hint');
 }
 
 function severityClass(sev) {
@@ -202,26 +223,33 @@ function severityClass(sev) {
 }
 
 function renderInjects() {
-  const level = el('filterLevel').value;
-  const conflict = el('filterConflict').value;
-  const domain = el('filterDomain').value;
+  if (suggestionMode && suggestionInjects.length) {
+    filteredInjects = [...suggestionInjects].sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  } else {
+    const level = el('filterLevel').value;
+    const conflict = el('filterConflict').value;
+    const domain = el('filterDomain').value;
+    filteredInjects = injectLibrary.filter((inj) =>
+      (!level || inj.level === level) &&
+      (!conflict || inj.conflict_mode === conflict) &&
+      (!domain || inj.domain === domain)
+    );
+    filteredInjects.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  }
 
-  filteredInjects = injectLibrary.filter(inj =>
-    (!level || inj.level === level) &&
-    (!conflict || inj.conflict_mode === conflict) &&
-    (!domain || inj.domain === domain)
-  );
-
+  updateInjectBrowserHint();
   const list = el('injectList');
   list.innerHTML = '';
-  filteredInjects.forEach(inj => list.appendChild(injectCard(inj)));
+  filteredInjects.forEach((inj) => list.appendChild(injectCard(inj)));
 }
 
 function injectCard(inj, released = false) {
   const card = document.createElement('div');
   card.className = 'inject-card' + (selectedInjectId === inj.id ? ' selected' : '');
-  const releaseButton = released ? '' : `<button data-action="select">${t('selected')}</button>`;
-  const secondaryButton = released ? `<button data-action="print">${t('print')}</button>` : `<button data-action="release">${t('released')}</button>`;
+  const primaryButton = released ? '' : `<button data-action="select">${t('selected')}</button>`;
+  const secondaryButton = released
+    ? `<button data-action="print">${t('print')}</button>`
+    : `<button data-action="release">${t('released')}</button>`;
   card.innerHTML = `
     <div class="inject-head">
       <div>
@@ -240,39 +268,37 @@ function injectCard(inj, released = false) {
     <div><strong>${t('decision_required')}:</strong> ${inj.decision_required}</div>
     <div class="inject-meta"><strong>${t('notes')}:</strong> ${inj.white_cell_notes}</div>
     <div class="inject-actions">
-      ${releaseButton}
+      ${primaryButton}
       ${secondaryButton}
     </div>
   `;
-  const buttons = card.querySelectorAll('button');
-  buttons.forEach(btn => btn.addEventListener('click', () => {
-    const action = btn.dataset.action;
-    if (action === 'select') {
-      selectInject(inj.id);
-    } else if (action === 'release') {
-      releaseInject(inj.id);
-    } else if (action === 'print') {
-      window.print();
-    }
-  }));
+  card.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'select') selectInject(inj.id);
+      if (action === 'release') releaseInject(inj.id);
+      if (action === 'print') window.print();
+    });
+  });
   return card;
 }
 
 function selectInject(id) {
   selectedInjectId = id;
   renderInjects();
+  renderReleased();
 }
 
 function releaseInject(id) {
-  const inj = injectLibrary.find(i => i.id === id);
+  const inj = injectLibrary.find((item) => item.id === id);
   if (!inj) return;
-  if (!releasedInjects.some(i => i.id === inj.id)) {
-    releasedInjects.push(inj);
-    logAction(`${inj.id} released to facilitator deck.`);
+  if (!releasedInjects.some((item) => item.id === id)) {
+    releasedInjects.unshift(inj);
     el('releasedInjectsValue').textContent = String(releasedInjects.length);
-    renderReleased();
+    logAction(`${t('released')}: ${inj.id} · ${inj.title}`);
   }
-  selectedInjectId = inj.id;
+  selectedInjectId = id;
+  renderReleased();
   renderInjects();
 }
 
@@ -284,11 +310,18 @@ function releaseSelectedInject() {
 function renderReleased() {
   const container = el('releasedList');
   container.innerHTML = '';
-  releasedInjects.forEach(inj => container.appendChild(injectCard(inj, true)));
+  if (!releasedInjects.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted-box';
+    empty.textContent = t('no_released_yet');
+    container.appendChild(empty);
+    return;
+  }
+  releasedInjects.forEach((inj) => container.appendChild(injectCard(inj, true)));
 }
 
 function buildScenarioFromForm() {
-  const domains = Array.from(document.querySelectorAll('#domainCheckboxes input:checked')).map(x => x.value);
+  const domains = Array.from(document.querySelectorAll('#domainCheckboxes input:checked')).map((x) => x.value);
   currentScenario = {
     name: el('scenarioName').value || 'Unnamed Scenario',
     level: el('scenarioLevel').value,
@@ -296,16 +329,17 @@ function buildScenarioFromForm() {
     domains: domains.length ? domains : ['maritime'],
     overview: el('scenarioOverviewInput').value || '',
     initial_blue_situation: el('scenarioBlue').value || '',
+    current_situation: el('scenarioBlue').value || '',
     turns: Number(el('scenarioTurns').value) || 8,
     turn: 1,
     escalation_stage: 1,
     red_commander_profile: el('scenarioRedProfile').value,
-    objectives: ['command_and_control','multi_domain_coordination','crisis_management','decision_making'],
+    objectives: ['command_and_control', 'multi_domain_coordination', 'crisis_management', 'decision_making'],
     seed_events: []
   };
   syncScenarioToForm();
-  renderScenarioOverview();
-  logAction(`Scenario created: ${currentScenario.name}`);
+  resetScenarioState(false);
+  logAction(`${t('scenario_created')}: ${currentScenario.name}`);
 }
 
 function generateRandomScenario() {
@@ -313,14 +347,15 @@ function generateRandomScenario() {
   currentScenario = {
     ...pick,
     domains: [...pick.domains],
+    current_situation: pick.initial_blue_situation,
     turn: 1,
     escalation_stage: 1,
-    objectives: ['command_and_control','multi_domain_coordination','crisis_management','decision_making'],
+    objectives: ['command_and_control', 'multi_domain_coordination', 'crisis_management', 'decision_making'],
     seed_events: []
   };
   syncScenarioToForm();
-  renderScenarioOverview();
-  logAction(`Random scenario generated: ${currentScenario.name}`);
+  resetScenarioState(false);
+  logAction(`${t('random_generated')}: ${currentScenario.name}`);
 }
 
 function loadSampleScenario() {
@@ -328,18 +363,19 @@ function loadSampleScenario() {
     name: 'Northern Corridor Crisis',
     level: 'operational',
     conflict_mode: 'grey_zone',
-    domains: ['maritime','cyber','information','logistics'],
+    domains: ['maritime', 'cyber', 'information', 'logistics'],
     overview: 'A fictional regional crisis is unfolding around a contested maritime corridor where spoofing, cyber disruption, and coordinated narratives are increasing pressure below the threshold of open war.',
     initial_blue_situation: 'Blue naval and coast guard forces are increasing patrols in territorial waters while national authorities assess attribution for spoofing, cyber disruption, and malign media activity.',
+    current_situation: 'Blue naval and coast guard forces are increasing patrols in territorial waters while national authorities assess attribution for spoofing, cyber disruption, and malign media activity.',
     turns: 8,
     turn: 1,
     escalation_stage: 1,
     red_commander_profile: 'grey_zone_opportunist',
-    objectives: ['command_and_control','multi_domain_coordination','crisis_management','decision_making'],
-    seed_events: ['AIS anomalies reported near a chokepoint.','A logistics platform shows intermittent latency.','Manipulated social media clips question Blue rules of engagement.']
+    objectives: ['command_and_control', 'multi_domain_coordination', 'crisis_management', 'decision_making'],
+    seed_events: ['AIS anomalies reported near a chokepoint.', 'A logistics platform shows intermittent latency.', 'Manipulated social media clips question Blue rules of engagement.']
   };
   syncScenarioToForm();
-  renderScenarioOverview();
+  resetScenarioState(false);
 }
 
 function syncScenarioToForm() {
@@ -351,27 +387,24 @@ function syncScenarioToForm() {
   el('scenarioBlue').value = currentScenario.initial_blue_situation || '';
   el('scenarioTurns').value = currentScenario.turns || 8;
   el('scenarioRedProfile').value = currentScenario.red_commander_profile || 'grey_zone_opportunist';
-  document.querySelectorAll('#domainCheckboxes input').forEach(box => {
+  document.querySelectorAll('#domainCheckboxes input').forEach((box) => {
     box.checked = (currentScenario.domains || []).includes(box.value);
   });
-  el('currentTurnValue').textContent = currentScenario.turn || 1;
-  el('escalationStageValue').textContent = currentScenario.escalation_stage || 1;
 }
 
 function renderScenarioOverview() {
   const panel = el('scenarioOverviewPanel');
   if (!currentScenario) {
-    panel.textContent = 'No scenario loaded.';
+    panel.textContent = t('no_scenario_loaded');
     return;
   }
   const doctrine = doctrineProfiles[currentScenario.red_commander_profile];
   const doctrineText = doctrine ? doctrine.objective[currentLanguage] : currentScenario.red_commander_profile;
-  panel.textContent =
-`${currentScenario.name}
+  panel.textContent = `${currentScenario.name}
 
 ${t('level')}: ${t(currentScenario.level)}
 ${t('conflict_mode')}: ${t(currentScenario.conflict_mode)}
-${t('domains')}: ${currentScenario.domains.map(d => t(d)).join(', ')}
+${t('domains')}: ${currentScenario.domains.map((d) => t(d)).join(', ')}
 ${t('red_profile')}: ${profileLabel(currentScenario.red_commander_profile)}
 
 ${t('overview')}:
@@ -380,11 +413,58 @@ ${currentScenario.overview}
 ${t('blue_situation')}:
 ${currentScenario.initial_blue_situation}
 
+${t('current_situation')}:
+${currentScenario.current_situation || currentScenario.initial_blue_situation}
+
 Red intent:
 ${doctrineText}`;
-  el('currentTurnValue').textContent = currentScenario.turn || 1;
-  el('escalationStageValue').textContent = currentScenario.escalation_stage || 1;
+  el('currentTurnValue').textContent = String(currentScenario.turn || 1);
+  el('escalationStageValue').textContent = String(currentScenario.escalation_stage || 1);
   el('releasedInjectsValue').textContent = String(releasedInjects.length);
+}
+
+function renderSituationUpdate() {
+  const container = el('situationUpdate');
+  container.innerHTML = '';
+  if (!situationHistory.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted-box';
+    empty.textContent = t('no_updates_yet');
+    container.appendChild(empty);
+    return;
+  }
+  [...situationHistory].reverse().forEach((entry) => {
+    const node = document.createElement('div');
+    node.className = 'situation-card';
+    node.innerHTML = `<strong>${entry.title}</strong><div class="inject-meta">${entry.meta}</div><div>${entry.text}</div>`;
+    container.appendChild(node);
+  });
+}
+
+function resetScenarioState(logReset = true) {
+  if (!currentScenario) return;
+  currentScenario.turn = 1;
+  currentScenario.escalation_stage = 1;
+  currentScenario.current_situation = currentScenario.initial_blue_situation || '';
+  releasedInjects = [];
+  actionLog = [];
+  selectedInjectId = null;
+  suggestionMode = false;
+  suggestionInjects = [];
+  pendingDecision = null;
+  el('redOutput').textContent = '';
+  el('blueActionInput').value = '';
+  situationHistory = [{
+    title: t('initial_state'),
+    meta: `${t('current_turn')}: 1 · ${t('escalation_stage')}: 1`,
+    text: currentScenario.current_situation || t('no_scenario_loaded')
+  }];
+  renderScenarioOverview();
+  renderSituationUpdate();
+  renderReleased();
+  renderInjects();
+  renderActionLog();
+  if (logReset) logAction(t('scenario_reset_done'));
 }
 
 function downloadScenario() {
@@ -403,11 +483,12 @@ function uploadScenario(event) {
   reader.onload = () => {
     try {
       currentScenario = JSON.parse(reader.result);
-      if (!currentScenario.turn) currentScenario.turn = 1;
-      if (!currentScenario.escalation_stage) currentScenario.escalation_stage = 1;
+      currentScenario.turn = 1;
+      currentScenario.escalation_stage = 1;
+      currentScenario.current_situation = currentScenario.current_situation || currentScenario.initial_blue_situation || '';
       syncScenarioToForm();
-      renderScenarioOverview();
-      logAction(`Scenario loaded: ${currentScenario.name}`);
+      resetScenarioState(false);
+      logAction(`${t('scenario_loaded')}: ${currentScenario.name}`);
     } catch (err) {
       alert(`Scenario JSON error: ${err.message}`);
     }
@@ -421,15 +502,34 @@ function slugify(text) {
 
 function nextTurn() {
   if (!currentScenario) return;
+
+  const turnSummary = buildTurnSummary();
+  situationHistory.push({
+    title: `${t('turn_summary')} ${currentScenario.turn}`,
+    meta: `${t('escalation_stage')}: ${currentScenario.escalation_stage}`,
+    text: turnSummary
+  });
+  currentScenario.current_situation = turnSummary;
+
   currentScenario.turn += 1;
-  const stage = Math.min(4, Math.floor((currentScenario.turn - 1) / 3) + 1);
-  currentScenario.escalation_stage = stage;
+  currentScenario.escalation_stage = Math.min(4, Math.floor((currentScenario.turn - 1) / 3) + 1);
+
+  suggestionMode = false;
+  suggestionInjects = [];
+  selectedInjectId = null;
+  pendingDecision = null;
+  el('blueActionInput').value = '';
+  el('redOutput').textContent = '';
+
   renderScenarioOverview();
-  logAction(`Turn advanced to ${currentScenario.turn}. Escalation stage ${currentScenario.escalation_stage}.`);
+  renderSituationUpdate();
+  renderInjects();
+  renderReleased();
+  logAction(`${t('turn_advanced')} ${currentScenario.turn}. ${t('escalation_stage')} ${currentScenario.escalation_stage}.`);
 }
 
 function detectDomain(text) {
-  const t = (text || '').toLowerCase();
+  const lower = (text || '').toLowerCase();
   const patterns = [
     ['maritime', /(ship|ships|fleet|naval|sea|port|harbor|harbour|coast|maritime|vessel|territorial waters|patrol boat|ais)/],
     ['air', /(air|aircraft|fighter|drone|sortie|radar|awacs|adiz|runway|helicopter|jet)/],
@@ -440,28 +540,51 @@ function detectDomain(text) {
     ['land', /(ground|border|patrol|checkpoint|brigade|battalion|artillery|infantry|vehicle|route)/]
   ];
   for (const [domain, pattern] of patterns) {
-    if (pattern.test(t)) return domain;
+    if (pattern.test(lower)) return domain;
   }
   return currentScenario?.domains?.[0] || 'maritime';
 }
 
-function chooseInjectForRed(domain) {
-  if (!currentScenario) return null;
-  const doctrine = doctrineProfiles[currentScenario.red_commander_profile];
-  const emphasis = doctrine?.emphasis || [];
-  const candidates = injectLibrary.filter(inj =>
+function scoreInject(inj, domain, emphasis) {
+  let score = 0;
+  if (inj.domain === domain) score += 6;
+  if ((currentScenario?.domains || []).includes(inj.domain)) score += 3;
+  if (emphasis.includes(inj.domain)) score += 2;
+  if (inj.red_profile_fit === currentScenario?.red_commander_profile) score += 2;
+  score += Math.max(0, 3 - Math.abs((inj.escalation_stage || 1) - (currentScenario?.escalation_stage || 1)));
+  return score;
+}
+
+function buildSuggestedInjects(domain) {
+  if (!currentScenario) return [];
+  const doctrine = doctrineProfiles[currentScenario.red_commander_profile] || { emphasis: [] };
+  const base = injectLibrary.filter((inj) =>
     inj.level === currentScenario.level &&
     inj.conflict_mode === currentScenario.conflict_mode &&
-    inj.escalation_stage <= currentScenario.escalation_stage + 1 &&
-    (inj.domain === domain || emphasis.includes(inj.domain))
+    inj.escalation_stage <= Math.min(4, currentScenario.escalation_stage + 1) &&
+    (inj.domain === domain || (currentScenario.domains || []).includes(inj.domain) || doctrine.emphasis.includes(inj.domain))
   );
-  if (!candidates.length) return null;
-  // prioritize exact domain, then doctrine fit
-  candidates.sort((a,b) => {
-    const score = (inj) => (inj.domain === domain ? 3 : 0) + (emphasis.includes(inj.domain) ? 2 : 0) + (inj.red_profile_fit === currentScenario.red_commander_profile ? 1 : 0);
-    return score(b) - score(a);
+
+  const severities = ['Low', 'Medium', 'High', 'Strategic'];
+  const chosen = [];
+  severities.forEach((severity) => {
+    const perSeverity = base
+      .filter((inj) => inj.severity === severity)
+      .sort((a, b) => scoreInject(b, domain, doctrine.emphasis) - scoreInject(a, domain, doctrine.emphasis));
+    const picks = [];
+    if (perSeverity[0]) picks.push(perSeverity[0]);
+    const alt = perSeverity.find((inj) => inj.domain !== (perSeverity[0]?.domain || ''));
+    if (alt) picks.push(alt);
+    picks.forEach((inj) => {
+      if (!chosen.some((item) => item.id === inj.id)) chosen.push(inj);
+    });
   });
-  return candidates[0];
+  return chosen.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+}
+
+function chooseInjectForRed(domain) {
+  const suggestions = buildSuggestedInjects(domain);
+  return suggestions[0] || null;
 }
 
 function synthesizeResponse(blueAction, domain) {
@@ -493,8 +616,19 @@ function handleGenerateRedResponse() {
   const blueAction = el('blueActionInput').value.trim();
   if (!blueAction) return;
   const domain = detectDomain(blueAction);
+  suggestionInjects = buildSuggestedInjects(domain);
+  suggestionMode = suggestionInjects.length > 0;
   const matched = chooseInjectForRed(domain);
   const synth = synthesizeResponse(blueAction, domain);
+
+  if (matched) selectInject(matched.id);
+  pendingDecision = {
+    blueAction,
+    domain,
+    synth,
+    suggestedIds: suggestionInjects.map((inj) => inj.id),
+    matchedId: matched?.id || null
+  };
 
   const blocks = [];
   if (matched) {
@@ -502,23 +636,62 @@ function handleGenerateRedResponse() {
 ${matched.id} · ${matched.title}
 ${matched.situation}
 ${t('decision_required')}: ${matched.decision_required}`);
-    selectInject(matched.id);
   } else {
     blocks.push(t('no_inject_found'));
   }
-
+  if (suggestionInjects.length) {
+    blocks.push(`${t('suggested_stack')}
+${suggestionInjects.map((inj) => `${inj.severity} · ${inj.id} · ${inj.title}`).join('\n')}`);
+  }
   blocks.push(`${t('red_response')}
 ${synth.title}
 ${synth.text}`);
 
   el('redOutput').textContent = blocks.join('\n\n');
-  logAction(`Blue action captured: ${blueAction}\nRecommended red domain: ${domain}${matched ? `\nMatched inject: ${matched.id}` : ''}`);
+  renderInjects();
+  logAction(`${t('blue_action_captured')}: ${blueAction}`);
 }
 
-function refreshRedOutputHeader() {
-  const text = el('redOutput').textContent;
-  if (!text) return;
-  // leave generated output as-is to avoid awkward mixed-language regeneration
+function buildTurnSummary() {
+  if (!currentScenario) return '';
+  const inject = selectedInjectId ? injectLibrary.find((item) => item.id === selectedInjectId) : null;
+  if (inject && !releasedInjects.some((item) => item.id === inject.id)) {
+    releasedInjects.unshift(inject);
+  }
+  const blueAction = pendingDecision?.blueAction || (currentLanguage === 'nl' ? 'Geen blauwe actie vastgelegd.' : 'No Blue action recorded.');
+  const redTitle = pendingDecision?.synth?.title || (currentLanguage === 'nl' ? 'Geen rode reactie vastgelegd.' : 'No Red response recorded.');
+  const redText = pendingDecision?.synth?.text || '';
+
+  if (currentLanguage === 'nl') {
+    return `Tijdens beurt ${currentScenario.turn} voerde Blue uit: ${blueAction} ${inject ? `De facilitator koos inject ${inject.id} (${inject.title}), waardoor de situatie verder verschoof: ${inject.situation} Beslispunt: ${inject.decision_required}.` : 'Er werd geen extra inject geselecteerd.'} Red reageerde met ${redTitle.toLowerCase()}: ${redText} De actuele situatie is nu dat ${composeOutcomeTail(inject, pendingDecision?.domain || currentScenario.domains[0], 'nl')}`;
+  }
+  return `During turn ${currentScenario.turn}, Blue executed: ${blueAction} ${inject ? `The facilitator selected inject ${inject.id} (${inject.title}), shifting the situation further: ${inject.situation} Decision point: ${inject.decision_required}.` : 'No additional inject was selected.'} Red responded with ${redTitle.toLowerCase()}: ${redText} The current situation is now that ${composeOutcomeTail(inject, pendingDecision?.domain || currentScenario.domains[0], 'en')}`;
+}
+
+function composeOutcomeTail(inject, domain, lang) {
+  const map = {
+    en: {
+      maritime: 'maritime posture is tighter, civilian traffic is more cautious, and commanders require a clearer picture before further escalation.',
+      air: 'air surveillance tempo has increased, identification procedures are under strain, and commanders are reassessing coverage priorities.',
+      cyber: 'network assurance demands more command attention, trust in digital reporting is reduced, and fallback procedures are being tested.',
+      space: 'space-enabled support is less trusted, timing confidence is reduced, and alternate sensing options are being reviewed.',
+      information: 'the information environment is more contested, public messaging must be synchronized, and attribution pressure is rising.',
+      logistics: 'logistics timelines are under pressure, resupply confidence is lower, and commanders are balancing tempo against resilience.',
+      land: 'ground posture is more cautious, reconnaissance demand has increased, and local commanders must balance speed with control.'
+    },
+    nl: {
+      maritime: 'de maritieme houding strakker is, civiel verkeer voorzichtiger opereert en commandanten een scherper beeld nodig hebben vóór verdere escalatie.',
+      air: 'het luchttoezicht is opgevoerd, identificatieprocedures onder druk staan en commandanten hun dekkingsprioriteiten herzien.',
+      cyber: 'netwerkzekerheid meer command-aandacht vraagt, vertrouwen in digitale rapportage afneemt en fallbackprocedures worden getest.',
+      space: 'ruimte-ondersteuning minder vertrouwd wordt, timing minder zeker is en alternatieve sensormogelijkheden worden beoordeeld.',
+      information: 'de informatieomgeving sterker betwist is, publieke messaging moet worden gesynchroniseerd en attributiedruk toeneemt.',
+      logistics: 'logistieke tijdlijnen onder druk staan, vertrouwen in bevoorrading lager is en commandanten tempo tegen veerkracht afwegen.',
+      land: 'de grondhouding voorzichtiger is, de vraag naar verkenning is toegenomen en lokale commandanten snelheid tegen controle moeten afwegen.'
+    }
+  };
+  if (inject?.severity === 'Strategic' && lang === 'en') return 'decision-makers are facing strategic pressure, escalation signaling is more visible, and alliance coordination is becoming critical.';
+  if (inject?.severity === 'Strategic' && lang === 'nl') return 'besluitvormers strategische druk ervaren, escalatiesignalering zichtbaarder wordt en coalitiecoördinatie cruciaal wordt.';
+  return map[lang]?.[domain] || map[lang].maritime;
 }
 
 function logAction(text) {
@@ -530,7 +703,14 @@ function logAction(text) {
 function renderActionLog() {
   const container = el('actionLog');
   container.innerHTML = '';
-  actionLog.forEach(item => {
+  if (!actionLog.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted-box';
+    empty.textContent = t('no_actions_yet');
+    container.appendChild(empty);
+    return;
+  }
+  actionLog.forEach((item) => {
     const node = document.createElement('div');
     node.className = 'log-item';
     node.textContent = `[${item.time}] ${item.text}`;

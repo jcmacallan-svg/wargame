@@ -1,9 +1,9 @@
-# Open War Game Engine v5
+# Open War Game Engine v6
 
 **Open War Game Engine**  
 Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.
 
-## What changed in v5
+## What changed in v6
 This is a full working package focused on facilitators.
 
 - 252 injects in the library
@@ -19,7 +19,7 @@ This is a full working package focused on facilitators.
 ## Repo structure
 
 ```text
-open-war-game-engine-v5/
+open-war-game-engine-v6/
 ├── docs/
 │   ├── index.html
 │   ├── style.css
@@ -85,6 +85,13 @@ A sample is provided in `scenarios/sample_scenario.json`.
 
 ## Notes
 
-- The Red Commander in v5 is rule-based and transparent by design.
+- The Red Commander in v6 is rule-based and transparent by design.
 - It uses scenario level, conflict mode, doctrine profile, escalation stage, and domain detection from the Blue action.
 - This keeps the site stable on GitHub Pages without requiring a backend.
+
+
+## v6 highlights
+- Refresh/reset button for current scenario state
+- Suggested inject ladder after Blue actions, ordered by severity
+- Turn-by-turn situation update timeline
+- Scenario current situation refreshes after each turn

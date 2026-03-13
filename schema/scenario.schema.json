@@ -89,6 +89,9 @@
       "items": {
         "type": "string"
       }
+    },
+    "current_situation": {
+      "type": "string"
     }
   }
 }
