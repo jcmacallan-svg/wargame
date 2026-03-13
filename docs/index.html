@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open War Game Engine</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <h1>Open War Game Engine</h1>
+      <p>Non-classified modular multi-level war game generator for strategic, operational and tactical exercises.</p>
+    </section>
+
+    <div class="grid">
+      <aside class="panel filters">
+        <h2>Control Panel</h2>
+        <label for="level">Level</label>
+        <select id="level">
+          <option value="all">all</option>
+        </select>
+
+        <label for="conflict_mode">Conflict mode</label>
+        <select id="conflict_mode">
+          <option value="all">all</option>
+        </select>
+
+        <label for="domain">Domain</label>
+        <select id="domain">
+          <option value="all">all</option>
+        </select>
+
+        <div class="footer-note">
+          Use this demo page as a starter control surface for GitHub Pages. Expand later with printable NATO-style cards, branching adjudication, and an AI Red Commander.
+        </div>
+      </aside>
+
+      <main class="panel">
+        <h2>Inject Browser</h2>
+        <div id="resultCount" class="footer-note"></div>
+        <div id="cards" class="cards"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

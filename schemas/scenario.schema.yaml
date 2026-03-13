@@ -1,0 +1,23 @@
+scenario:
+  name: string
+  level: strategic | operational | tactical
+  conflict_mode: hybrid | peer | counterinsurgency | grey_zone
+  geography: string
+  domains:
+    - land
+    - air
+    - maritime
+    - cyber
+    - space
+    - information
+    - logistics
+  objectives:
+    - command_and_control
+    - multi_domain_coordination
+    - crisis_management
+    - decision_making
+  phases:
+    - competition
+    - hybrid_pressure
+    - limited_conflict
+    - major_escalation
