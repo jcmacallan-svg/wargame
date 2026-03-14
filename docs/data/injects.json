@@ -1,218 +1,66 @@
 [
   {
     "id": "OWGE-MAR-001",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
     "domain": "maritime",
     "severity": "Low",
     "title": "AIS anomalies near corridor",
     "situation": "Multiple commercial vessels report intermittent AIS inconsistencies near the transit corridor.",
-    "decision_required": "Increase monitoring, issue a navigation advisory, or dispatch a patrol vessel.",
-    "white_cell_notes": "Opening ambiguity inject.",
-    "player_visible": true
+    "zone": "corridor"
   },
   {
     "id": "OWGE-MAR-002",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "Low",
-    "title": "Unscheduled survey craft",
-    "situation": "A small survey-type vessel appears in a restricted lane without prior notification.",
-    "decision_required": "Shadow the vessel, query its intent, or escalate to maritime authorities.",
-    "white_cell_notes": "Tests restraint and identification.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-003",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
     "domain": "maritime",
     "severity": "Low",
     "title": "Fishing fleet obstruction",
-    "situation": "A cluster of civilian fishing vessels slows traffic flow near a chokepoint and interferes with patrol routes.",
-    "decision_required": "Reroute patrols, warn traffic, or attempt controlled clearing operations.",
-    "white_cell_notes": "Civilian friction.",
-    "player_visible": true
+    "situation": "Fishing vessels slow movement near the northern approach.",
+    "zone": "north_approach"
   },
   {
-    "id": "OWGE-MAR-004",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
+    "id": "OWGE-MAR-003",
     "domain": "maritime",
     "severity": "Medium",
     "title": "Loitering unflagged vessel",
-    "situation": "An unflagged merchant-sized vessel remains close to territorial waters and adjusts course to mirror Blue patrol activity.",
-    "decision_required": "Shadow, hail, board, or publicize the contact.",
-    "white_cell_notes": "Useful after visible patrol increase.",
-    "player_visible": true
+    "situation": "An unflagged vessel mirrors Blue patrol movement near territorial waters.",
+    "zone": "territorial_waters"
+  },
+  {
+    "id": "OWGE-MAR-004",
+    "domain": "logistics",
+    "severity": "Medium",
+    "title": "Port pilot absenteeism",
+    "situation": "Port pilot absenteeism delays harbor traffic and outbound support movement.",
+    "zone": "main_port"
   },
   {
     "id": "OWGE-MAR-005",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "Medium",
-    "title": "Commercial insurance warning",
-    "situation": "Regional insurers warn of elevated risk in the corridor after reports of maritime interference.",
-    "decision_required": "Reassure shipping, adjust escort posture, or request allied coordination.",
-    "white_cell_notes": "Economic pressure.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-006",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "Medium",
-    "title": "Port pilot absenteeism",
-    "situation": "Several contracted port pilots fail to report, delaying inbound commercial traffic and increasing congestion.",
-    "decision_required": "Shift traffic priorities, request emergency support, or slow harbor entry procedures.",
-    "white_cell_notes": "Sustainment and tempo impact.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-007",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "Medium",
-    "title": "Boarding request controversy",
-    "situation": "A boarding request on a suspicious vessel triggers public criticism that Blue is disrupting civilian commerce.",
-    "decision_required": "Proceed, defer, or issue a public justification.",
-    "white_cell_notes": "Links to information domain.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-008",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "High",
-    "title": "Navigation beacon outage",
-    "situation": "A key navigation beacon near the corridor unexpectedly fails, forcing traffic into tighter channels under Blue observation.",
-    "decision_required": "Deploy temporary aids, reduce traffic flow, or increase escort density.",
-    "white_cell_notes": "Escalates operational risk.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-009",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "High",
-    "title": "Close pass by shadow vessel",
-    "situation": "A suspicious vessel executes a close pass near a Blue patrol unit, creating collision risk and forcing evasive maneuvering.",
-    "decision_required": "De-escalate, reposition, or detain if authorized.",
-    "white_cell_notes": "Pressure test for ROE.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-010",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "High",
-    "title": "Harbor access disruption",
-    "situation": "Harbor authorities report unexplained digital and procedural delays that slow access for support shipping.",
-    "decision_required": "Prioritize military cargo, shift to alternate port, or activate contingency logistics.",
-    "white_cell_notes": "Maritime-logistics crossover.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-011",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "maritime",
-    "severity": "High",
-    "title": "Civil distress call ambiguity",
-    "situation": "A distress call from a merchant vessel is received, but reported coordinates shift repeatedly and conflict with sensor tracks.",
-    "decision_required": "Divert assets, verify authenticity, or hold position while clarifying.",
-    "white_cell_notes": "Can be deception or real emergency.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-012",
-    "level": "operational",
-    "conflict_mode": "peer",
-    "domain": "maritime",
-    "severity": "High",
-    "title": "Fast craft swarm probing",
-    "situation": "Multiple small fast craft probe Blue patrol spacing near territorial waters without committing to direct hostile action.",
-    "decision_required": "Disperse coverage, concentrate force, or demonstrate deterrent posture.",
-    "white_cell_notes": "Late grey-zone / early peer transition.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-013",
-    "level": "operational",
-    "conflict_mode": "peer",
-    "domain": "maritime",
-    "severity": "Strategic",
-    "title": "Merchant route diversion campaign",
-    "situation": "Major shipping operators begin diverting away from the corridor after sustained incidents and unclear security guarantees.",
-    "decision_required": "Reassure coalition partners, declare security measures, or accept economic disruption.",
-    "white_cell_notes": "Strategic maritime effect.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-014",
-    "level": "operational",
-    "conflict_mode": "peer",
-    "domain": "maritime",
-    "severity": "Strategic",
-    "title": "Maritime exclusion narrative",
-    "situation": "Adversary-linked channels announce an unofficial maritime exclusion zone without formal legal basis.",
-    "decision_required": "Challenge the narrative, escort transits, or seek coalition authorization.",
-    "white_cell_notes": "Pre-blockade information pressure.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-015",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
     "domain": "information",
     "severity": "Medium",
     "title": "Edited boarding footage spreads online",
-    "situation": "A selectively edited clip of Blue maritime personnel circulates online, implying aggressive treatment of civilian crews.",
-    "decision_required": "Counter-message, verify footage, or remain silent pending review.",
-    "white_cell_notes": "Pairs with boarding or shadowing decisions.",
-    "player_visible": true
+    "situation": "A clipped video implies aggressive Blue treatment of civilian crews.",
+    "zone": "info_space"
   },
   {
-    "id": "OWGE-MAR-016",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
+    "id": "OWGE-MAR-006",
+    "domain": "maritime",
+    "severity": "High",
+    "title": "Navigation beacon outage",
+    "situation": "A critical navigation beacon fails and compresses shipping into tighter lanes.",
+    "zone": "corridor"
+  },
+  {
+    "id": "OWGE-MAR-007",
+    "domain": "maritime",
+    "severity": "High",
+    "title": "Close pass by shadow vessel",
+    "situation": "A suspicious vessel creates collision risk near a Blue patrol unit.",
+    "zone": "territorial_waters"
+  },
+  {
+    "id": "OWGE-MAR-008",
     "domain": "cyber",
-    "severity": "Medium",
-    "title": "Port access system lag",
-    "situation": "Port access control systems become intermittently unavailable, complicating vessel scheduling and berth allocation.",
-    "decision_required": "Fallback to manual control, isolate systems, or reduce throughput.",
-    "white_cell_notes": "Useful for maritime-cyber chain.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-017",
-    "level": "operational",
-    "conflict_mode": "grey_zone",
-    "domain": "logistics",
-    "severity": "Medium",
-    "title": "Fuel manifest mismatch",
-    "situation": "A support tanker\u2019s reported fuel inventory does not match expected delivery loads, delaying patrol replenishment planning.",
-    "decision_required": "Recount, re-task assets, or reduce patrol tempo.",
-    "white_cell_notes": "Sustainment pressure.",
-    "player_visible": true
-  },
-  {
-    "id": "OWGE-MAR-018",
-    "level": "operational",
-    "conflict_mode": "peer",
-    "domain": "air",
-    "severity": "Medium",
-    "title": "Air surveillance gap over corridor",
-    "situation": "Routine air surveillance coverage over the maritime corridor is reduced, increasing uncertainty around vessel movement.",
-    "decision_required": "Reassign ISR, narrow patrol lanes, or request allied coverage.",
-    "white_cell_notes": "Cross-domain friction.",
-    "player_visible": true
+    "severity": "High",
+    "title": "Harbor access disruption",
+    "situation": "Digital disruption slows harbor entry and military support throughput.",
+    "zone": "main_port"
   }
 ]

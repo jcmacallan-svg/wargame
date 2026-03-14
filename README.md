@@ -1,8 +1,9 @@
-# Open War Game Engine v10
+# Open War Game Engine v11
 
-Maritime action-reaction test pack.
+Maritime game layer prototype.
 
-Adds:
-- expanded maritime inject library
-- maritime-focused red response flow
-- same facilitator/player setup as v9
+Features:
+- geographic-looking coastline and ports
+- asset-based Blue play
+- movement, asset, and time pressure
+- map incidents and turn timeline

@@ -1,265 +1,153 @@
 
-const STORAGE_KEY = 'owge_v10_state';
+const STORAGE_KEY = 'owge_v11_state';
 const defaultState = {
   scenario: {
     name: "Northern Corridor Crisis",
-    overview: "A fictional regional crisis is unfolding around a contested maritime corridor. Blue is tasked with protecting territorial waters, maintaining shipping confidence, and preventing coercive disruption below open conflict.",
-    level: "operational",
-    conflict_mode: "grey_zone",
-    domains: ["maritime","information","cyber","logistics"],
-    initial_blue_situation: "Blue maritime forces are present in and around territorial waters while irregular interference, traffic ambiguity, and commercial concern rise around the corridor.",
+    overview: "Blue must protect territorial waters, keep the corridor open, and prevent coercive maritime disruption while operating under time pressure.",
     turn: 1,
-    escalation_stage: 1,
-    current_time_label: "H+0",
-    current_situation: "Blue maritime forces are present in and around territorial waters while irregular interference, traffic ambiguity, and commercial concern rise around the corridor."
+    timeLabel: "H+0",
+    movementPressure: 0,
+    timePressure: 0,
+    assetPressure: 0,
+    currentSituation: "Commercial confidence is weakening as irregular maritime interference rises near the corridor and port approaches."
   },
-  session: {
-    session_name: "Maritime Test Session",
-    cells: [
-      {"id":"blue-maritime","name":"Blue Maritime","domain":"maritime","role_type":"blue"},
-      {"id":"blue-port","name":"Blue Port Authority","domain":"logistics","role_type":"blue"}
-    ]
-  },
-  cellActions: {},
-  latestIntentByCell: {},
-  suggestedInjects: [],
+  assets: [
+    {id:"PV-ALPHA", name:"Patrol Vessel Alpha", type:"patrol_vessel", status:"available", zone:"main_port"},
+    {id:"PV-BRAVO", name:"Patrol Vessel Bravo", type:"patrol_vessel", status:"available", zone:"territorial_waters"},
+    {id:"BT-1", name:"Boarding Team 1", type:"boarding_team", status:"available", zone:"main_port"},
+    {id:"ISR-1", name:"ISR Support Window", type:"isr", status:"available", zone:"offmap"},
+    {id:"PORT-CELL", name:"Port Coordination Cell", type:"port_cell", status:"available", zone:"main_port"}
+  ],
+  incidents: [
+    {id:"INC-1", title:"AIS anomalies", zone:"corridor", severity:"Low"},
+    {id:"INC-2", title:"Commercial concern", zone:"main_port", severity:"Low"}
+  ],
   releasedInjects: [],
-  redResponse: "",
-  playerFeeds: {},
+  selectedActions: {},
   timeline: []
 };
 let state = loadState();
 let injectLibrary = [];
-function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
-function loadState(){ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return deepClone(defaultState); try { return JSON.parse(raw); } catch(e){ return deepClone(defaultState); } }
+
+function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+function loadState(){ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return clone(defaultState); try { return JSON.parse(raw); } catch(e){ return clone(defaultState); } }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function resetState(){ state = deepClone(defaultState); saveState(); renderAll(); }
-window.addEventListener('storage', function(e){ if(e.key===STORAGE_KEY){ state = loadState(); renderAll(); } });
-function getCellFromQuery(){ const params = new URLSearchParams(window.location.search); return params.get('cell'); }
-function ensureMaps(){ state.session.cells.forEach(c => { if(!state.playerFeeds[c.id]) state.playerFeeds[c.id]=[]; if(!state.cellActions[c.id]) state.cellActions[c.id]=[]; }); }
-async function init(){ const resp = await fetch('./data/injects.json'); injectLibrary = await resp.json(); ensureMaps(); bindEvents(); renderAll(); }
+function resetState(){ state = clone(defaultState); saveState(); renderAll(); }
+
+async function init(){
+  const resp = await fetch('./data/injects.json');
+  injectLibrary = await resp.json();
+  bindEvents();
+  renderAll();
+}
 function bindEvents(){
-  if(document.getElementById('addCellBtn')){
-    document.getElementById('addCellBtn').addEventListener('click', function(){ addCellRow(); });
-    document.getElementById('saveSetupBtn').addEventListener('click', saveSetup);
-    document.getElementById('generateRedBtn').addEventListener('click', generateRedResponse);
-    document.getElementById('releaseSelectedBtn').addEventListener('click', releaseSelectedInjects);
-    document.getElementById('nextTurnBtn').addEventListener('click', nextTurn);
-    document.getElementById('resetBtn').addEventListener('click', resetState);
-  }
-  if(document.getElementById('playerSubmitBtn')) document.getElementById('playerSubmitBtn').addEventListener('click', playerSubmitBlueAction);
-  if(document.getElementById('playerCellSelect')) document.getElementById('playerCellSelect').addEventListener('change', renderPlayerPage);
+  document.getElementById('resetBtn').addEventListener('click', resetState);
+  document.getElementById('generatePressureBtn').addEventListener('click', generatePressure);
+  document.getElementById('nextTurnBtn').addEventListener('click', nextTurn);
 }
-function detectDomain(text){
-  const t = (text||"").toLowerCase();
-  const rules = [
-    ["maritime", ["ship","ships","vessel","fleet","sea","maritime","port","harbor","harbour","territorial waters","shipping","chokepoint","boarding","escort","patrol","corridor"]],
-    ["information", ["media","narrative","messaging","disinformation","deepfake","press","social media"]],
-    ["cyber", ["cyber","network","server","malware","intrusion","system","systems","digital"]],
-    ["logistics", ["fuel","resupply","logistics","warehouse","transport","inventory","berth","port access","manifest"]],
-    ["air", ["air","aircraft","sortie","radar","isr","flight"]]
-  ];
-  for(let i=0;i<rules.length;i++){ if(rules[i][1].some(term => t.includes(term))) return rules[i][0]; }
-  return 'maritime';
+function severityValue(s){ return ({Low:1, Medium:2, High:3, Strategic:4})[s] || 1; }
+function prettyZone(z){
+  const m = {main_port:'Main Port', north_approach:'North Approach', corridor:'Transit Corridor', territorial_waters:'Territorial Waters', offmap:'Off-map', info_space:'Information Space'};
+  return m[z] || z;
 }
-function parseIntent(text, fallbackDomain){
-  const t = (text||"").toLowerCase();
-  const primary_domain = detectDomain(text) || fallbackDomain || "maritime";
-  let action_type = "general_action";
-  let objective = "situation_management";
-  let tempo = "immediate";
-  let escalation_signal = "low";
-  const triggers = [];
-  const rules = [
-    ["force_posture_increase", ["increase patrol","patrol density","additional ships","increase presence","escort","deploy additional","surge patrol"]],
-    ["territorial_protection", ["protect territorial waters","secure waters","protect shipping","secure shipping lanes","protect corridor","reassure commerce"]],
-    ["boarding_or_interdiction", ["board","interdict","inspect vessel","hail and board"]],
-    ["deconfliction", ["reroute traffic","issue advisory","deconflict","navigation advisory"]],
-    ["containment", ["manual fallback","isolate system","reduce throughput","fallback procedures"]],
-    ["surveillance", ["monitor","observe","track","shadow","surveillance"]]
-  ];
-  for(let i=0;i<rules.length;i++){ if(rules[i][1].some(p => t.includes(p))) triggers.push(rules[i][0]); }
-  if(triggers.includes("force_posture_increase")) action_type = "force_posture_increase";
-  if(triggers.includes("boarding_or_interdiction")) action_type = "boarding_or_interdiction";
-  if(triggers.includes("deconfliction")) action_type = "deconfliction";
-  if(triggers.includes("containment")) action_type = "containment";
-  if(triggers.includes("surveillance")) action_type = "surveillance";
-  if(triggers.includes("territorial_protection")) objective = "territorial_protection";
-  if(triggers.includes("containment")) objective = "continuity_of_operations";
-  if(triggers.includes("surveillance")) objective = "situational_awareness";
-  if(t.includes("immediately") || t.includes("urgent")) tempo = "urgent";
-  if(t.includes("increase") || t.includes("deploy") || t.includes("escort") || t.includes("board")) escalation_signal = "moderate";
-  if(t.includes("interdict") || t.includes("detain") || t.includes("seize")) escalation_signal = "high";
-  return { primary_domain, action_type, objective, tempo, escalation_signal, confidence: triggers.length?0.84:0.60, trigger_phrases: triggers };
-}
-function addCellRow(cell){
-  const container = document.getElementById('cellsEditor'); if(!container) return;
-  const c = cell || {id:"", name:"", domain:"maritime", role_type:"blue"};
-  const row = document.createElement('div');
-  row.className = 'card cell-row';
-  row.innerHTML = '<div class="grid3">'+
-    '<div><label>Cell name</label><input type="text" class="cell-name" value="'+c.name+'"></div>'+
-    '<div><label>Cell domain</label><select class="cell-domain">'+
-    ["maritime","logistics","information","cyber","air"].map(d => '<option value="'+d+'" '+(c.domain===d?'selected':'')+'>'+d+'</option>').join('')+
-    '</select></div>'+
-    '<div><label>Role type</label><select class="cell-role"><option value="blue" selected>blue</option></select></div>'+
-    '</div><button class="secondary remove-cell-btn" type="button">Remove Cell</button>';
-  container.appendChild(row);
-  row.querySelector('.remove-cell-btn').addEventListener('click', function(){ row.remove(); });
-}
-function slugify(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
-function saveSetup(){
-  const rows = Array.from(document.querySelectorAll('.cell-row'));
-  const cells = rows.map((row, idx) => {
-    const name = row.querySelector('.cell-name').value.trim() || ('Blue Cell '+(idx+1));
-    return { id: slugify(name) || ('blue-cell-'+(idx+1)), name: name, domain: row.querySelector('.cell-domain').value, role_type: 'blue' };
-  });
-  state.session.session_name = document.getElementById('sessionName').value.trim() || "Maritime Test Session";
-  state.session.cells = cells;
-  ensureMaps();
+function setAssetAction(assetId, zone, mode){
+  state.selectedActions[assetId] = {zone: zone, mode: mode};
   saveState();
-  renderAll();
 }
-function playerSubmitBlueAction(){
-  const cellId = getActivePlayerCellId();
-  const txt = document.getElementById('playerBlueAction').value.trim();
-  if(!cellId || !txt) return;
-  const cell = state.session.cells.find(c => c.id===cellId);
-  const intent = parseIntent(txt, cell ? cell.domain : null);
-  state.cellActions[cellId] = state.cellActions[cellId] || [];
-  state.cellActions[cellId].push({ turn: state.scenario.turn, time: state.scenario.current_time_label, text: txt, submitted_by: cellId });
-  state.latestIntentByCell[cellId] = intent;
-  saveState();
-  document.getElementById('playerBlueAction').value = '';
-  renderAll();
-}
-function aggregateBlueActionSummary(){
-  const entries = state.session.cells.map(c => {
-    const actions = state.cellActions[c.id] || [];
-    const last = actions.length ? actions[actions.length - 1] : null;
-    if(!last || last.turn !== state.scenario.turn) return null;
-    return c.name + ' acted in the ' + c.domain + ' domain.';
-  }).filter(Boolean);
-  return entries.length ? entries.join(' ') : 'No Blue cell actions submitted this turn.';
-}
-function collectDomainsThisTurn(){
-  const domains = [];
-  state.session.cells.forEach(c => {
-    const actions = state.cellActions[c.id] || [];
-    const last = actions.length ? actions[actions.length - 1] : null;
-    if(last && last.turn === state.scenario.turn){
-      const intent = state.latestIntentByCell[c.id];
-      const d = (intent && intent.primary_domain) || c.domain;
-      if(domains.indexOf(d)===-1) domains.push(d);
+function applyAssetDecisions(){
+  state.assets.forEach(a => {
+    const act = state.selectedActions[a.id];
+    if(act){
+      a.zone = act.zone;
+      a.status = act.mode === 'commit' ? 'committed' : (act.mode === 'delay' ? 'delayed' : 'available');
+    } else if(a.status === 'committed') {
+      a.status = 'available';
     }
   });
-  return domains;
 }
-function severityScore(sev){ return ({Low:1, Medium:2, High:3, Strategic:4})[sev] || 99; }
-function generateRedResponse(){
-  const domains = collectDomainsThisTurn();
-  const effectiveDomains = domains.length ? domains : ['maritime'];
-  let matches = injectLibrary.filter(i => effectiveDomains.includes(i.domain) && i.level===state.scenario.level && (i.conflict_mode===state.scenario.conflict_mode || i.conflict_mode==='grey_zone'));
-  matches.sort((a,b) => severityScore(a.severity)-severityScore(b.severity));
-  state.suggestedInjects = matches.slice(0, 8).map(i => i.id);
-  const hintText = Object.values(state.latestIntentByCell).map(i => i ? i.action_type : null).filter(Boolean).join(', ') || 'general maritime activity';
-  state.redResponse = 'Red assesses Blue activity as ' + hintText + '. It responds with calibrated maritime counter-pressure, beginning with ambiguity and commercial friction before moving toward coercive disruption if Blue increases tempo or visibility.';
-  saveState();
-  renderAll();
-}
-function releaseSelectedInjects(){
-  const checkedInjects = Array.from(document.querySelectorAll('input.inject-pick:checked')).map(x => x.value);
-  const selectedCells = Array.from(document.querySelectorAll('input.cell-pick:checked')).map(x => x.value);
-  checkedInjects.forEach(id => {
-    const inj = injectLibrary.find(x => x.id===id);
-    if(!inj) return;
-    if(state.releasedInjects.indexOf(id)===-1) state.releasedInjects.push(id);
-    const targets = selectedCells.length ? selectedCells : state.session.cells.map(c => c.id);
-    targets.forEach(cellId => {
-      state.playerFeeds[cellId] = state.playerFeeds[cellId] || [];
-      state.playerFeeds[cellId].push({ turn: state.scenario.turn, time: state.scenario.current_time_label, inject_id: inj.id, text: inj.situation });
-    });
+function generatePressure(){
+  applyAssetDecisions();
+  const zonesCovered = {};
+  state.assets.forEach(a => { if(a.status !== 'delayed') zonesCovered[a.zone] = (zonesCovered[a.zone] || 0) + 1; });
+  let suggested = injectLibrary.filter(i => {
+    if(i.zone === 'info_space') return true;
+    const weak = !zonesCovered[i.zone];
+    const strainedPort = i.zone === 'main_port' && (zonesCovered['main_port'] || 0) < 2;
+    const corridorThin = i.zone === 'corridor' && (zonesCovered['corridor'] || 0) < 1;
+    const territorialThin = i.zone === 'territorial_waters' && (zonesCovered['territorial_waters'] || 0) < 1;
+    return weak || strainedPort || corridorThin || territorialThin;
   });
+  suggested.sort((a,b) => severityValue(a.severity) - severityValue(b.severity));
+  state.releasedInjects = suggested.slice(0, 4);
+  state.scenario.movementPressure = Math.max(0, 3 - ((zonesCovered['corridor'] || 0) + (zonesCovered['territorial_waters'] || 0)));
+  state.scenario.assetPressure = state.assets.filter(a => a.status !== 'available').length;
+  state.scenario.timePressure = state.scenario.turn;
   saveState();
   renderAll();
 }
-function advanceTime(turn){ if(turn<=3) return 'H+'+turn; if(turn<=7) return 'Day '+(turn-2); return 'Week '+(turn-6); }
+function nextTimeLabel(turn){
+  if(turn <= 4) return 'H+' + (turn - 1);
+  if(turn <= 8) return 'Day ' + (turn - 4);
+  return 'Week ' + (turn - 8);
+}
 function nextTurn(){
-  const injectTexts = state.releasedInjects.map(id => { const inj = injectLibrary.find(x => x.id===id); return inj ? inj.situation : null; }).filter(Boolean);
-  const summary = aggregateBlueActionSummary() + ' Over the next period, ' + (injectTexts.length ? injectTexts.join(' Meanwhile, ') : 'no additional maritime incidents were released.') + ' Meanwhile, Red maintained pressure across the corridor and shaped conditions for follow-on coercive moves. The operating picture evolved and requires renewed assessment.';
-  state.timeline.push({ turn: state.scenario.turn, time: state.scenario.current_time_label, text: summary });
-  state.scenario.current_situation = summary;
+  applyAssetDecisions();
+  const injectText = state.releasedInjects.length ? state.releasedInjects.map(i => i.situation).join(' Meanwhile, ') : 'no major new incidents materialised.';
+  const assetText = state.assets.map(a => a.name + ' is ' + a.status + ' in ' + prettyZone(a.zone)).join('; ');
+  const summary = 'Blue reallocated maritime assets across the battlespace. Over the next period, ' + injectText + ' Asset posture evolved as follows: ' + assetText + '. Loss of movement space, asset commitment, and time pressure now shape the next decision window.';
+  state.timeline.unshift({turn: state.scenario.turn, time: state.scenario.timeLabel, text: summary});
+  state.releasedInjects.forEach((inj, idx) => {
+    state.incidents.push({id: 'INC-' + (state.incidents.length + idx + 1), title: inj.title, zone: inj.zone, severity: inj.severity});
+  });
+  state.scenario.currentSituation = summary;
   state.scenario.turn += 1;
-  if(state.scenario.turn % 3 === 0) state.scenario.escalation_stage += 1;
-  state.scenario.current_time_label = advanceTime(state.scenario.turn);
-  state.suggestedInjects = [];
+  state.scenario.timeLabel = nextTimeLabel(state.scenario.turn);
+  state.selectedActions = {};
   state.releasedInjects = [];
-  state.redResponse = "";
   saveState();
   renderAll();
+}
+function zoneCoords(zone, offset){
+  const base = {main_port:{x:175,y:255}, north_approach:{x:350,y:120}, corridor:{x:430,y:290}, territorial_waters:{x:300,y:250}, offmap:{x:610,y:120}, info_space:{x:560,y:500}}[zone] || {x:430,y:290};
+  return {x: base.x + ((offset % 3) * 14), y: base.y + ((offset % 4) * 12)};
 }
 function renderScenario(){
-  const el = document.getElementById('scenarioPanel'); if(!el) return;
-  const s = state.scenario;
-  el.innerHTML = '<div><strong>'+s.name+'</strong></div><div class="small">'+s.overview+'</div><div class="row" style="margin-top:10px"><span class="tag">Turn: '+s.turn+'</span><span class="tag">Time: '+s.current_time_label+'</span><span class="tag">Escalation: '+s.escalation_stage+'</span><span class="tag">Level: '+s.level+'</span><span class="tag">Conflict: '+s.conflict_mode+'</span></div><p><strong>Current situation</strong><br>'+s.current_situation+'</p>';
+  const el = document.getElementById('scenarioPanel');
+  el.innerHTML = '<div><strong>' + state.scenario.name + '</strong></div><div class="small">' + state.scenario.overview + '</div><div class="row" style="margin-top:10px"><span class="tag">Turn: ' + state.scenario.turn + '</span><span class="tag">Time: ' + state.scenario.timeLabel + '</span><span class="tag">Movement Pressure: ' + state.scenario.movementPressure + '</span><span class="tag">Asset Pressure: ' + state.scenario.assetPressure + '</span><span class="tag">Time Pressure: ' + state.scenario.timePressure + '</span></div><p><strong>Current situation</strong><br>' + state.scenario.currentSituation + '</p>';
 }
-function renderSetup(){
-  const input = document.getElementById('sessionName');
-  const editor = document.getElementById('cellsEditor');
-  const links = document.getElementById('playerLinks');
-  if(!input || !editor || !links) return;
-  input.value = state.session.session_name || "Maritime Test Session";
-  editor.innerHTML = '';
-  state.session.cells.forEach(c => addCellRow(c));
-  links.innerHTML = state.session.cells.map(c => '<div class="linkbox"><strong>'+c.name+'</strong><br>'+window.location.origin+window.location.pathname.replace('index.html','player.html')+'?cell='+encodeURIComponent(c.id)+'</div>').join('');
-}
-function renderCellActions(){
-  const el = document.getElementById('cellActionsPanel'); if(!el) return;
-  el.innerHTML = state.session.cells.map(c => {
-    const actions = state.cellActions[c.id] || [];
-    const last = actions.length ? actions[actions.length - 1] : null;
-    const intent = state.latestIntentByCell[c.id];
-    return '<div class="card"><div><strong>'+c.name+'</strong></div><div class="row"><span class="tag">'+c.domain+'</span><span class="tag">'+c.id+'</span></div><div>'+(last ? last.text : '<span class="small">No action submitted yet.</span>')+'</div>'+(intent ? '<div class="small" style="margin-top:8px">Intent: '+intent.action_type+' · '+intent.objective+' · '+intent.primary_domain+'</div>' : '')+'</div>';
+function renderAssets(){
+  const el = document.getElementById('assetsPanel');
+  el.innerHTML = state.assets.map(a => {
+    const sel = state.selectedActions[a.id] || {zone: a.zone, mode: 'commit'};
+    return '<div class="card asset ' + a.status + '"><div><strong>' + a.name + '</strong></div><div class="row"><span class="tag">' + a.type + '</span><span class="tag">' + a.status + '</span><span class="tag">' + prettyZone(a.zone) + '</span></div><div class="row"><select id="zone-' + a.id + '">' +
+      ['main_port','north_approach','corridor','territorial_waters','offmap'].map(z => '<option value="' + z + '" ' + (sel.zone===z?'selected':'') + '>' + prettyZone(z) + '</option>').join('') +
+      '</select><select id="mode-' + a.id + '"><option value="commit" ' + (sel.mode==='commit'?'selected':'') + '>Commit</option><option value="hold" ' + (sel.mode==='hold'?'selected':'') + '>Hold</option><option value="delay" ' + (sel.mode==='delay'?'selected':'') + '>Delayed</option></select><button onclick="setAssetAction(\'' + a.id + '\', document.getElementById(\'zone-' + a.id + '\').value, document.getElementById(\'mode-' + a.id + '\').value)">Set</button></div></div>';
   }).join('');
-  document.getElementById('aggregateBlueSummary').textContent = aggregateBlueActionSummary();
 }
-function renderSuggestedInjects(){
-  const el = document.getElementById('suggestedInjects');
-  const audience = document.getElementById('injectAudience');
-  if(!el || !audience) return;
-  if(!state.suggestedInjects.length) el.innerHTML = '<div class="small">No inject suggestions yet.</div>';
-  else el.innerHTML = state.suggestedInjects.map(id => {
-    const inj = injectLibrary.find(x => x.id===id);
-    if(!inj) return '';
-    return '<label class="card"><input class="inject-pick" type="checkbox" value="'+inj.id+'"><div><strong>'+inj.id+'</strong> · '+inj.title+'</div><div class="row"><span class="tag">'+inj.domain+'</span><span class="tag">'+inj.severity+'</span></div><div>'+inj.situation+'</div><div class="small">Decision required: '+inj.decision_required+'</div></label>';
+function renderInjects(){
+  const el = document.getElementById('injectsPanel');
+  if(!state.releasedInjects.length){ el.innerHTML = '<div class="small">No new pressure generated yet. Commit assets and click Generate Pressure.</div>'; return; }
+  el.innerHTML = state.releasedInjects.map(i => '<div class="card"><div><strong>' + i.id + '</strong> · ' + i.title + '</div><div class="row"><span class="tag">' + i.domain + '</span><span class="tag">' + i.severity + '</span><span class="tag">' + prettyZone(i.zone) + '</span></div><div>' + i.situation + '</div></div>').join('');
+}
+function renderMap(){
+  const el = document.getElementById('mapPanel');
+  const incidentDots = state.incidents.map((inc, idx) => {
+    const pos = zoneCoords(inc.zone, idx);
+    const color = (inc.severity==='High' || inc.severity==='Strategic') ? '#ef4444' : (inc.severity==='Medium' ? '#f59e0b' : '#facc15');
+    return '<circle cx="' + pos.x + '" cy="' + pos.y + '" r="' + (5 + severityValue(inc.severity)) + '" fill="' + color + '" opacity="0.9"></circle><text x="' + (pos.x + 8) + '" y="' + (pos.y - 8) + '" class="incident-label">' + inc.title + '</text>';
   }).join('');
-  audience.innerHTML = '<div class="small">Select audience (leave empty = all cells)</div>' + state.session.cells.map(c => '<label class="tag"><input class="cell-pick" type="checkbox" value="'+c.id+'"> '+c.name+'</label>').join(' ');
+  const assetIcons = state.assets.map((a, idx) => {
+    const pos = zoneCoords(a.zone, idx + 1);
+    const symbol = a.type === 'boarding_team' ? '△' : (a.type === 'isr' ? '◌' : (a.type === 'port_cell' ? '▣' : '▲'));
+    const color = a.status==='delayed' ? '#ef4444' : (a.status==='committed' ? '#60a5fa' : '#cbd5e1');
+    return '<text x="' + pos.x + '" y="' + pos.y + '" font-size="18" fill="' + color + '">' + symbol + '</text><text x="' + (pos.x + 12) + '" y="' + (pos.y + 4) + '" class="asset-label">' + a.id + '</text>';
+  }).join('');
+  el.innerHTML = '<div class="mapwrap"><svg viewBox="0 0 760 560" width="100%" height="100%"><rect x="0" y="0" width="760" height="560" fill="#082032"></rect><path d="M0,0 L0,560 L250,560 C280,500 300,430 285,380 C270,320 300,280 320,240 C350,180 340,120 310,70 C285,30 250,10 215,0 Z" fill="#274c3a" stroke="#4b7c59" stroke-width="2"></path><path d="M210,70 C260,95 275,155 255,210 C235,265 210,315 225,380 C240,440 220,500 195,560" fill="none" stroke="#9ec5a4" stroke-width="3" opacity="0.6"></path><ellipse cx="430" cy="290" rx="115" ry="200" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="8 8" opacity="0.7"></ellipse><text x="380" y="85" class="zone-label">Transit Corridor</text><ellipse cx="300" cy="250" rx="65" ry="90" fill="none" stroke="#93c5fd" stroke-width="2" opacity="0.6"></ellipse><text x="245" y="145" class="zone-label">Territorial Waters</text><ellipse cx="350" cy="120" rx="85" ry="55" fill="none" stroke="#60a5fa" stroke-width="2" opacity="0.5"></ellipse><text x="300" y="55" class="zone-label">North Approach</text><circle cx="175" cy="255" r="9" fill="#fde68a"></circle><text x="188" y="260" class="port-label">Main Port</text><text x="540" y="40" class="zone-label">Open Sea</text><text x="560" y="520" class="zone-label">Information Space</text>' + incidentDots + assetIcons + '</svg></div><div class="legend">▲ patrol vessel · △ boarding team · ◌ ISR · ▣ coordination cell. Colored circles show incident intensity.</div>';
 }
-function renderRedResponse(){ const el = document.getElementById('redResponse'); if(el) el.textContent = state.redResponse || 'No Red response generated yet.'; }
 function renderTimeline(){
-  const el = document.getElementById('timeline'); if(!el) return;
-  if(!state.timeline.length){ el.innerHTML = '<div class="small">No timeline entries yet.</div>'; return; }
-  el.innerHTML = state.timeline.map(t => '<div class="card"><div><strong>Turn '+t.turn+'</strong> · '+t.time+'</div><div>'+t.text+'</div></div>').join('');
+  const el = document.getElementById('timelinePanel');
+  if(!state.timeline.length){ el.innerHTML = '<div class="small">No turns resolved yet.</div>'; return; }
+  el.innerHTML = state.timeline.map(t => '<div class="timeline-item"><strong>Turn ' + t.turn + '</strong> · ' + t.time + '<br>' + t.text + '</div>').join('');
 }
-function getActivePlayerCellId(){ const q = getCellFromQuery(); if(q) return q; const sel = document.getElementById('playerCellSelect'); return sel ? sel.value : null; }
-function renderPlayerPage(){
-  const cellSelect = document.getElementById('playerCellSelect');
-  const scenario = document.getElementById('playerScenario');
-  const feed = document.getElementById('playerFeed');
-  const playerMeta = document.getElementById('playerMeta');
-  if(!scenario) return;
-  if(cellSelect){
-    const current = getCellFromQuery() || cellSelect.value || (state.session.cells[0] && state.session.cells[0].id);
-    cellSelect.innerHTML = state.session.cells.map(c => '<option value="'+c.id+'" '+(c.id===current?'selected':'')+'>'+c.name+'</option>').join('');
-  }
-  const cellId = getActivePlayerCellId() || (state.session.cells[0] && state.session.cells[0].id);
-  const cell = state.session.cells.find(c => c.id===cellId);
-  if(playerMeta) playerMeta.innerHTML = cell ? '<span class="tag">'+cell.name+'</span><span class="tag">'+cell.domain+'</span>' : '<span class="small">No active cell selected.</span>';
-  const s = state.scenario;
-  scenario.innerHTML = '<div><strong>'+s.name+'</strong></div><div class="small">'+s.overview+'</div><div class="row" style="margin-top:10px"><span class="tag">Turn: '+s.turn+'</span><span class="tag">Time: '+s.current_time_label+'</span></div><p><strong>Current situation</strong><br>'+s.current_situation+'</p>';
-  const items = state.playerFeeds[cellId] || [];
-  if(!items.length) feed.innerHTML = '<div class="small">No player-visible injects released yet for this cell.</div>';
-  else feed.innerHTML = items.map(item => '<div class="card"><div><strong>Turn '+item.turn+'</strong> · '+item.time+'</div><div>'+item.text+'</div></div>').join('');
-}
-function renderAll(){ ensureMaps(); renderScenario(); renderSetup(); renderCellActions(); renderSuggestedInjects(); renderRedResponse(); renderTimeline(); renderPlayerPage(); }
+function renderAll(){ renderScenario(); renderAssets(); renderInjects(); renderMap(); renderTimeline(); }
 init();
