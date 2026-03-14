@@ -5,7 +5,9 @@
     "severity": "Low",
     "title": "AIS anomalies near corridor",
     "situation": "Multiple commercial vessels report intermittent AIS inconsistencies near the transit corridor.",
-    "zone": "corridor"
+    "zone": "corridor",
+    "lat": 54.85,
+    "lon": 7.8
   },
   {
     "id": "OWGE-MAR-002",
@@ -13,7 +15,9 @@
     "severity": "Low",
     "title": "Fishing fleet obstruction",
     "situation": "Fishing vessels slow movement near the northern approach.",
-    "zone": "north_approach"
+    "zone": "north_approach",
+    "lat": 55.05,
+    "lon": 7.55
   },
   {
     "id": "OWGE-MAR-003",
@@ -21,7 +25,9 @@
     "severity": "Medium",
     "title": "Loitering unflagged vessel",
     "situation": "An unflagged vessel mirrors Blue patrol movement near territorial waters.",
-    "zone": "territorial_waters"
+    "zone": "territorial_waters",
+    "lat": 54.72,
+    "lon": 7.42
   },
   {
     "id": "OWGE-MAR-004",
@@ -29,7 +35,9 @@
     "severity": "Medium",
     "title": "Port pilot absenteeism",
     "situation": "Port pilot absenteeism delays harbor traffic and outbound support movement.",
-    "zone": "main_port"
+    "zone": "main_port",
+    "lat": 54.52,
+    "lon": 7.08
   },
   {
     "id": "OWGE-MAR-005",
@@ -37,7 +45,9 @@
     "severity": "Medium",
     "title": "Edited boarding footage spreads online",
     "situation": "A clipped video implies aggressive Blue treatment of civilian crews.",
-    "zone": "info_space"
+    "zone": "info_space",
+    "lat": 54.95,
+    "lon": 8.15
   },
   {
     "id": "OWGE-MAR-006",
@@ -45,7 +55,9 @@
     "severity": "High",
     "title": "Navigation beacon outage",
     "situation": "A critical navigation beacon fails and compresses shipping into tighter lanes.",
-    "zone": "corridor"
+    "zone": "corridor",
+    "lat": 54.9,
+    "lon": 7.78
   },
   {
     "id": "OWGE-MAR-007",
@@ -53,7 +65,9 @@
     "severity": "High",
     "title": "Close pass by shadow vessel",
     "situation": "A suspicious vessel creates collision risk near a Blue patrol unit.",
-    "zone": "territorial_waters"
+    "zone": "territorial_waters",
+    "lat": 54.68,
+    "lon": 7.46
   },
   {
     "id": "OWGE-MAR-008",
@@ -61,6 +75,8 @@
     "severity": "High",
     "title": "Harbor access disruption",
     "situation": "Digital disruption slows harbor entry and military support throughput.",
-    "zone": "main_port"
+    "zone": "main_port",
+    "lat": 54.5,
+    "lon": 7.1
   }
 ]

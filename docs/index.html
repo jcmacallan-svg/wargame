@@ -2,38 +2,61 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v11</title>
+  <title>Open War Game Engine v12</title>
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 </head>
 <body>
 <header>
-  <h1>Open War Game Engine v11</h1>
-  <div class="small">Maritime game layer prototype · geographic coastline · assets · movement / asset / time pressure</div>
+  <h1>Open War Game Engine v12</h1>
+  <div class="small">Interactive maritime map layer · OSM + OpenSeaMap overlay · assets and incidents on map</div>
 </header>
+
 <div class="container">
   <div class="panel">
     <h2>Scenario State</h2>
     <div id="scenarioPanel"></div>
+    <div class="row" style="margin-top:12px">
+      <label class="small" for="overlaySelect">Chart overlay</label>
+      <select id="overlaySelect">
+        <option value="openseamap">OSM + OpenSeaMap</option>
+        <option value="osm">OSM only</option>
+      </select>
+    </div>
+
     <h2 style="margin-top:18px">Blue Assets</h2>
-    <div class="small">Commit assets to zones. The more you commit, the less flexibility you keep for later turns.</div>
+    <div class="small">Commit assets to zones. You can also drag asset markers on the map to shift proposed zone assignment.</div>
     <div id="assetsPanel"></div>
     <button id="generatePressureBtn">Generate Pressure</button>
     <button id="nextTurnBtn" class="secondary">Resolve Turn</button>
     <button id="resetBtn" class="secondary">Reset Game State</button>
   </div>
+
   <div class="panel">
     <h2>Battlespace Map</h2>
-    <div id="mapPanel"></div>
+    <div id="map"></div>
+    <div class="legend-box">
+      ▲ patrol vessel · △ boarding team · ◌ ISR · ▣ coordination cell<br>
+      Colored circles show incident intensity. Zones are maritime decision spaces.
+    </div>
   </div>
+
   <div class="panel">
     <h2>Generated Pressure / Incidents</h2>
     <div id="injectsPanel"></div>
     <h2 style="margin-top:18px">Turn Timeline</h2>
     <div id="timelinePanel"></div>
-    <h2 style="margin-top:18px">How this version plays</h2>
-    <div class="small">1. Move or commit assets to maritime zones.<br>2. Generate pressure based on weakly covered areas.<br>3. Resolve the turn and watch the map and pressure state evolve.<br>4. Feel pressure through loss of movement space, committed assets, and time.</div>
+    <h2 style="margin-top:18px">What changed in v12</h2>
+    <div class="small">
+      The map is now the main game view. Blue assets and Red pressure appear geographically.
+      Pressure is still driven by your own game logic, while the nautical overlay provides the maritime battlespace feel.
+    </div>
   </div>
 </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="./app.js"></script>
 </body>
 </html>
