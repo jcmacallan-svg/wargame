@@ -1,19 +1,18 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OWGE Scenario",
   "type": "object",
   "required": [
     "name",
+    "overview",
     "level",
     "conflict_mode",
     "domains",
-    "overview",
-    "initial_blue_situation",
-    "turns",
-    "red_commander_profile"
+    "initial_blue_situation"
   ],
   "properties": {
     "name": {
+      "type": "string"
+    },
+    "overview": {
       "type": "string"
     },
     "level": {
@@ -36,62 +35,17 @@
     "domains": {
       "type": "array",
       "items": {
-        "type": "string",
-        "enum": [
-          "land",
-          "air",
-          "maritime",
-          "cyber",
-          "space",
-          "information",
-          "logistics"
-        ]
-      },
-      "minItems": 1
-    },
-    "overview": {
-      "type": "string"
+        "type": "string"
+      }
     },
     "initial_blue_situation": {
       "type": "string"
     },
-    "turns": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 20
-    },
     "turn": {
-      "type": "integer",
-      "minimum": 1
+      "type": "integer"
     },
     "escalation_stage": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 4
-    },
-    "red_commander_profile": {
-      "type": "string",
-      "enum": [
-        "grey_zone_opportunist",
-        "peer_competitor",
-        "insurgent_network",
-        "regional_coercer"
-      ]
-    },
-    "objectives": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "seed_events": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "current_situation": {
-      "type": "string"
+      "type": "integer"
     }
   }
 }

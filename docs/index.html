@@ -1,162 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
+
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Open War Game Engine</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <title>Open War Game Engine v8 - Facilitator</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <h1 id="appTitle">Open War Game Engine</h1>
-      <p id="tagline" class="tagline"></p>
+<header><h1>Open War Game Engine v8</h1><div class="small">Facilitator UI · Phase 1 prototype</div></header>
+<div class="container">
+  <div class="panel">
+    <h2>Scenario</h2>
+    <div id="scenarioPanel"></div>
+    <h2 style="margin-top:18px">Blue Action</h2>
+    <label for="blueAction">Incoming Blue action</label>
+    <textarea id="blueAction" placeholder="Blue naval forces increase patrol density to secure territorial waters near the corridor."></textarea>
+    <button id="submitBlueActionBtn">Submit Blue Action</button>
+    <button id="generateRedBtn">Generate Red Response</button>
+    <button id="nextTurnBtn" class="secondary">Next Turn</button>
+    <button id="resetBtn" class="secondary">Refresh / Reset State</button>
+    <label>Current Blue action</label>
+    <pre id="currentBlueAction"></pre>
+    <h2 style="margin-top:18px">Blue Action Intent Parser</h2>
+    <div id="intentPanel"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Suggested Injects</h2>
+    <div class="small">Suggestions are based on Blue action interpretation and scenario context.</div>
+    <div id="suggestedInjects"></div>
+    <button id="releaseSelectedBtn">Release Selected Injects</button>
+    <h2 style="margin-top:18px">Red Commander</h2>
+    <pre id="redResponse"></pre>
+  </div>
+
+  <div class="panel">
+    <h2>Situation Update Timeline</h2>
+    <div id="timeline"></div>
+    <h2 style="margin-top:18px">How to test Phase 1</h2>
+    <div class="small">
+      Open <code>player.html</code> in a second tab in the same browser.<br>
+      Submit a Blue action on either page.<br>
+      Generate a Red response here, release injects, then press Next Turn.
     </div>
-    <div class="language-box">
-      <label id="languageLabel" for="languageSelect">Language</label>
-      <select id="languageSelect">
-        <option value="en">English</option>
-        <option value="nl">Nederlands</option>
-      </select>
-    </div>
-  </header>
-
-  <main class="layout">
-    <section class="panel left-panel">
-      <h2 id="controlPanelTitle"></h2>
-
-      <div class="panel nested">
-        <h3 id="scenarioEditorTitle"></h3>
-
-        <label id="scenarioNameLabel" for="scenarioName"></label>
-        <input id="scenarioName" type="text" placeholder="Northern Corridor Crisis">
-
-        <div class="grid-two">
-          <div>
-            <label id="scenarioLevelLabel" for="scenarioLevel"></label>
-            <select id="scenarioLevel">
-              <option value="strategic">Strategic</option>
-              <option value="operational">Operational</option>
-              <option value="tactical">Tactical</option>
-            </select>
-          </div>
-          <div>
-            <label id="scenarioConflictLabel" for="scenarioConflict"></label>
-            <select id="scenarioConflict">
-              <option value="hybrid">Hybrid</option>
-              <option value="peer">Peer conflict</option>
-              <option value="grey_zone">Grey zone</option>
-              <option value="coin">Counterinsurgency</option>
-            </select>
-          </div>
-        </div>
-
-        <label id="scenarioDomainsLabel"></label>
-        <div class="domain-grid" id="domainCheckboxes">
-          <label><input type="checkbox" value="land"> <span data-domain="land">Land</span></label>
-          <label><input type="checkbox" value="air"> <span data-domain="air">Air</span></label>
-          <label><input type="checkbox" value="maritime"> <span data-domain="maritime">Maritime</span></label>
-          <label><input type="checkbox" value="cyber"> <span data-domain="cyber">Cyber</span></label>
-          <label><input type="checkbox" value="space"> <span data-domain="space">Space</span></label>
-          <label><input type="checkbox" value="information"> <span data-domain="information">Information</span></label>
-          <label><input type="checkbox" value="logistics"> <span data-domain="logistics">Logistics</span></label>
-        </div>
-
-        <label id="scenarioOverviewLabel" for="scenarioOverviewInput"></label>
-        <textarea id="scenarioOverviewInput" rows="4"></textarea>
-
-        <label id="scenarioBlueLabel" for="scenarioBlue"></label>
-        <textarea id="scenarioBlue" rows="4"></textarea>
-
-        <div class="grid-two">
-          <div>
-            <label id="scenarioTurnsLabel" for="scenarioTurns"></label>
-            <input id="scenarioTurns" type="number" min="1" max="20" value="8">
-          </div>
-          <div>
-            <label id="scenarioRedProfileLabel" for="scenarioRedProfile"></label>
-            <select id="scenarioRedProfile">
-              <option value="grey_zone_opportunist">Grey-zone opportunist</option>
-              <option value="peer_competitor">Peer competitor</option>
-              <option value="insurgent_network">Insurgent network</option>
-              <option value="regional_coercer">Regional coercer</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="button-row">
-          <button id="createScenarioBtn"></button>
-          <button id="randomScenarioBtn"></button>
-        </div>
-        <div class="button-row">
-          <button id="downloadScenarioBtn"></button>
-          <label class="file-label">
-            <span id="uploadScenarioLabel"></span>
-            <input type="file" id="uploadScenarioFile" accept=".json">
-          </label>
-        </div>
-      </div>
-
-      <div class="panel nested">
-        <h3 id="scenarioOverviewTitle"></h3>
-        <div id="scenarioOverviewPanel" class="scenario-overview">No scenario loaded.</div>
-        <div class="stats">
-          <div><strong id="currentTurnLabel"></strong> <span id="currentTurnValue">1</span></div>
-          <div><strong id="escalationStageLabel"></strong> <span id="escalationStageValue">1</span></div>
-          <div><strong id="releasedInjectsLabel"></strong> <span id="releasedInjectsValue">0</span></div>
-        </div>
-      </div>
-
-      <div class="panel nested">
-        <label id="blueActionLabel" for="blueActionInput"></label>
-        <textarea id="blueActionInput" rows="4" placeholder="Blue forces increase the number of ships at sea to protect territorial waters."></textarea>
-        <div class="button-row">
-          <button id="generateRedBtn"></button>
-          <button id="nextTurnBtn"></button>
-        </div>
-        <div class="button-row">
-          <button id="releaseSelectedBtn"></button>
-          <button id="resetScenarioBtn"></button>
-        </div>
-        <div class="button-row">
-          <button id="printCardsBtn"></button>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel middle-panel">
-      <h2 id="injectBrowserTitle"></h2>
-      <p id="injectBrowserHint" class="panel-hint"></p>
-      <div class="filters">
-        <select id="filterLevel"></select>
-        <select id="filterConflict"></select>
-        <select id="filterDomain"></select>
-      </div>
-      <div id="injectList" class="inject-list"></div>
-    </section>
-
-    <section class="panel right-panel">
-      <div class="panel nested">
-        <h3 id="selectedInjectsTitle"></h3>
-        <div id="releasedList" class="released-list"></div>
-      </div>
-      <div class="panel nested">
-        <h3 id="redOutputTitle"></h3>
-        <pre id="redOutput" class="red-output"></pre>
-      </div>
-      <div class="panel nested">
-        <h3 id="situationUpdateTitle"></h3>
-        <div id="situationUpdate" class="situation-update"></div>
-      </div>
-      <div class="panel nested">
-        <h3 id="actionLogTitle"></h3>
-        <div id="actionLog" class="action-log"></div>
-      </div>
-    </section>
-  </main>
-
-  <script src="i18n/en.js"></script>
-  <script src="i18n/nl.js"></script>
-  <script src="app.js"></script>
+  </div>
+</div>
+<script src="./app.js"></script>
 </body>
 </html>

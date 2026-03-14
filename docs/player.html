@@ -1,0 +1,29 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Open War Game Engine v8 - Player</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header><h1>Open War Game Engine v8</h1><div class="small">Player / Blue UI · Phase 1 prototype</div></header>
+<div class="player-container">
+  <div class="panel">
+    <h2>Scenario</h2>
+    <div id="playerScenario"></div>
+    <h2 style="margin-top:18px">Blue Action Input</h2>
+    <label for="playerBlueAction">Submit Blue action</label>
+    <textarea id="playerBlueAction" placeholder="Blue naval forces increase patrol density to secure territorial waters near the corridor."></textarea>
+    <button id="playerSubmitBtn">Send to Facilitator</button>
+    <label>Latest Blue action</label>
+    <pre id="playerLatest"></pre>
+  </div>
+  <div class="panel">
+    <h2>Situation / Inject Feed</h2>
+    <div id="playerFeed"></div>
+  </div>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>
