@@ -2,45 +2,37 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v13 - Player</title>
+  <title>Open War Game Engine v14 - Player</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
 <body>
 <header>
-  <h1>Open War Game Engine v13</h1>
-  <div class="small">Player view with cell-specific feed, asset list, action log, and map</div>
+  <h1>Open War Game Engine v14</h1>
+  <div class="small">Player view with cell-specific feed, action log, and simplified operational map</div>
 </header>
-
 <div class="player-container">
   <div class="panel">
     <h2>Cell Selection</h2>
     <select id="playerCellSelect"></select>
-
     <h2 style="margin-top:18px">Scenario View</h2>
     <div id="playerScenarioPanel"></div>
-
     <h2 style="margin-top:18px">My Assets</h2>
     <div id="playerAssetsPanel"></div>
-
     <h2 style="margin-top:18px">Submit Action</h2>
     <textarea id="playerAction" placeholder="Blue cell requests corridor escort reinforcement and port deconfliction."></textarea>
     <button id="playerSubmitBtn">Send Action to Facilitator</button>
-
     <h2 style="margin-top:18px">My Action Log</h2>
     <div id="playerActionLog"></div>
   </div>
-
   <div class="panel">
     <h2>Player Map</h2>
     <div id="playerMap"></div>
     <div class="legend-box">Player sees own assets plus facilitator-released situation updates.</div>
-
     <h2 style="margin-top:18px">Facilitator Updates</h2>
     <div id="playerFeedPanel"></div>
   </div>
 </div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./app.js"></script>
 </body>

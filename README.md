@@ -1,18 +1,15 @@
-# Open War Game Engine v13
+# Open War Game Engine v14
 
-Maritime game mechanics + modular facilitator/player workflow.
+Adjudication + interactive zone editing prototype.
 
-New in v13:
-- movement costs between zones
-- limited fuel and readiness
-- ISR support as assistance mechanic
-- zone control scoring
-- red presence markers
-- objective scoring and failure conditions
-- facilitator runtime cell builder
-- separate player page with cell-specific view
-- facilitator-editable zone overlay via JSON editor
+New in v14:
+- adjudication engine with success / warning / failure loop
+- red doctrine tracks with triggered reactions
+- facilitator point-and-click zone editing on the map
+- draggable zone centers
+- click-to-select zone, edit radius/name/kind, and save
+- double-click map to create a new zone at that location
+- improved facilitator control over chokepoints / harbors / bottlenecks
+- improved player / facilitator information split
 
-Notes:
-- Frontend prototype for GitHub Pages / local browser use
-- Multi-device live sync still requires a backend
+Still uses localStorage for same-browser-profile prototyping.

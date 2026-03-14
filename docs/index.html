@@ -2,21 +2,19 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v13 - Facilitator</title>
+  <title>Open War Game Engine v14 - Facilitator</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
 <body>
 <header>
-  <h1>Open War Game Engine v13</h1>
-  <div class="small">Maritime mechanics + facilitator-controlled overlays + modular player cells</div>
+  <h1>Open War Game Engine v14</h1>
+  <div class="small">Adjudication + facilitator point-and-click overlay editing + modular player cells</div>
 </header>
-
 <div class="container">
   <div class="panel">
     <h2>Scenario State</h2>
     <div id="scenarioPanel"></div>
-
     <div class="row" style="margin-top:12px">
       <label class="small" for="overlaySelect">Chart overlay</label>
       <select id="overlaySelect">
@@ -31,11 +29,23 @@
     <button id="saveCellsBtn" class="good">Save Cells</button>
     <div id="playerLinks"></div>
 
-    <h2 style="margin-top:18px">Zone Overlay Editor</h2>
-    <div class="small">Facilitator can redefine zones at runtime. No new GitHub upload needed.</div>
-    <textarea id="zonesEditor"></textarea>
-    <button id="saveZonesBtn" class="good">Save Zones</button>
+    <h2 style="margin-top:18px">Selected Zone</h2>
+    <div class="small">Click a zone on the map to edit it. Drag the zone center to move it. Double-click the map to create a new zone.</div>
+    <input id="zoneId" placeholder="zone-id">
+    <input id="zoneName" placeholder="Zone name">
+    <input id="zoneRadius" type="number" placeholder="Radius meters">
+    <select id="zoneKind">
+      <option value="sea">sea</option>
+      <option value="port">port</option>
+      <option value="harbor">harbor</option>
+      <option value="bottleneck">bottleneck</option>
+      <option value="info">info</option>
+      <option value="support">support</option>
+    </select>
+    <button id="saveZonePropsBtn" class="good">Save Zone Properties</button>
+    <button id="deleteZoneBtn" class="warn">Delete Selected Zone</button>
     <button id="resetZonesBtn" class="secondary">Reset Zones</button>
+    <div id="zoneList"></div>
 
     <h2 style="margin-top:18px">Blue Assets</h2>
     <div class="small">Assets have fuel and readiness. ISR reduces movement cost by 1 for other assets.</div>
@@ -49,7 +59,7 @@
     <h2>Battlespace Map</h2>
     <div id="map"></div>
     <div class="legend-box">
-      ▲ patrol vessel · △ boarding team · ◌ ISR · ▣ coordination cell<br>
+      Click zone = select zone · drag invisible zone center handle = move zone · double-click = create new zone.<br>
       Facilitator sees Blue assets, incidents, and Red presence markers.
     </div>
   </div>
@@ -59,14 +69,13 @@
     <div id="injectsPanel"></div>
     <h2 style="margin-top:18px">Turn Timeline</h2>
     <div id="timelinePanel"></div>
-    <h2 style="margin-top:18px">What this version adds</h2>
+    <h2 style="margin-top:18px">What changed in v14</h2>
     <div class="small">
-      Movement now costs fuel, operations reduce readiness, ISR acts as assistance, zone control affects score,
-      Red presence is visible on the facilitator map, and the facilitator can edit overlay zones live.
+      Adjudication now drives score and failure warnings, and overlay control is no longer JSON-only:
+      facilitators can point, click, move, create, and edit zones directly from the map workflow.
     </div>
   </div>
 </div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./app.js"></script>
 </body>
