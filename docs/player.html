@@ -1,26 +1,30 @@
-
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v8 - Player</title>
+  <title>Open War Game Engine v9 - Player</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<header><h1>Open War Game Engine v8</h1><div class="small">Player / Blue UI · Phase 1 prototype</div></header>
+<header>
+  <h1>Open War Game Engine v9</h1>
+  <div class="small">Generic Player / Blue Cell UI</div>
+</header>
 <div class="player-container">
   <div class="panel">
-    <h2>Scenario</h2>
+    <h2>Cell Access</h2>
+    <label>Select cell</label>
+    <select id="playerCellSelect"></select>
+    <div id="playerMeta" class="row" style="margin-top:10px"></div>
+    <h2 style="margin-top:18px">Scenario</h2>
     <div id="playerScenario"></div>
-    <h2 style="margin-top:18px">Blue Action Input</h2>
-    <label for="playerBlueAction">Submit Blue action</label>
-    <textarea id="playerBlueAction" placeholder="Blue naval forces increase patrol density to secure territorial waters near the corridor."></textarea>
-    <button id="playerSubmitBtn">Send to Facilitator</button>
-    <label>Latest Blue action</label>
-    <pre id="playerLatest"></pre>
+    <h2 style="margin-top:18px">Submit Blue Action</h2>
+    <label for="playerBlueAction">Action text</label>
+    <textarea id="playerBlueAction" placeholder="Blue maritime cell increases visible patrols to protect shipping near the corridor."></textarea>
+    <button id="playerSubmitBtn">Send Action</button>
   </div>
   <div class="panel">
-    <h2>Situation / Inject Feed</h2>
+    <h2>Cell Feed</h2>
     <div id="playerFeed"></div>
   </div>
 </div>

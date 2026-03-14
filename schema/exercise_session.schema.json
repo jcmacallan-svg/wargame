@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "session_name": {
+      "type": "string"
+    },
+    "cells": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "role_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "domain",
+          "role_type"
+        ]
+      }
+    }
+  },
+  "required": [
+    "session_name",
+    "cells"
+  ]
+}

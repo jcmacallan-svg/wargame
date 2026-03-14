@@ -70,5 +70,29 @@
     "decision_required": "Disperse, hold, reposition, or request overwatch.",
     "white_cell_notes": "Tests tactical restraint and force protection.",
     "player_visible": true
+  },
+  {
+    "id": "OWGE-INJ-007",
+    "level": "operational",
+    "conflict_mode": "grey_zone",
+    "domain": "logistics",
+    "severity": "Low",
+    "title": "Fuel delivery discrepancy",
+    "situation": "Reported fuel availability and actual stock levels no longer match at a support node.",
+    "decision_required": "Cross-check inventory, reduce tempo, or reassign supply priorities.",
+    "white_cell_notes": "Low-intensity sustainment friction.",
+    "player_visible": true
+  },
+  {
+    "id": "OWGE-INJ-008",
+    "level": "operational",
+    "conflict_mode": "grey_zone",
+    "domain": "information",
+    "severity": "Medium",
+    "title": "Coordinated social media narrative",
+    "situation": "Accounts amplify claims that Blue presence is disrupting civilian traffic and raising insurance risk.",
+    "decision_required": "Issue public clarification, monitor sentiment, or engage port authorities.",
+    "white_cell_notes": "Useful after visible Blue patrol increase.",
+    "player_visible": true
   }
 ]

@@ -1,10 +1,17 @@
-# Open War Game Engine v8
+# Open War Game Engine v9
 
-Phase 1 prototype with:
-- Facilitator UI (`docs/index.html`)
-- Player UI (`docs/player.html`)
-- Blue Action Intent Parser
-- Shared local state using `localStorage`
-- Player-visible inject release flow
+Dynamic Cell Builder prototype.
 
-Use both pages in two tabs in the same browser profile.
+Includes:
+- Facilitator UI with exercise setup builder
+- Generic player UI
+- Runtime creation of Blue cells
+- Blue action intent parsing
+- Per-cell action history
+- Aggregated Blue action summary
+- Cell-targeted inject release
+- Shared state via localStorage (same browser profile / same machine)
+
+Open:
+- docs/index.html
+- docs/player.html
