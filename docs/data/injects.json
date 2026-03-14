@@ -1,6 +1,6 @@
 [
   {
-    "id": "OWGE-MAR-001",
+    "id": "OWGE-MAR-101",
     "domain": "maritime",
     "severity": "Low",
     "title": "AIS anomalies near corridor",
@@ -10,7 +10,7 @@
     "lon": 7.8
   },
   {
-    "id": "OWGE-MAR-002",
+    "id": "OWGE-MAR-102",
     "domain": "maritime",
     "severity": "Low",
     "title": "Fishing fleet obstruction",
@@ -20,7 +20,7 @@
     "lon": 7.55
   },
   {
-    "id": "OWGE-MAR-003",
+    "id": "OWGE-MAR-103",
     "domain": "maritime",
     "severity": "Medium",
     "title": "Loitering unflagged vessel",
@@ -30,7 +30,7 @@
     "lon": 7.42
   },
   {
-    "id": "OWGE-MAR-004",
+    "id": "OWGE-MAR-104",
     "domain": "logistics",
     "severity": "Medium",
     "title": "Port pilot absenteeism",
@@ -40,7 +40,7 @@
     "lon": 7.08
   },
   {
-    "id": "OWGE-MAR-005",
+    "id": "OWGE-MAR-105",
     "domain": "information",
     "severity": "Medium",
     "title": "Edited boarding footage spreads online",
@@ -50,7 +50,7 @@
     "lon": 8.15
   },
   {
-    "id": "OWGE-MAR-006",
+    "id": "OWGE-MAR-106",
     "domain": "maritime",
     "severity": "High",
     "title": "Navigation beacon outage",
@@ -60,7 +60,7 @@
     "lon": 7.78
   },
   {
-    "id": "OWGE-MAR-007",
+    "id": "OWGE-MAR-107",
     "domain": "maritime",
     "severity": "High",
     "title": "Close pass by shadow vessel",
@@ -70,7 +70,7 @@
     "lon": 7.46
   },
   {
-    "id": "OWGE-MAR-008",
+    "id": "OWGE-MAR-108",
     "domain": "cyber",
     "severity": "High",
     "title": "Harbor access disruption",
@@ -78,5 +78,15 @@
     "zone": "main_port",
     "lat": 54.5,
     "lon": 7.1
+  },
+  {
+    "id": "OWGE-MAR-109",
+    "domain": "maritime",
+    "severity": "Strategic",
+    "title": "Commercial route diversion",
+    "situation": "Major carriers begin diverting traffic away from the corridor.",
+    "zone": "corridor",
+    "lat": 54.88,
+    "lon": 7.83
   }
 ]

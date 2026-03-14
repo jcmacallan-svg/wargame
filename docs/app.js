@@ -1,13 +1,19 @@
 
-const STORAGE_KEY = 'owge_v12_state';
-
-const ZONES = {
-  main_port: {name:'Main Port', center:[54.50, 7.10], radius:12000},
-  north_approach: {name:'North Approach', center:[55.03, 7.55], radius:18000},
-  corridor: {name:'Transit Corridor', center:[54.86, 7.80], radius:22000},
-  territorial_waters: {name:'Territorial Waters', center:[54.70, 7.43], radius:16000},
-  info_space: {name:'Information Space', center:[54.95, 8.15], radius:8000},
-  offmap: {name:'Off-map', center:[55.12, 8.40], radius:10000}
+const STORAGE_KEY = 'owge_v13_state';
+const defaultZones = {
+  main_port: {name:'Main Port', center:[54.50, 7.10], radius:12000, kind:'port'},
+  north_approach: {name:'North Approach', center:[55.03, 7.55], radius:18000, kind:'sea'},
+  corridor: {name:'Transit Corridor', center:[54.86, 7.80], radius:22000, kind:'sea'},
+  territorial_waters: {name:'Territorial Waters', center:[54.70, 7.43], radius:16000, kind:'sea'},
+  info_space: {name:'Information Space', center:[54.95, 8.15], radius:8000, kind:'info'},
+  offmap: {name:'Off-map', center:[55.12, 8.40], radius:10000, kind:'support'}
+};
+const movementCosts = {
+  main_port:{main_port:0,north_approach:2,corridor:3,territorial_waters:2,offmap:4},
+  north_approach:{main_port:2,north_approach:0,corridor:2,territorial_waters:3,offmap:3},
+  corridor:{main_port:3,north_approach:2,corridor:0,territorial_waters:2,offmap:2},
+  territorial_waters:{main_port:2,north_approach:3,corridor:2,territorial_waters:0,offmap:3},
+  offmap:{main_port:4,north_approach:3,corridor:2,territorial_waters:3,offmap:0}
 };
 
 const defaultState = {
@@ -19,15 +25,27 @@ const defaultState = {
     movementPressure: 0,
     timePressure: 0,
     assetPressure: 0,
+    shippingConfidence: 6,
+    zoneControlScore: 0,
+    objectiveScore: 0,
+    failureState: "",
     currentSituation: "Commercial confidence is weakening as irregular maritime interference rises near the corridor and port approaches.",
     overlayMode: "openseamap"
   },
+  zones: defaultZones,
+  session: {
+    session_name: "Maritime Session",
+    cells: [
+      {id:"blue-maritime", name:"Blue Maritime", domain:"maritime"},
+      {id:"blue-port", name:"Blue Port Authority", domain:"logistics"}
+    ]
+  },
   assets: [
-    {id:"PV-ALPHA", name:"Patrol Vessel Alpha", type:"patrol_vessel", status:"available", zone:"main_port"},
-    {id:"PV-BRAVO", name:"Patrol Vessel Bravo", type:"patrol_vessel", status:"available", zone:"territorial_waters"},
-    {id:"BT-1", name:"Boarding Team 1", type:"boarding_team", status:"available", zone:"main_port"},
-    {id:"ISR-1", name:"ISR Support Window", type:"isr", status:"available", zone:"offmap"},
-    {id:"PORT-CELL", name:"Port Coordination Cell", type:"port_cell", status:"available", zone:"main_port"}
+    {id:"PV-ALPHA", name:"Patrol Vessel Alpha", type:"patrol_vessel", status:"available", zone:"main_port", fuel:7, readiness:5, assignedCell:"blue-maritime"},
+    {id:"PV-BRAVO", name:"Patrol Vessel Bravo", type:"patrol_vessel", status:"available", zone:"territorial_waters", fuel:7, readiness:5, assignedCell:"blue-maritime"},
+    {id:"BT-1", name:"Boarding Team 1", type:"boarding_team", status:"available", zone:"main_port", fuel:5, readiness:5, assignedCell:"blue-maritime"},
+    {id:"ISR-1", name:"ISR Support Window", type:"isr", status:"available", zone:"offmap", fuel:4, readiness:4, assignedCell:"blue-maritime"},
+    {id:"PORT-CELL", name:"Port Coordination Cell", type:"port_cell", status:"available", zone:"main_port", fuel:5, readiness:5, assignedCell:"blue-port"}
   ],
   incidents: [
     {id:"INC-1", title:"AIS anomalies", zone:"corridor", severity:"Low"},
@@ -35,82 +53,213 @@ const defaultState = {
   ],
   releasedInjects: [],
   selectedActions: {},
+  playerFeedByCell: {"blue-maritime":[],"blue-port":[]},
+  actionLogByCell: {"blue-maritime":[],"blue-port":[]},
   timeline: []
 };
 
 let state = loadState();
 let injectLibrary = [];
-let map, baseLayer, seaLayer, zoneLayers = [], incidentLayers = [], assetLayers = [];
+let map, playerMap, baseLayer, seaLayer, playerBaseLayer, playerSeaLayer, zoneLayers=[], incidentLayers=[], assetLayers=[], redLayers=[], playerZoneLayers=[], playerIncidentLayers=[], playerAssetLayers=[];
 
 function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
 function loadState(){ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return clone(defaultState); try { return JSON.parse(raw); } catch(e){ return clone(defaultState); } }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function resetState(){ state = clone(defaultState); saveState(); renderAll(); initMap(true); }
+function resetState(){ state = clone(defaultState); saveState(); renderAll(); initMaps(true); }
+window.addEventListener('storage', function(e){ if(e.key===STORAGE_KEY){ state = loadState(); renderAll(); initMaps(true); } });
 
 async function init(){
   const resp = await fetch('./data/injects.json');
   injectLibrary = await resp.json();
+  ensureSessionMaps();
   bindEvents();
   renderAll();
-  initMap(true);
+  initMaps(true);
+}
+
+function ensureSessionMaps(){
+  state.session.cells.forEach(c => {
+    if(!state.playerFeedByCell[c.id]) state.playerFeedByCell[c.id] = [];
+    if(!state.actionLogByCell[c.id]) state.actionLogByCell[c.id] = [];
+  });
 }
 
 function bindEvents(){
-  document.getElementById('resetBtn').addEventListener('click', resetState);
-  document.getElementById('generatePressureBtn').addEventListener('click', generatePressure);
-  document.getElementById('nextTurnBtn').addEventListener('click', nextTurn);
-  document.getElementById('overlaySelect').addEventListener('change', e => {
-    state.scenario.overlayMode = e.target.value;
-    saveState();
-    initMap(true);
-  });
+  const facMap = document.getElementById('map');
+  if(facMap){
+    document.getElementById('resetBtn').addEventListener('click', resetState);
+    document.getElementById('generatePressureBtn').addEventListener('click', generatePressure);
+    document.getElementById('nextTurnBtn').addEventListener('click', nextTurn);
+    document.getElementById('overlaySelect').addEventListener('change', e => { state.scenario.overlayMode = e.target.value; saveState(); initMaps(true); });
+    document.getElementById('saveZonesBtn').addEventListener('click', saveZonesFromEditor);
+    document.getElementById('resetZonesBtn').addEventListener('click', resetZones);
+    document.getElementById('addCellBtn').addEventListener('click', addCellRow);
+    document.getElementById('saveCellsBtn').addEventListener('click', saveCells);
+  }
+  const playerSelect = document.getElementById('playerCellSelect');
+  if(playerSelect){
+    playerSelect.addEventListener('change', function(){ renderPlayerPage(); initMaps(true); });
+    document.getElementById('playerSubmitBtn').addEventListener('click', submitPlayerAction);
+  }
 }
 
+function getPlayerCell(){
+  const params = new URLSearchParams(window.location.search);
+  return params.get('cell') || (document.getElementById('playerCellSelect') ? document.getElementById('playerCellSelect').value : (state.session.cells[0] && state.session.cells[0].id));
+}
+
+function prettyZone(z){ return (state.zones[z] && state.zones[z].name) || z; }
 function severityValue(s){ return ({Low:1, Medium:2, High:3, Strategic:4})[s] || 1; }
-function prettyZone(z){ return (ZONES[z] && ZONES[z].name) || z; }
+function statusClass(v){ if(v >= 5) return 'status-bad'; if(v >= 2) return 'status-warn'; return 'status-good'; }
+function incidentColor(sev){ if(sev==='High'||sev==='Strategic') return '#ef4444'; if(sev==='Medium') return '#f59e0b'; return '#facc15'; }
 
 function setAssetAction(assetId, zone, mode){
-  state.selectedActions[assetId] = {zone, mode};
+  state.selectedActions[assetId] = {zone: zone, mode: mode};
   saveState();
   renderAssets();
-  refreshMapMarkers();
+}
+
+function movementCost(fromZone, toZone, assisted){
+  let cost = ((movementCosts[fromZone] || {})[toZone] ?? 3);
+  if(assisted) cost = Math.max(0, cost - 1);
+  return cost;
 }
 
 function applyAssetDecisions(){
+  const hasISR = state.assets.some(a => a.type === 'isr' && (state.selectedActions[a.id]?.mode === 'commit' || a.status === 'committed') && a.readiness > 0 && a.fuel > 0);
   state.assets.forEach(a => {
     const act = state.selectedActions[a.id];
-    if(act){
-      a.zone = act.zone;
-      a.status = act.mode === 'commit' ? 'committed' : (act.mode === 'delay' ? 'delayed' : 'available');
-    } else if(a.status === 'committed') {
-      a.status = 'available';
+    if(!act) return;
+    const cost = movementCost(a.zone, act.zone, hasISR && a.type !== 'isr');
+    a.fuel = Math.max(0, a.fuel - cost);
+    a.readiness = Math.max(0, a.readiness - (act.mode === 'delay' ? 0 : 1));
+    a.zone = act.zone;
+    a.status = act.mode === 'commit' ? 'committed' : (act.mode === 'delay' ? 'delayed' : 'available');
+    if(a.fuel === 0 || a.readiness === 0) a.status = 'delayed';
+  });
+}
+
+function addCellRow(cell){
+  const container = document.getElementById('cellsEditor');
+  if(!container) return;
+  const c = cell || {id:'', name:'', domain:'maritime'};
+  const row = document.createElement('div');
+  row.className = 'card cell-row';
+  row.innerHTML = '<div class="grid2"><div><label>Name</label><input class="cell-name" value="'+(c.name||'')+'"></div><div><label>Domain</label><select class="cell-domain">'+
+    ['maritime','logistics','information','cyber','air','land','space'].map(d => '<option value="'+d+'" '+(c.domain===d?'selected':'')+'>'+d+'</option>').join('')+
+    '</select></div></div><button class="secondary remove-cell-btn">Remove</button>';
+  container.appendChild(row);
+  row.querySelector('.remove-cell-btn').addEventListener('click', function(){ row.remove(); });
+}
+
+function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+
+function saveCells(){
+  const rows = Array.from(document.querySelectorAll('.cell-row'));
+  const cells = rows.map((row, idx) => {
+    const name = row.querySelector('.cell-name').value.trim() || ('Blue Cell '+(idx+1));
+    const domain = row.querySelector('.cell-domain').value;
+    return {id: slugify(name) || ('blue-cell-'+(idx+1)), name, domain};
+  });
+  state.session.cells = cells;
+  state.playerFeedByCell = {};
+  state.actionLogByCell = {};
+  ensureSessionMaps();
+  saveState();
+  renderAll();
+}
+
+function saveZonesFromEditor(){
+  try{
+    const parsed = JSON.parse(document.getElementById('zonesEditor').value);
+    state.zones = parsed;
+    saveState();
+    renderAll();
+    initMaps(true);
+  } catch(e){
+    alert('Zone JSON is invalid.');
+  }
+}
+function resetZones(){
+  state.zones = clone(defaultZones);
+  saveState();
+  renderAll();
+  initMaps(true);
+}
+
+function submitPlayerAction(){
+  const cellId = getPlayerCell();
+  const txt = document.getElementById('playerAction').value.trim();
+  if(!cellId || !txt) return;
+  state.actionLogByCell[cellId].push({turn: state.scenario.turn, time: state.scenario.timeLabel, text: txt});
+  saveState();
+  document.getElementById('playerAction').value = '';
+  renderPlayerPage();
+}
+
+function zoneCoverage(){
+  const coverage = {};
+  Object.keys(state.zones).forEach(k => coverage[k] = 0);
+  state.assets.forEach(a => { if(a.status !== 'delayed') coverage[a.zone] = (coverage[a.zone] || 0) + 1; });
+  return coverage;
+}
+
+function buildRedPresence(coverage){
+  const red = [];
+  Object.keys(state.zones).forEach(key => {
+    if(key === 'offmap' || key === 'info_space') return;
+    const incidentCount = state.incidents.filter(i => i.zone === key).length;
+    const weak = coverage[key] === 0 ? 2 : (coverage[key] === 1 ? 1 : 0);
+    const intensity = incidentCount + weak;
+    if(intensity > 0){
+      red.push({zone:key, intensity:intensity});
     }
   });
+  return red;
+}
+
+function scoreObjectives(coverage, redPresence){
+  let zoneControl = 0;
+  ['main_port','territorial_waters','corridor','north_approach'].forEach(z => {
+    const blue = coverage[z] || 0;
+    const red = (redPresence.find(r => r.zone === z) || {intensity:0}).intensity;
+    if(blue > red) zoneControl += 1;
+    else if(red > blue) zoneControl -= 1;
+  });
+
+  state.scenario.zoneControlScore = zoneControl;
+  state.scenario.objectiveScore = zoneControl + state.scenario.shippingConfidence - state.scenario.assetPressure;
+  if(zoneControl < -2 || state.scenario.shippingConfidence <= 0){
+    state.scenario.failureState = 'Mission failure risk: corridor security and commercial confidence have collapsed.';
+  } else if(state.scenario.objectiveScore >= 8){
+    state.scenario.failureState = 'Mission on track: Blue retains operational initiative.';
+  } else {
+    state.scenario.failureState = '';
+  }
 }
 
 function generatePressure(){
   applyAssetDecisions();
-  const zonesCovered = {};
-  state.assets.forEach(a => { if(a.status !== 'delayed') zonesCovered[a.zone] = (zonesCovered[a.zone] || 0) + 1; });
+  const coverage = zoneCoverage();
+  const redPresence = buildRedPresence(coverage);
 
   let suggested = injectLibrary.filter(i => {
     if(i.zone === 'info_space') return true;
-    const weak = !zonesCovered[i.zone];
-    const strainedPort = i.zone === 'main_port' && (zonesCovered['main_port'] || 0) < 2;
-    const corridorThin = i.zone === 'corridor' && (zonesCovered['corridor'] || 0) < 1;
-    const territorialThin = i.zone === 'territorial_waters' && (zonesCovered['territorial_waters'] || 0) < 1;
-    return weak || strainedPort || corridorThin || territorialThin;
+    const rp = (redPresence.find(r => r.zone === i.zone) || {intensity:0}).intensity;
+    return rp > 0 || (coverage[i.zone] || 0) === 0;
   });
-
   suggested.sort((a,b) => severityValue(a.severity) - severityValue(b.severity));
   state.releasedInjects = suggested.slice(0, 4);
 
-  state.scenario.movementPressure = Math.max(0, 3 - ((zonesCovered['corridor'] || 0) + (zonesCovered['territorial_waters'] || 0)));
+  state.scenario.movementPressure = Math.max(0, 4 - ((coverage['corridor'] || 0) + (coverage['territorial_waters'] || 0)));
   state.scenario.assetPressure = state.assets.filter(a => a.status !== 'available').length;
   state.scenario.timePressure = state.scenario.turn;
+  state.scenario.shippingConfidence = Math.max(0, 8 - state.incidents.filter(i => i.zone === 'corridor' || i.zone === 'main_port').length - state.scenario.movementPressure);
+
+  scoreObjectives(coverage, redPresence);
   saveState();
   renderAll();
-  refreshMapMarkers();
+  initMaps(true);
 }
 
 function nextTimeLabel(turn){
@@ -122,12 +271,17 @@ function nextTimeLabel(turn){
 function nextTurn(){
   applyAssetDecisions();
   const injectText = state.releasedInjects.length ? state.releasedInjects.map(i => i.situation).join(' Meanwhile, ') : 'no major new incidents materialised.';
-  const assetText = state.assets.map(a => a.name + ' is ' + a.status + ' in ' + prettyZone(a.zone)).join('; ');
-  const summary = 'Blue reallocated maritime assets across the battlespace. Over the next period, ' + injectText + ' Asset posture evolved as follows: ' + assetText + '. Loss of movement space, asset commitment, and time pressure now shape the next decision window.';
-  state.timeline.unshift({turn: state.scenario.turn, time: state.scenario.timeLabel, text: summary});
+  const assetText = state.assets.map(a => a.name + ' is ' + a.status + ' in ' + prettyZone(a.zone) + ' (fuel ' + a.fuel + ', readiness ' + a.readiness + ')').join('; ');
+  const summary = 'Blue reallocated maritime assets across the battlespace. Over the next period, ' + injectText + ' Asset posture evolved as follows: ' + assetText + '. Loss of movement space, limited fuel, readiness strain, and time pressure shape the next decision window.';
 
+  state.timeline.unshift({turn: state.scenario.turn, time: state.scenario.timeLabel, text: summary});
   state.releasedInjects.forEach((inj, idx) => {
-    state.incidents.push({id: 'INC-' + (state.incidents.length + idx + 1), title: inj.title, zone: inj.zone, severity: inj.severity});
+    state.incidents.push({id:'INC-'+(state.incidents.length+idx+1), title:inj.title, zone:inj.zone, severity:inj.severity});
+  });
+
+  state.session.cells.forEach(c => {
+    const visible = state.releasedInjects.map(i => ({turn:state.scenario.turn, time:state.scenario.timeLabel, text:i.situation, zone:i.zone}));
+    state.playerFeedByCell[c.id] = state.playerFeedByCell[c.id].concat(visible);
   });
 
   state.scenario.currentSituation = summary;
@@ -137,42 +291,60 @@ function nextTurn(){
   state.releasedInjects = [];
   saveState();
   renderAll();
-  refreshMapMarkers();
-}
-
-function statusClass(value){
-  if(value >= 3) return 'status-bad';
-  if(value >= 1) return 'status-warn';
-  return 'status-good';
+  initMaps(true);
 }
 
 function renderScenario(){
   const el = document.getElementById('scenarioPanel');
+  if(!el) return;
   el.innerHTML = `
     <div><strong>${state.scenario.name}</strong></div>
     <div class="small">${state.scenario.overview}</div>
     <div class="row" style="margin-top:10px">
       <span class="tag">Turn: ${state.scenario.turn}</span>
       <span class="tag">Time: ${state.scenario.timeLabel}</span>
-      <span class="tag ${statusClass(state.scenario.movementPressure)}">Movement Pressure: ${state.scenario.movementPressure}</span>
-      <span class="tag ${statusClass(state.scenario.assetPressure)}">Asset Pressure: ${state.scenario.assetPressure}</span>
-      <span class="tag ${statusClass(state.scenario.timePressure)}">Time Pressure: ${state.scenario.timePressure}</span>
+      <span class="tag ${statusClass(state.scenario.movementPressure)}">Movement: ${state.scenario.movementPressure}</span>
+      <span class="tag ${statusClass(state.scenario.assetPressure)}">Asset Strain: ${state.scenario.assetPressure}</span>
+      <span class="tag ${statusClass(state.scenario.timePressure)}">Time: ${state.scenario.timePressure}</span>
+      <span class="tag ${statusClass(8-state.scenario.shippingConfidence)}">Shipping Confidence: ${state.scenario.shippingConfidence}</span>
+      <span class="tag ${statusClass(Math.max(0,-state.scenario.zoneControlScore))}">Zone Control: ${state.scenario.zoneControlScore}</span>
+      <span class="tag ${statusClass(Math.max(0,5-state.scenario.objectiveScore))}">Objective Score: ${state.scenario.objectiveScore}</span>
     </div>
     <p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>
+    ${state.scenario.failureState ? '<p class="status-bad"><strong>'+state.scenario.failureState+'</strong></p>' : ''}
   `;
-  document.getElementById('overlaySelect').value = state.scenario.overlayMode || 'openseamap';
+  const overlaySelect = document.getElementById('overlaySelect');
+  if(overlaySelect) overlaySelect.value = state.scenario.overlayMode || 'openseamap';
+}
+
+function renderCells(){
+  const editor = document.getElementById('cellsEditor');
+  const links = document.getElementById('playerLinks');
+  if(!editor || !links) return;
+  editor.innerHTML = '';
+  state.session.cells.forEach(c => addCellRow(c));
+  links.innerHTML = state.session.cells.map(c => '<div class="card"><strong>'+c.name+'</strong><br><span class="small">'+window.location.origin+window.location.pathname.replace('index.html','player.html')+'?cell='+encodeURIComponent(c.id)+'</span></div>').join('');
+}
+
+function renderZonesEditor(){
+  const el = document.getElementById('zonesEditor');
+  if(el) el.value = JSON.stringify(state.zones, null, 2);
 }
 
 function renderAssets(){
   const el = document.getElementById('assetsPanel');
+  if(!el) return;
   el.innerHTML = state.assets.map(a => {
-    const sel = state.selectedActions[a.id] || {zone: a.zone, mode: 'commit'};
+    const sel = state.selectedActions[a.id] || {zone:a.zone, mode:'commit'};
     return `<div class="card asset ${a.status}">
       <div><strong>${a.name}</strong></div>
       <div class="row">
         <span class="tag">${a.type}</span>
         <span class="tag">${a.status}</span>
         <span class="tag">${prettyZone(a.zone)}</span>
+        <span class="tag">Fuel ${a.fuel}</span>
+        <span class="tag">Readiness ${a.readiness}</span>
+        <span class="tag">${a.assignedCell}</span>
       </div>
       <div class="row">
         <select id="zone-${a.id}">
@@ -185,31 +357,24 @@ function renderAssets(){
         </select>
         <button onclick="setAssetAction('${a.id}', document.getElementById('zone-${a.id}').value, document.getElementById('mode-${a.id}').value)">Set</button>
       </div>
+      <div class="small">Movement cost from ${prettyZone(a.zone)} to ${(sel.zone!==a.zone)?prettyZone(sel.zone):prettyZone(a.zone)}: ${movementCost(a.zone, sel.zone, state.assets.some(x => x.type==='isr' && x.status!=='delayed' && x.fuel>0 && x.readiness>0))}</div>
     </div>`;
   }).join('');
 }
 
 function renderInjects(){
   const el = document.getElementById('injectsPanel');
+  if(!el) return;
   if(!state.releasedInjects.length){
     el.innerHTML = '<div class="small">No new pressure generated yet. Commit assets and click Generate Pressure.</div>';
     return;
   }
-  el.innerHTML = state.releasedInjects.map(i => `
-    <div class="card">
-      <div><strong>${i.id}</strong> · ${i.title}</div>
-      <div class="row">
-        <span class="tag">${i.domain}</span>
-        <span class="tag">${i.severity}</span>
-        <span class="tag">${prettyZone(i.zone)}</span>
-      </div>
-      <div>${i.situation}</div>
-    </div>
-  `).join('');
+  el.innerHTML = state.releasedInjects.map(i => `<div class="card"><div><strong>${i.id}</strong> · ${i.title}</div><div class="row"><span class="tag">${i.domain}</span><span class="tag">${i.severity}</span><span class="tag">${prettyZone(i.zone)}</span></div><div>${i.situation}</div></div>`).join('');
 }
 
 function renderTimeline(){
   const el = document.getElementById('timelinePanel');
+  if(!el) return;
   if(!state.timeline.length){
     el.innerHTML = '<div class="small">No turns resolved yet.</div>';
     return;
@@ -217,141 +382,177 @@ function renderTimeline(){
   el.innerHTML = state.timeline.map(t => `<div class="timeline-item"><strong>Turn ${t.turn}</strong> · ${t.time}<br>${t.text}</div>`).join('');
 }
 
-function initMap(force=false){
-  if(force && map){
-    map.remove();
-    map = null;
-  }
-  if(map) return;
-
-  map = L.map('map', { zoomControl: true }).setView([54.80, 7.55], 8);
-
-  baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 12,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  seaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-    maxZoom: 12,
-    attribution: '&copy; OpenSeaMap contributors'
-  });
-
-  if((state.scenario.overlayMode || 'openseamap') === 'openseamap'){
-    seaLayer.addTo(map);
-  }
-
-  renderZoneOverlays();
-  refreshMapMarkers();
+function zoneStyle(kind){
+  if(kind === 'port') return {color:'#fde68a', fillColor:'#fde68a', fillOpacity:0.08};
+  if(kind === 'info') return {color:'#c084fc', fillColor:'#c084fc', fillOpacity:0.06};
+  if(kind === 'support') return {color:'#64748b', fillColor:'#64748b', fillOpacity:0.04};
+  return {color:'#38bdf8', fillColor:'#38bdf8', fillOpacity:0.04};
 }
 
-function renderZoneOverlays(){
-  zoneLayers.forEach(l => map.removeLayer(l));
-  zoneLayers = [];
+function initMaps(force){
+  const facEl = document.getElementById('map');
+  const playerEl = document.getElementById('playerMap');
+  if(force && map){ map.remove(); map = null; }
+  if(force && playerMap){ playerMap.remove(); playerMap = null; }
 
-  const colors = {
-    main_port:'#fde68a',
-    north_approach:'#60a5fa',
-    corridor:'#38bdf8',
-    territorial_waters:'#93c5fd',
-    info_space:'#c084fc',
-    offmap:'#64748b'
-  };
+  if(facEl){
+    map = L.map('map').setView([54.80, 7.55], 8);
+    baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 12, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+    seaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {maxZoom: 12, attribution: '&copy; OpenSeaMap contributors'});
+    if((state.scenario.overlayMode || 'openseamap') === 'openseamap') seaLayer.addTo(map);
+    renderFacilitatorMap();
+  }
 
-  Object.keys(ZONES).forEach(key => {
-    const z = ZONES[key];
-    const circle = L.circle(z.center, {
-      radius: z.radius,
-      color: colors[key] || '#94a3b8',
-      weight: 2,
-      fillColor: colors[key] || '#94a3b8',
-      fillOpacity: key === 'info_space' ? 0.08 : 0.04
-    }).addTo(map);
-    circle.bindTooltip(z.name, {permanent:false});
-    zoneLayers.push(circle);
-  });
+  if(playerEl){
+    playerMap = L.map('playerMap').setView([54.80, 7.55], 8);
+    playerBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 12, attribution: '&copy; OpenStreetMap contributors'}).addTo(playerMap);
+    playerSeaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {maxZoom: 12, attribution: '&copy; OpenSeaMap contributors'});
+    if((state.scenario.overlayMode || 'openseamap') === 'openseamap') playerSeaLayer.addTo(playerMap);
+    renderPlayerMap();
+  }
+}
 
-  const coastPort = L.marker(ZONES.main_port.center, {title:'Main Port'}).addTo(map).bindPopup('<strong>Main Port</strong><br>Primary support and harbor node.');
-  zoneLayers.push(coastPort);
+function clearLayers(arr, targetMap){
+  arr.forEach(l => targetMap.removeLayer(l));
+  arr.length = 0;
 }
 
 function zoneOffsetLatLng(zone, index){
-  const center = ZONES[zone] ? ZONES[zone].center : [54.86, 7.80];
-  const lat = center[0] + (index % 3) * 0.03 - 0.03;
-  const lon = center[1] + (index % 4) * 0.04 - 0.04;
-  return [lat, lon];
-}
-
-function assetIcon(asset){
-  const symbol = asset.type === 'boarding_team' ? '△' : asset.type === 'isr' ? '◌' : asset.type === 'port_cell' ? '▣' : '▲';
-  const color = asset.status === 'delayed' ? '#ef4444' : asset.status === 'committed' ? '#60a5fa' : '#e5e7eb';
-  return L.divIcon({
-    className: '',
-    html: `<div style="color:${color};font-size:20px;font-weight:700;text-shadow:0 0 2px #000">${symbol}</div>`,
-    iconSize: [20,20],
-    iconAnchor: [10,10]
-  });
-}
-
-function incidentColor(sev){
-  if(sev === 'High' || sev === 'Strategic') return '#ef4444';
-  if(sev === 'Medium') return '#f59e0b';
-  return '#facc15';
-}
-
-function refreshMapMarkers(){
-  if(!map) return;
-  incidentLayers.forEach(l => map.removeLayer(l));
-  assetLayers.forEach(l => map.removeLayer(l));
-  incidentLayers = [];
-  assetLayers = [];
-
-  state.incidents.forEach((inc, idx) => {
-    const pos = zoneOffsetLatLng(inc.zone, idx + 1);
-    const marker = L.circleMarker(pos, {
-      radius: 5 + severityValue(inc.severity),
-      color: incidentColor(inc.severity),
-      fillColor: incidentColor(inc.severity),
-      fillOpacity: 0.9,
-      weight: 1
-    }).addTo(map);
-    marker.bindPopup(`<strong>${inc.title}</strong><br>${prettyZone(inc.zone)}<br>Severity: ${inc.severity}`);
-    incidentLayers.push(marker);
-  });
-
-  state.assets.forEach((a, idx) => {
-    const pos = zoneOffsetLatLng(a.zone, idx + 2);
-    const marker = L.marker(pos, {icon: assetIcon(a), draggable: true, title: a.name}).addTo(map);
-    marker.bindPopup(`<strong>${a.name}</strong><br>${a.type}<br>Status: ${a.status}<br>Zone: ${prettyZone(a.zone)}<br><span class="small">Drag near another zone and use the panel to confirm.</span>`);
-    marker.on('dragend', function(e){
-      const ll = e.target.getLatLng();
-      const nearest = nearestZone(ll.lat, ll.lng);
-      state.selectedActions[a.id] = {zone: nearest, mode: state.selectedActions[a.id]?.mode || 'commit'};
-      saveState();
-      renderAssets();
-      refreshMapMarkers();
-    });
-    assetLayers.push(marker);
-  });
+  const center = (state.zones[zone] || state.zones.corridor).center;
+  return [center[0] + (index % 3) * 0.03 - 0.03, center[1] + (index % 4) * 0.04 - 0.04];
 }
 
 function nearestZone(lat, lon){
   let best = 'corridor';
   let bestScore = Infinity;
-  Object.keys(ZONES).forEach(key => {
-    const c = ZONES[key].center;
+  Object.keys(state.zones).forEach(key => {
+    const c = state.zones[key].center;
     const score = Math.pow(lat - c[0], 2) + Math.pow(lon - c[1], 2);
-    if(score < bestScore){
-      bestScore = score;
-      best = key;
-    }
+    if(score < bestScore){ bestScore = score; best = key; }
   });
   return best;
 }
 
+function assetIcon(asset){
+  const symbol = asset.type === 'boarding_team' ? '△' : asset.type === 'isr' ? '◌' : asset.type === 'port_cell' ? '▣' : '▲';
+  const color = asset.status === 'delayed' ? '#ef4444' : asset.status === 'committed' ? '#60a5fa' : '#e5e7eb';
+  return L.divIcon({className:'', html:`<div style="color:${color};font-size:20px;font-weight:700;text-shadow:0 0 2px #000">${symbol}</div>`, iconSize:[20,20], iconAnchor:[10,10]});
+}
+function redIcon(intensity){
+  const color = intensity >= 3 ? '#ef4444' : intensity >= 2 ? '#f59e0b' : '#facc15';
+  return L.divIcon({className:'', html:`<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #000;opacity:0.9"></div>`, iconSize:[16,16], iconAnchor:[8,8]});
+}
+
+function renderFacilitatorMap(){
+  clearLayers(zoneLayers, map); clearLayers(incidentLayers, map); clearLayers(assetLayers, map); clearLayers(redLayers, map);
+  Object.keys(state.zones).forEach(key => {
+    const z = state.zones[key];
+    const st = zoneStyle(z.kind);
+    const circle = L.circle(z.center, {radius:z.radius, color:st.color, fillColor:st.fillColor, fillOpacity:st.fillOpacity, weight:2}).addTo(map);
+    circle.bindTooltip(z.name);
+    zoneLayers.push(circle);
+    if(z.kind === 'port'){
+      zoneLayers.push(L.marker(z.center).addTo(map).bindPopup('<strong>'+z.name+'</strong>'));
+    }
+  });
+  state.incidents.forEach((inc, idx) => {
+    const ll = zoneOffsetLatLng(inc.zone, idx+1);
+    const marker = L.circleMarker(ll, {radius:5 + severityValue(inc.severity), color:incidentColor(inc.severity), fillColor:incidentColor(inc.severity), fillOpacity:0.9, weight:1}).addTo(map);
+    marker.bindPopup('<strong>'+inc.title+'</strong><br>'+prettyZone(inc.zone)+'<br>Severity: '+inc.severity);
+    incidentLayers.push(marker);
+  });
+  state.assets.forEach((a, idx) => {
+    const ll = zoneOffsetLatLng(a.zone, idx+2);
+    const marker = L.marker(ll, {icon:assetIcon(a), draggable:true, title:a.name}).addTo(map);
+    marker.bindPopup('<strong>'+a.name+'</strong><br>Status: '+a.status+'<br>Fuel: '+a.fuel+'<br>Readiness: '+a.readiness+'<br>Assigned: '+a.assignedCell);
+    marker.on('dragend', function(e){
+      const pos = e.target.getLatLng();
+      const zone = nearestZone(pos.lat, pos.lng);
+      state.selectedActions[a.id] = {zone:zone, mode:state.selectedActions[a.id]?.mode || 'commit'};
+      saveState();
+      renderAssets();
+      renderFacilitatorMap();
+    });
+    assetLayers.push(marker);
+  });
+  const coverage = zoneCoverage();
+  const red = buildRedPresence(coverage);
+  red.forEach((r, idx) => {
+    const ll = zoneOffsetLatLng(r.zone, idx+4);
+    const marker = L.marker(ll, {icon:redIcon(r.intensity), title:'Red Presence'}).addTo(map);
+    marker.bindPopup('<strong>Red Presence</strong><br>'+prettyZone(r.zone)+'<br>Intensity: '+r.intensity);
+    redLayers.push(marker);
+  });
+}
+
+function renderPlayerMap(){
+  clearLayers(playerZoneLayers, playerMap); clearLayers(playerIncidentLayers, playerMap); clearLayers(playerAssetLayers, playerMap);
+  const cellId = getPlayerCell();
+  const cell = state.session.cells.find(c => c.id === cellId);
+  Object.keys(state.zones).forEach(key => {
+    const z = state.zones[key];
+    const st = zoneStyle(z.kind);
+    const circle = L.circle(z.center, {radius:z.radius, color:st.color, fillColor:st.fillColor, fillOpacity:st.fillOpacity, weight:2}).addTo(playerMap);
+    circle.bindTooltip(z.name);
+    playerZoneLayers.push(circle);
+  });
+  const visibleFeed = state.playerFeedByCell[cellId] || [];
+  visibleFeed.slice(-10).forEach((item, idx) => {
+    const ll = zoneOffsetLatLng(item.zone || 'corridor', idx+1);
+    const marker = L.circleMarker(ll, {radius:7, color:'#f59e0b', fillColor:'#f59e0b', fillOpacity:0.9, weight:1}).addTo(playerMap);
+    marker.bindPopup('<strong>Situation Update</strong><br>'+item.text);
+    playerIncidentLayers.push(marker);
+  });
+  state.assets.filter(a => !cell || a.assignedCell === cell.id || cell.domain === 'maritime').forEach((a, idx) => {
+    const ll = zoneOffsetLatLng(a.zone, idx+2);
+    const marker = L.marker(ll, {icon:assetIcon(a), title:a.name}).addTo(playerMap);
+    marker.bindPopup('<strong>'+a.name+'</strong><br>Status: '+a.status+'<br>Fuel: '+a.fuel+'<br>Readiness: '+a.readiness);
+    playerAssetLayers.push(marker);
+  });
+}
+
+function renderPlayerPage(){
+  const sel = document.getElementById('playerCellSelect');
+  if(!sel) return;
+  const queryCell = new URLSearchParams(window.location.search).get('cell');
+  const current = queryCell || sel.value || (state.session.cells[0] && state.session.cells[0].id);
+  sel.innerHTML = state.session.cells.map(c => '<option value="'+c.id+'" '+(c.id===current?'selected':'')+'>'+c.name+'</option>').join('');
+  const cellId = queryCell || sel.value || current;
+  const cell = state.session.cells.find(c => c.id===cellId);
+
+  document.getElementById('playerScenarioPanel').innerHTML = `
+    <div><strong>${cell ? cell.name : 'Blue Cell'}</strong></div>
+    <div class="small">${cell ? cell.domain : ''}</div>
+    <div class="row" style="margin-top:10px">
+      <span class="tag">Turn: ${state.scenario.turn}</span>
+      <span class="tag">Time: ${state.scenario.timeLabel}</span>
+      <span class="tag">Shipping Confidence: ${state.scenario.shippingConfidence}</span>
+      <span class="tag">Zone Control: ${state.scenario.zoneControlScore}</span>
+    </div>
+    <p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>
+  `;
+
+  const myAssets = state.assets.filter(a => !cell || a.assignedCell === cell.id || cell.domain === 'maritime');
+  document.getElementById('playerAssetsPanel').innerHTML = myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${a.type}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('');
+
+  const feed = state.playerFeedByCell[cellId] || [];
+  document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
+
+  const log = state.actionLogByCell[cellId] || [];
+  document.getElementById('playerActionLog').innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
+
+  initMaps(true);
+}
+
 function renderAll(){
+  ensureSessionMaps();
   renderScenario();
+  renderCells();
+  renderZonesEditor();
   renderAssets();
   renderInjects();
   renderTimeline();
+  renderPlayerPage();
 }
+
 init();

@@ -2,21 +2,21 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v12</title>
+  <title>Open War Game Engine v13 - Facilitator</title>
   <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
 <body>
 <header>
-  <h1>Open War Game Engine v12</h1>
-  <div class="small">Interactive maritime map layer · OSM + OpenSeaMap overlay · assets and incidents on map</div>
+  <h1>Open War Game Engine v13</h1>
+  <div class="small">Maritime mechanics + facilitator-controlled overlays + modular player cells</div>
 </header>
 
 <div class="container">
   <div class="panel">
     <h2>Scenario State</h2>
     <div id="scenarioPanel"></div>
+
     <div class="row" style="margin-top:12px">
       <label class="small" for="overlaySelect">Chart overlay</label>
       <select id="overlaySelect">
@@ -25,8 +25,20 @@
       </select>
     </div>
 
+    <h2 style="margin-top:18px">Blue Cells</h2>
+    <div id="cellsEditor"></div>
+    <button id="addCellBtn" class="secondary">Add Cell</button>
+    <button id="saveCellsBtn" class="good">Save Cells</button>
+    <div id="playerLinks"></div>
+
+    <h2 style="margin-top:18px">Zone Overlay Editor</h2>
+    <div class="small">Facilitator can redefine zones at runtime. No new GitHub upload needed.</div>
+    <textarea id="zonesEditor"></textarea>
+    <button id="saveZonesBtn" class="good">Save Zones</button>
+    <button id="resetZonesBtn" class="secondary">Reset Zones</button>
+
     <h2 style="margin-top:18px">Blue Assets</h2>
-    <div class="small">Commit assets to zones. You can also drag asset markers on the map to shift proposed zone assignment.</div>
+    <div class="small">Assets have fuel and readiness. ISR reduces movement cost by 1 for other assets.</div>
     <div id="assetsPanel"></div>
     <button id="generatePressureBtn">Generate Pressure</button>
     <button id="nextTurnBtn" class="secondary">Resolve Turn</button>
@@ -38,7 +50,7 @@
     <div id="map"></div>
     <div class="legend-box">
       ▲ patrol vessel · △ boarding team · ◌ ISR · ▣ coordination cell<br>
-      Colored circles show incident intensity. Zones are maritime decision spaces.
+      Facilitator sees Blue assets, incidents, and Red presence markers.
     </div>
   </div>
 
@@ -47,16 +59,15 @@
     <div id="injectsPanel"></div>
     <h2 style="margin-top:18px">Turn Timeline</h2>
     <div id="timelinePanel"></div>
-    <h2 style="margin-top:18px">What changed in v12</h2>
+    <h2 style="margin-top:18px">What this version adds</h2>
     <div class="small">
-      The map is now the main game view. Blue assets and Red pressure appear geographically.
-      Pressure is still driven by your own game logic, while the nautical overlay provides the maritime battlespace feel.
+      Movement now costs fuel, operations reduce readiness, ISR acts as assistance, zone control affects score,
+      Red presence is visible on the facilitator map, and the facilitator can edit overlay zones live.
     </div>
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./app.js"></script>
 </body>
 </html>

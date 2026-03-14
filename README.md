@@ -1,17 +1,18 @@
-# Open War Game Engine v12
+# Open War Game Engine v13
 
-Maritime map integration prototype.
+Maritime game mechanics + modular facilitator/player workflow.
 
-This version adds:
-- Leaflet-based interactive map
-- OpenStreetMap + OpenSeaMap overlay toggle
-- Geographic maritime AOI with ports, corridor, and zones
-- Blue assets as interactive map markers
-- Red pressure / incident markers on the map
-- Movement-space and time-pressure game loop
-- Asset reassignment from the control panel and by map interaction
+New in v13:
+- movement costs between zones
+- limited fuel and readiness
+- ISR support as assistance mechanic
+- zone control scoring
+- red presence markers
+- objective scoring and failure conditions
+- facilitator runtime cell builder
+- separate player page with cell-specific view
+- facilitator-editable zone overlay via JSON editor
 
 Notes:
-- This is a frontend prototype for GitHub Pages.
-- OpenSeaMap is used as a visual chart overlay, while game logic remains local in the app.
-- Attribution is shown on the map via Leaflet controls.
+- Frontend prototype for GitHub Pages / local browser use
+- Multi-device live sync still requires a backend
