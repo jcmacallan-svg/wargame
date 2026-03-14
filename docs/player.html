@@ -1,33 +1,15 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Open War Game Engine v9 - Player</title>
-  <link rel="stylesheet" href="./style.css">
-</head>
+<html><head><meta charset="utf-8"><title>Open War Game Engine v10 - Player</title><link rel="stylesheet" href="./style.css"></head>
 <body>
-<header>
-  <h1>Open War Game Engine v9</h1>
-  <div class="small">Generic Player / Blue Cell UI</div>
-</header>
+<header><h1>Open War Game Engine v10</h1><div class="small">Maritime action-reaction test pack · Generic Player UI</div></header>
 <div class="player-container">
   <div class="panel">
-    <h2>Cell Access</h2>
-    <label>Select cell</label>
-    <select id="playerCellSelect"></select>
-    <div id="playerMeta" class="row" style="margin-top:10px"></div>
-    <h2 style="margin-top:18px">Scenario</h2>
-    <div id="playerScenario"></div>
-    <h2 style="margin-top:18px">Submit Blue Action</h2>
-    <label for="playerBlueAction">Action text</label>
+    <h2>Cell Access</h2><label>Select cell</label><select id="playerCellSelect"></select><div id="playerMeta" class="row" style="margin-top:10px"></div>
+    <h2 style="margin-top:18px">Scenario</h2><div id="playerScenario"></div>
+    <h2 style="margin-top:18px">Submit Blue Action</h2><label for="playerBlueAction">Action text</label>
     <textarea id="playerBlueAction" placeholder="Blue maritime cell increases visible patrols to protect shipping near the corridor."></textarea>
     <button id="playerSubmitBtn">Send Action</button>
   </div>
-  <div class="panel">
-    <h2>Cell Feed</h2>
-    <div id="playerFeed"></div>
-  </div>
+  <div class="panel"><h2>Cell Feed</h2><div id="playerFeed"></div></div>
 </div>
-<script src="./app.js"></script>
-</body>
-</html>
+<script src="./app.js"></script></body></html>

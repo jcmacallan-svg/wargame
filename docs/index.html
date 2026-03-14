@@ -1,50 +1,34 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Open War Game Engine v9 - Facilitator</title>
-  <link rel="stylesheet" href="./style.css">
-</head>
+<html><head><meta charset="utf-8"><title>Open War Game Engine v10 - Facilitator</title><link rel="stylesheet" href="./style.css"></head>
 <body>
-<header>
-  <h1>Open War Game Engine v9</h1>
-  <div class="small">Dynamic Cell Builder · Facilitator UI</div>
-</header>
+<header><h1>Open War Game Engine v10</h1><div class="small">Maritime action-reaction test pack · Facilitator UI</div></header>
 <div class="container">
   <div class="panel">
-    <h2>Scenario</h2>
-    <div id="scenarioPanel"></div>
+    <h2>Scenario</h2><div id="scenarioPanel"></div>
     <h2 style="margin-top:18px">Exercise Setup</h2>
-    <label>Session name</label>
-    <input id="sessionName" type="text" value="Exercise Session">
+    <label>Session name</label><input id="sessionName" type="text" value="Maritime Test Session">
     <div id="cellsEditor"></div>
     <button id="addCellBtn" class="secondary">Add Cell</button>
     <button id="saveSetupBtn" class="good">Save Setup</button>
     <div id="playerLinks"></div>
   </div>
   <div class="panel">
-    <h2>Blue Cell Inputs</h2>
-    <div id="cellActionsPanel"></div>
-    <h3>Aggregated Blue Summary</h3>
-    <pre id="aggregateBlueSummary"></pre>
+    <h2>Blue Cell Inputs</h2><div id="cellActionsPanel"></div>
+    <h3>Aggregated Blue Summary</h3><pre id="aggregateBlueSummary"></pre>
     <h2 style="margin-top:18px">Suggested Injects</h2>
-    <div id="suggestedInjects"></div>
-    <div id="injectAudience"></div>
+    <div class="small">Maritime-heavy suggestions are ranked low to high intensity for sequential testing.</div>
+    <div id="suggestedInjects"></div><div id="injectAudience"></div>
     <button id="generateRedBtn">Generate Red Response</button>
     <button id="releaseSelectedBtn">Release Selected Injects</button>
-    <h2 style="margin-top:18px">Red Commander</h2>
-    <pre id="redResponse"></pre>
+    <h2 style="margin-top:18px">Red Commander</h2><pre id="redResponse"></pre>
   </div>
   <div class="panel">
     <h2>Turn Control</h2>
     <button id="nextTurnBtn" class="secondary">Next Turn</button>
     <button id="resetBtn" class="secondary">Refresh / Reset State</button>
-    <h2 style="margin-top:18px">Situation Update Timeline</h2>
-    <div id="timeline"></div>
-    <h2 style="margin-top:18px">How to use</h2>
-    <div class="small">1. Create cells in Exercise Setup and save.<br>2. Open the generated player links or open player.html and select a cell.<br>3. Players submit actions.<br>4. Facilitator reviews cell inputs, generates Red response, and releases injects to selected cells or all cells.<br>5. Advance the turn.</div>
+    <h2 style="margin-top:18px">Situation Update Timeline</h2><div id="timeline"></div>
+    <h2 style="margin-top:18px">Suggested test flow</h2>
+    <div class="small">1. Start with a maritime patrol or escort action.<br>2. Generate Red response.<br>3. Release 1–2 low intensity maritime injects.<br>4. Advance the turn.<br>5. Increase Blue visibility or interdiction authority and repeat.<br>6. Watch Red shift from ambiguity to coercive disruption.</div>
   </div>
 </div>
-<script src="./app.js"></script>
-</body>
-</html>
+<script src="./app.js"></script></body></html>

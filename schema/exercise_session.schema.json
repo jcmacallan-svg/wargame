@@ -5,30 +5,7 @@
       "type": "string"
     },
     "cells": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "domain": {
-            "type": "string"
-          },
-          "role_type": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "domain",
-          "role_type"
-        ]
-      }
+      "type": "array"
     }
   },
   "required": [
