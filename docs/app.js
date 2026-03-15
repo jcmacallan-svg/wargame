@@ -86,6 +86,12 @@ function loadState() {
   }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function reloadStateFromStorage() {
+  const next = loadState();
+  state = migrateState(next);
+  renderAll();
+}
+
 function migrateState(pkg) {
   const merged = Object.assign(clone(DEFAULT_STATE), pkg || {});
   merged.version = 16;
@@ -217,6 +223,14 @@ async function init() {
   }
   ensureSessionMaps();
   bindEvents();
+  window.addEventListener('storage', (e) => {
+    if (e.key !== STORAGE_KEY) return;
+    reloadStateFromStorage();
+  });
+  window.addEventListener('focus', () => reloadStateFromStorage());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) reloadStateFromStorage();
+  });
   renderAll();
   initMaps(true);
 }
@@ -920,7 +934,7 @@ function renderPlayerPage() {
   sel.innerHTML = state.session.cells.map(c => `<option value="${c.id}" ${c.id === current ? 'selected' : ''}>${c.name}</option>`).join('');
   const cellId = getPlayerCell();
   const cell = state.session.cells.find(c => c.id === cellId);
-  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
+  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span><span class="tag">Map view synced</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small">This player view mirrors the facilitator-authored scenario from the same browser profile and updates when that scenario changes.</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
   document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];
