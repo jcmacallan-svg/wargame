@@ -15,7 +15,10 @@ const DEFAULT_TEMPLATE = {
     failureState: '',
     currentSituation: 'No scenario geometry yet. Build the battlespace by placing zones and assets on the map.',
     overlayMode: 'openseamap',
-    redDoctrine: 'manual'
+    redDoctrine: 'manual',
+    rememberLastMapView: true,
+    lastMapView: { center: [54.8, 7.55], zoom: 8 },
+    pinnedMapView: null
   },
   zones: {}
 };
@@ -86,6 +89,9 @@ function migrateState(pkg) {
   merged.selectedAssetId = merged.selectedAssetId && merged.assets.find(a => a.id === merged.selectedAssetId) ? merged.selectedAssetId : (merged.assets[0]?.id || '');
   merged.mapMode = merged.mapMode || 'select';
   ensureSessionMaps(merged);
+  merged.scenario.rememberLastMapView = merged.scenario.rememberLastMapView !== false;
+  merged.scenario.lastMapView = normalizeMapView(merged.scenario.lastMapView) || { center: [54.8, 7.55], zoom: 8 };
+  merged.scenario.pinnedMapView = normalizeMapView(merged.scenario.pinnedMapView);
   Object.entries(merged.zones).forEach(([id, z]) => {
     merged.zones[id] = Object.assign({ name: id, center: [54.8, 7.55], radius: 12000, kind: 'sea' }, z);
   });
@@ -123,6 +129,48 @@ function normalizeAssetType(type) {
     port_cell: 'port_support_unit'
   };
   return legacy[type] || (ASSET_TYPE_OPTIONS.some(o => o.value === type) ? type : 'patrol_vessel');
+}
+
+function normalizeMapView(view) {
+  if (!view || !Array.isArray(view.center) || view.center.length !== 2) return null;
+  const lat = Number(view.center[0]);
+  const lng = Number(view.center[1]);
+  const zoom = Number(view.zoom);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(zoom)) return null;
+  return { center: [lat, lng], zoom };
+}
+function defaultMapView() {
+  return { center: [54.8, 7.55], zoom: 8 };
+}
+function currentMapView(targetMap) {
+  if (!targetMap) return normalizeMapView(state.scenario.lastMapView) || normalizeMapView(state.scenario.pinnedMapView) || defaultMapView();
+  const c = targetMap.getCenter();
+  return { center: [Number(c.lat.toFixed(5)), Number(c.lng.toFixed(5))], zoom: targetMap.getZoom() };
+}
+function getInitialMapView() {
+  return normalizeMapView(state.scenario.pinnedMapView) || normalizeMapView(state.scenario.lastMapView) || defaultMapView();
+}
+function persistLastMapView(targetMap) {
+  if (!targetMap || state.scenario.rememberLastMapView === false) return;
+  state.scenario.lastMapView = currentMapView(targetMap);
+  saveState();
+  renderScenario();
+}
+function pinCurrentMapView() {
+  if (!map) return;
+  state.scenario.pinnedMapView = currentMapView(map);
+  saveState();
+  renderScenario();
+}
+function clearPinnedMapView() {
+  state.scenario.pinnedMapView = null;
+  saveState();
+  renderScenario();
+}
+function centerMapOnSavedView() {
+  if (!map) return;
+  const view = getInitialMapView();
+  map.setView(view.center, view.zoom);
 }
 function zoneStyle(kind) {
   if (kind === 'port' || kind === 'harbor') return { color: '#fde68a', fillColor: '#fde68a', fillOpacity: 0.10 };
@@ -177,6 +225,10 @@ function bindEvents() {
     document.getElementById('loadPackageInput').onchange = loadExercisePackage;
     document.getElementById('newBlankScenarioBtn').onclick = resetToBlankScenario;
     document.getElementById('saveScenarioMetaBtn').onclick = saveScenarioMeta;
+    document.getElementById('rememberLastMapView').onchange = (e) => { state.scenario.rememberLastMapView = !!e.target.checked; if (state.scenario.rememberLastMapView && map) state.scenario.lastMapView = currentMapView(map); saveState(); renderScenario(); };
+    document.getElementById('pinMapViewBtn').onclick = pinCurrentMapView;
+    document.getElementById('clearPinnedMapViewBtn').onclick = clearPinnedMapView;
+    document.getElementById('centerSavedMapViewBtn').onclick = centerMapOnSavedView;
     document.getElementById('addZoneModeBtn').onclick = () => setMapMode(state.mapMode === 'add-zone' ? 'select' : 'add-zone');
     document.getElementById('addAssetBtn').onclick = addAsset;
     document.getElementById('saveAssetPropsBtn').onclick = saveSelectedAssetProps;
@@ -287,6 +339,9 @@ function saveScenarioMeta() {
   state.scenario.overview = document.getElementById('scenarioOverviewInput').value.trim() || 'Facilitator-authored scenario.';
   state.scenario.currentSituation = document.getElementById('scenarioSituationInput').value.trim() || 'Facilitator-authored setup.';
   state.scenario.overlayMode = document.getElementById('overlaySelect').value;
+  const rememberLast = document.getElementById('rememberLastMapView');
+  state.scenario.rememberLastMapView = rememberLast ? !!rememberLast.checked : state.scenario.rememberLastMapView !== false;
+  if (map && state.scenario.rememberLastMapView) state.scenario.lastMapView = currentMapView(map);
   saveState();
   renderScenario();
 }
@@ -494,7 +549,8 @@ function initMaps(force) {
   if (force && map) { map.remove(); map = null; }
   if (force && playerMap) { playerMap.remove(); playerMap = null; }
   if (facEl) {
-    map = L.map('map').setView([54.8, 7.55], 8);
+    const initialView = getInitialMapView();
+    map = L.map('map').setView(initialView.center, initialView.zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     seaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') seaLayer.addTo(map);
@@ -503,10 +559,12 @@ function initMaps(force) {
         createZoneAt(e.latlng);
       }
     });
+    map.on('moveend', () => persistLastMapView(map));
     renderFacilitatorMap();
   }
   if (playEl) {
-    playerMap = L.map('playerMap').setView([54.8, 7.55], 8);
+    const playerInitialView = getInitialMapView();
+    playerMap = L.map('playerMap').setView(playerInitialView.center, playerInitialView.zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(playerMap);
     playerSeaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') playerSeaLayer.addTo(playerMap);
@@ -546,7 +604,8 @@ function renderFacilitatorMap() {
       state.zones[key].center = [e.latlng.lat, e.latlng.lng];
       saveState();
       renderZoneEditor();
-      renderFacilitatorMap();
+      map.on('moveend', () => persistLastMapView(map));
+    renderFacilitatorMap();
     });
     zoneCenterLayers.push(center);
   });
@@ -590,6 +649,8 @@ function renderPlayerMap() {
 function renderScenario() {
   const el = document.getElementById('scenarioPanel');
   if (!el) return;
+  const pinned = normalizeMapView(state.scenario.pinnedMapView);
+  const remembered = normalizeMapView(state.scenario.lastMapView);
   el.innerHTML = `
     <div><strong>${state.scenario.name}</strong></div>
     <div class="small" style="margin-top:6px">${state.scenario.overview}</div>
@@ -598,8 +659,11 @@ function renderScenario() {
       <span class="tag">Assets: ${state.assets.length}</span>
       <span class="tag">Map mode: ${state.mapMode === 'add-zone' ? 'Add zone on map click' : 'Select/edit'}</span>
       <span class="tag">Overlay: ${(state.scenario.overlayMode || 'openseamap') === 'openseamap' ? 'OSM + OpenSeaMap' : 'OSM only'}</span>
+      <span class="tag">Remember view: ${state.scenario.rememberLastMapView === false ? 'Off' : 'On'}</span>
+      <span class="tag">Pinned view: ${pinned ? 'Set' : 'Not set'}</span>
     </div>
     <p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>
+    <p class="small"><strong>Map start view</strong><br>${pinned ? `Pinned at ${pinned.center[0].toFixed(2)}, ${pinned.center[1].toFixed(2)} / zoom ${pinned.zoom}` : 'No pinned view saved.'}${remembered ? `<br>Last remembered view ${remembered.center[0].toFixed(2)}, ${remembered.center[1].toFixed(2)} / zoom ${remembered.zoom}` : ''}</p>
   `;
   const title = document.querySelector('header h1');
   if (title) title.textContent = 'Open War Game Engine v16';
@@ -616,6 +680,8 @@ function renderScenario() {
   if (scenarioSituationInput) scenarioSituationInput.value = state.scenario.currentSituation || '';
   const overlaySelect = document.getElementById('overlaySelect');
   if (overlaySelect) overlaySelect.value = state.scenario.overlayMode || 'openseamap';
+  const rememberLastMapView = document.getElementById('rememberLastMapView');
+  if (rememberLastMapView) rememberLastMapView.checked = state.scenario.rememberLastMapView !== false;
 }
 
 function renderTemplates() {
