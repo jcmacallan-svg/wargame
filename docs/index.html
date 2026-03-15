@@ -79,6 +79,7 @@
       <button id="clearWaypointsBtn" class="secondary">Clear Selected Waypoints</button>
       <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
     </div>
+    <div id="waypointStatus" class="small" style="margin-top:8px;padding:8px 10px;border:1px dashed #4b5563;border-radius:10px;background:#0f172a">Select an asset, click Add Waypoint Mode, then click on the chart to drop waypoints.</div>
     <div id="assetsPanel"></div>
 
     <h3 style="margin-top:18px">Selected Asset</h3>
@@ -105,6 +106,7 @@
       <input id="assetReadiness" type="number" min="0" placeholder="Readiness">
     </div>
     <textarea id="assetWaypoints" placeholder="Waypoints: one per line as lat,lon,label"></textarea>
+    <div class="small" style="margin-top:6px">Tip: select an asset, switch on <strong>Add Waypoint Mode</strong>, then click directly on the map. OWGE fills in the lat/lon for you and shows the waypoint on the chart.</div>
     <button id="saveAssetPropsBtn" class="good">Save Asset Properties</button>
     <button id="deleteAssetBtn" class="warn">Delete Selected Asset</button>
 

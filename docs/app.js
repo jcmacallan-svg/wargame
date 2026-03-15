@@ -50,8 +50,9 @@ let state = loadState();
 let injectLibrary = [];
 let templates = {};
 let map, playerMap, seaLayer, playerSeaLayer;
-let zoneLayers = [], assetLayers = [], zoneCenterLayers = [];
+let zoneLayers = [], assetLayers = [], zoneCenterLayers = [], waypointGuideLayers = [];
 let playerZoneLayers = [], playerAssetLayers = [];
+let lastHoveredLatLng = null;
 
 const ASSET_TYPE_OPTIONS = [
   { value: 'frigate', label: 'Frigate' },
@@ -241,13 +242,16 @@ function appendWaypointToSelectedAsset(latlng) {
   const asset = selectedAsset();
   if (!asset) {
     alert('Select an asset first, then use Add Waypoint Mode.');
+    updateWaypointUi('Select an asset first, then click Add Waypoint Mode.');
     return;
   }
   asset.waypoints = Array.isArray(asset.waypoints) ? asset.waypoints : [];
-  asset.waypoints.push({ lat: Number(latlng.lat.toFixed(6)), lon: Number(latlng.lng.toFixed(6)), label: `WP${asset.waypoints.length + 1}` });
+  const wp = { lat: Number(latlng.lat.toFixed(6)), lon: Number(latlng.lng.toFixed(6)), label: `WP${asset.waypoints.length + 1}` };
+  asset.waypoints.push(wp);
   saveState();
   renderAll();
   initMaps(true);
+  updateWaypointUi(`Added ${wp.label} at ${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)} for ${asset.name}.`);
 }
 
 function clearSelectedAssetWaypoints() {
@@ -255,8 +259,19 @@ function clearSelectedAssetWaypoints() {
   if (!asset) return;
   asset.waypoints = [];
   saveState();
+  updateWaypointUi(`Cleared waypoints for ${asset.name}.`);
   renderAll();
   initMaps(true);
+}
+
+function updateWaypointUi(message) {
+  const el = document.getElementById('waypointStatus');
+  if (!el) return;
+  const asset = selectedAsset();
+  const modeText = state.mapMode === 'add-waypoint' ? 'Waypoint mode is ON.' : 'Waypoint mode is OFF.';
+  const assetText = asset ? ` Selected asset: ${asset.name}.` : ' Select an asset to add waypoints.';
+  const hoverText = lastHoveredLatLng ? ` Cursor: ${lastHoveredLatLng.lat.toFixed(4)}, ${lastHoveredLatLng.lng.toFixed(4)}.` : '';
+  el.textContent = `${message || modeText}${message ? '' : assetText}${hoverText}`;
 }
 
 function normalizeMapView(view) {
@@ -375,10 +390,14 @@ function setMapMode(mode) {
   state.mapMode = mode;
   saveState();
   renderScenario();
+  renderSelectedAssetEditor();
+  renderFacilitatorMap();
+  updateWaypointUi();
 }
 
 function resetToBlankScenario() {
   state = clone(DEFAULT_STATE);
+  lastHoveredLatLng = null;
   saveState();
   renderAll();
   initMaps(true);
@@ -1012,7 +1031,15 @@ function initMaps(force) {
     map.on('click', e => {
       if (state.mapMode === 'add-zone') {
         createZoneAt(e.latlng);
+        return;
       }
+      if (state.mapMode === 'add-waypoint') {
+        appendWaypointToSelectedAsset(e.latlng);
+      }
+    });
+    map.on('mousemove', e => {
+      lastHoveredLatLng = e.latlng;
+      if (state.mapMode === 'add-waypoint') updateWaypointUi();
     });
     map.on('moveend', () => persistLastMapView(map));
     renderFacilitatorMap();
@@ -1032,6 +1059,7 @@ function renderFacilitatorMap() {
   clearLayers(zoneLayers, map);
   clearLayers(zoneCenterLayers, map);
   clearLayers(assetLayers, map);
+  clearLayers(waypointGuideLayers, map);
   zoneIds().forEach(key => {
     const z = state.zones[key];
     const st = zoneStyle(z.kind);
@@ -1064,6 +1092,23 @@ function renderFacilitatorMap() {
     zoneCenterLayers.push(center);
   });
 
+  const selected = selectedAsset();
+  if (selected) {
+    const assetOrigin = assetLatLng(selected, state.assets.findIndex(a => a.id === selected.id));
+    const wpQueue = Array.isArray(selected.waypoints) ? selected.waypoints : [];
+    const points = [assetOrigin].concat(wpQueue.map(w => [normalizeCoord(w.lat), normalizeCoord(w.lon)]).filter(w => w[0] != null && w[1] != null));
+    if (points.length > 1) {
+      const line = L.polyline(points, { color: '#f59e0b', weight: 3, opacity: 0.9, dashArray: '6 6' }).addTo(map);
+      waypointGuideLayers.push(line);
+    }
+    wpQueue.forEach((wp, i) => {
+      if (normalizeCoord(wp.lat) == null || normalizeCoord(wp.lon) == null) return;
+      const marker = L.circleMarker([normalizeCoord(wp.lat), normalizeCoord(wp.lon)], { radius: 7, color: '#f59e0b', weight: 2, fillColor: '#fff7ed', fillOpacity: 0.95 }).addTo(map);
+      marker.bindTooltip(`${wp.label || `WP${i+1}`} · ${normalizeCoord(wp.lat).toFixed(4)}, ${normalizeCoord(wp.lon).toFixed(4)}`, { permanent: false });
+      waypointGuideLayers.push(marker);
+    });
+  }
+
   state.assets.forEach((a, idx) => {
     const ll = assetLatLng(a, idx);
     const vector = courseVectorLatLngs(a, idx);
@@ -1079,7 +1124,7 @@ function renderFacilitatorMap() {
     assetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
     marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
-    marker.on('click', () => selectAsset(a.id));
+    marker.on('click', (ev) => { if (ev?.originalEvent) L.DomEvent.stopPropagation(ev.originalEvent); selectAsset(a.id); });
     marker.on('dragend', e => {
       const p = e.target.getLatLng();
       a.lat = Number(p.lat.toFixed(6));
@@ -1088,6 +1133,7 @@ function renderFacilitatorMap() {
       saveState();
       renderAll();
       initMaps(true);
+      updateWaypointUi(`Moved ${a.name} to ${a.lat.toFixed(4)}, ${a.lon.toFixed(4)}.`);
     });
     assetLayers.push(marker);
   });
@@ -1135,7 +1181,7 @@ function renderScenario() {
     <div class="row" style="margin-top:10px">
       <span class="tag">Zones: ${zoneIds().length}</span>
       <span class="tag">Assets: ${state.assets.length}</span>
-      <span class="tag">Map mode: ${state.mapMode === 'add-zone' ? 'Add zone on map click' : 'Select/edit'}</span>
+      <span class="tag">Map mode: ${state.mapMode === 'add-zone' ? 'Add zone on map click' : state.mapMode === 'add-waypoint' ? 'Add waypoint on map click' : 'Select/edit'}</span>
       <span class="tag">Overlay: ${(state.scenario.overlayMode || 'openseamap') === 'openseamap' ? 'OSM + OpenSeaMap' : 'OSM only'}</span>
       <span class="tag">Remember view: ${state.scenario.rememberLastMapView === false ? 'Off' : 'On'}</span>
       <span class="tag">Pinned view: ${pinned ? 'Set' : 'Not set'}</span>
@@ -1153,6 +1199,12 @@ function renderScenario() {
     addZoneModeBtn.textContent = state.mapMode === 'add-zone' ? 'Exit Add Zone Mode' : 'Add Zone Mode';
     addZoneModeBtn.className = state.mapMode === 'add-zone' ? 'warn' : '';
   }
+  const addWaypointModeBtn = document.getElementById('addWaypointModeBtn');
+  if (addWaypointModeBtn) {
+    addWaypointModeBtn.textContent = state.mapMode === 'add-waypoint' ? 'Exit Waypoint Mode' : 'Add Waypoint Mode';
+    addWaypointModeBtn.className = state.mapMode === 'add-waypoint' ? 'warn' : 'secondary';
+  }
+  updateWaypointUi();
   const scenarioNameInput = document.getElementById('scenarioNameInput');
   if (scenarioNameInput) scenarioNameInput.value = state.scenario.name || '';
   const scenarioOverviewInput = document.getElementById('scenarioOverviewInput');
@@ -1269,6 +1321,7 @@ function renderAssetEditor() {
   if (assetLat) assetLat.value = asset?.lat ?? '';
   if (assetLon) assetLon.value = asset?.lon ?? '';
   if (assetWaypoints) assetWaypoints.value = formatWaypointText(asset?.waypoints || []);
+  updateWaypointUi();
 }
 
 function renderInjects() {
