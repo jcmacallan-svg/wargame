@@ -6,7 +6,10 @@
     "title": "AIS anomalies near corridor",
     "situation": "Multiple commercial vessels report intermittent AIS inconsistencies near the transit corridor.",
     "zone": "corridor",
-    "trigger": "weak_corridor"
+    "trigger": "weak_corridor",
+    "visibleTo": [
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-202",
@@ -15,7 +18,10 @@
     "title": "Fishing fleet obstruction",
     "situation": "Fishing vessels slow movement near the northern approach.",
     "zone": "north_approach",
-    "trigger": "weak_north"
+    "trigger": "weak_north",
+    "visibleTo": [
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-203",
@@ -24,7 +30,10 @@
     "title": "Loitering unflagged vessel",
     "situation": "An unflagged vessel mirrors Blue patrol movement near territorial waters.",
     "zone": "territorial_waters",
-    "trigger": "weak_territorial"
+    "trigger": "weak_territorial",
+    "visibleTo": [
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-204",
@@ -33,7 +42,11 @@
     "title": "Port pilot absenteeism",
     "situation": "Port pilot absenteeism delays harbor traffic and outbound support movement.",
     "zone": "main_port",
-    "trigger": "weak_port"
+    "trigger": "weak_port",
+    "visibleTo": [
+      "blue-port",
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-205",
@@ -42,7 +55,11 @@
     "title": "Edited boarding footage spreads online",
     "situation": "A clipped video implies aggressive Blue treatment of civilian crews.",
     "zone": "info_space",
-    "trigger": "aggressive_blue"
+    "trigger": "aggressive_blue",
+    "visibleTo": [
+      "blue-info",
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-206",
@@ -51,7 +68,10 @@
     "title": "Navigation beacon outage",
     "situation": "A critical navigation beacon fails and compresses shipping into tighter lanes.",
     "zone": "corridor",
-    "trigger": "corridor_pressure"
+    "trigger": "corridor_pressure",
+    "visibleTo": [
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-207",
@@ -60,7 +80,10 @@
     "title": "Close pass by shadow vessel",
     "situation": "A suspicious vessel creates collision risk near a Blue patrol unit.",
     "zone": "territorial_waters",
-    "trigger": "territorial_pressure"
+    "trigger": "territorial_pressure",
+    "visibleTo": [
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-208",
@@ -69,7 +92,11 @@
     "title": "Harbor access disruption",
     "situation": "Digital disruption slows harbor entry and military support throughput.",
     "zone": "main_port",
-    "trigger": "port_pressure"
+    "trigger": "port_pressure",
+    "visibleTo": [
+      "blue-info",
+      "blue-maritime"
+    ]
   },
   {
     "id": "OWGE-MAR-209",
@@ -78,6 +105,9 @@
     "title": "Commercial route diversion",
     "situation": "Major carriers begin diverting traffic away from the corridor.",
     "zone": "corridor",
-    "trigger": "confidence_collapse"
+    "trigger": "confidence_collapse",
+    "visibleTo": [
+      "blue-maritime"
+    ]
   }
 ]
