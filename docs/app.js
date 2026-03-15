@@ -86,12 +86,6 @@ function loadState() {
   }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function reloadStateFromStorage() {
-  const next = loadState();
-  state = migrateState(next);
-  renderAll();
-}
-
 function migrateState(pkg) {
   const merged = Object.assign(clone(DEFAULT_STATE), pkg || {});
   merged.version = 16;
@@ -223,14 +217,6 @@ async function init() {
   }
   ensureSessionMaps();
   bindEvents();
-  window.addEventListener('storage', (e) => {
-    if (e.key !== STORAGE_KEY) return;
-    reloadStateFromStorage();
-  });
-  window.addEventListener('focus', () => reloadStateFromStorage());
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) reloadStateFromStorage();
-  });
   renderAll();
   initMaps(true);
 }
@@ -614,57 +600,68 @@ function assetDoctrineFrame(asset) {
   return { color, path: 'M5 16 Q5 5 22 5 H39 Q39 16 39 16 Q39 27 22 27 H5 Q5 16 5 16 Z' };
 }
 
-function buildFallbackDoctrineSvg(asset, selected) {
-  const frame = assetDoctrineFrame(asset);
-  const outline = selected ? '#f59e0b' : '#08111f';
-  const text = assetDoctrineProfile(asset).short;
-  const role = assetDoctrineProfile(asset).code;
-  return `
-    <svg width="66" height="66" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="${frame.path}" fill="#f8fafc" stroke="${outline}" stroke-width="3.4" />
-      <path d="${frame.path}" fill="none" stroke="${frame.color}" stroke-width="2" />
-      <text x="22" y="18.5" text-anchor="middle" dominant-baseline="middle" font-size="7.6" font-weight="700" fill="#0f172a">${text}</text>
-      <text x="22" y="27.5" text-anchor="middle" font-size="5.6" font-weight="700" fill="${frame.color}">${role}</text>
-      <circle cx="38" cy="8" r="4" fill="${frame.color}" opacity=".18"></circle>
-      <text x="38" y="9.9" text-anchor="middle" font-size="4.4" font-weight="700" fill="${frame.color}">${assetDoctrineAffiliationCode(asset)}</text>
-    </svg>`;
+function assetNtdsPalette(asset) {
+  const aff = normalizeAssetAffiliation(asset.affiliation);
+  if (aff === 'hostile') return { stroke: '#fecaca', fill: '#991b1b', chip: '#7f1d1d', text: '#fee2e2' };
+  if (aff === 'neutral') return { stroke: '#bbf7d0', fill: '#166534', chip: '#14532d', text: '#dcfce7' };
+  if (aff === 'unknown') return { stroke: '#fde68a', fill: '#a16207', chip: '#854d0e', text: '#fef3c7' };
+  return { stroke: '#bfdbfe', fill: '#1d4ed8', chip: '#1e3a8a', text: '#dbeafe' };
 }
 
-function buildMilsymbolMarker(asset, selected) {
-  if (typeof ms === 'undefined' || !ms || typeof ms.Symbol !== 'function') return null;
-  try {
-    const profile = assetDoctrineProfile(asset);
-    const symbol = new ms.Symbol(assetDoctrineSidc(asset), {
-      size: 46,
-      uniqueDesignation: profile.short,
-      type: assetTypeLabel(asset.type).toUpperCase(),
-      additionalInformation: profile.code,
-      staffComments: assetAffiliationLabel(asset.affiliation).toUpperCase(),
-      higherFormation: selected ? 'SELECTED' : '',
-      infoFields: true,
-      outlineWidth: selected ? 6 : 2,
-      outlineColor: selected ? '#f59e0b' : '#0f172a'
-    });
-    const anchor = typeof symbol.getAnchor === 'function' ? symbol.getAnchor() : { x: 23, y: 23 };
-    const html = `<div class="app6-marker-wrap"><div class="app6-symbol-shell">${symbol.asSVG()}</div><div class="app6-asset-name">${asset.name}</div><div class="app6-asset-meta">${profile.role} · ${assetAffiliationLabel(asset.affiliation)}</div></div>`;
-    return L.divIcon({
-      className: 'app6-div-icon',
-      html,
-      iconSize: [104, 94],
-      iconAnchor: [Math.round(anchor.x || 23), Math.round((anchor.y || 23) + 6)],
-      popupAnchor: [0, -18]
-    });
-  } catch (err) {
-    return null;
+function assetNtdsGeometry(asset) {
+  const domain = assetDoctrineDomain(asset);
+  if (domain === 'subsurface') {
+    return {
+      path: 'M8 23 C12 14, 22 10, 34 10 C46 10, 56 14, 60 23 C56 32, 46 36, 34 36 C22 36, 12 32, 8 23 Z',
+      accent: 'M18 23 H50',
+      accent2: 'M24 18 H44'
+    };
   }
+  if (domain === 'air') {
+    return {
+      path: 'M34 8 L60 23 L34 38 L8 23 Z',
+      accent: 'M18 23 H50',
+      accent2: 'M34 13 V33'
+    };
+  }
+  if (domain === 'ground') {
+    return {
+      path: 'M10 10 H58 V36 H10 Z',
+      accent: 'M18 23 H50',
+      accent2: 'M22 16 H46'
+    };
+  }
+  return {
+    path: 'M6 24 L18 12 H50 L62 24 L50 36 H18 Z',
+    accent: 'M16 24 H52',
+    accent2: 'M24 18 H44'
+  };
+}
+
+function buildNtdsSvg(asset, selected) {
+  const profile = assetDoctrineProfile(asset);
+  const palette = assetNtdsPalette(asset);
+  const geo = assetNtdsGeometry(asset);
+  const outline = selected ? '#f59e0b' : '#020617';
+  const aff = assetDoctrineAffiliationCode(asset);
+  return `
+    <svg width="76" height="58" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="${geo.path}" fill="${palette.fill}" stroke="${outline}" stroke-width="3.2" stroke-linejoin="round" />
+      <path d="${geo.path}" fill="none" stroke="${palette.stroke}" stroke-width="1.5" stroke-linejoin="round" opacity=".95" />
+      <path d="${geo.accent}" fill="none" stroke="${palette.stroke}" stroke-width="1.8" stroke-linecap="round" opacity=".9" />
+      <path d="${geo.accent2}" fill="none" stroke="${palette.stroke}" stroke-width="1.3" stroke-linecap="round" opacity=".7" />
+      <text x="34" y="27" text-anchor="middle" dominant-baseline="middle" font-size="9.6" font-weight="800" fill="#f8fafc" letter-spacing=".4">${profile.short}</text>
+      <rect x="52" y="3" rx="5" ry="5" width="12" height="10" fill="#020617" opacity=".82"></rect>
+      <text x="58" y="10.2" text-anchor="middle" font-size="6.2" font-weight="800" fill="${palette.stroke}">${aff}</text>
+    </svg>`;
 }
 
 function assetIcon(asset) {
   const selected = state.selectedAssetId === asset.id;
-  const doctrinalIcon = buildMilsymbolMarker(asset, selected);
-  if (doctrinalIcon) return doctrinalIcon;
-  const html = `<div class="app6-marker-wrap">${buildFallbackDoctrineSvg(asset, selected)}<div class="app6-asset-name">${asset.name}</div></div>`;
-  return L.divIcon({ className: 'app6-div-icon', html, iconSize: [104, 94], iconAnchor: [33, 33], popupAnchor: [0, -12] });
+  const profile = assetDoctrineProfile(asset);
+  const palette = assetNtdsPalette(asset);
+  const html = `<div class="ntds-marker-wrap"><div class="ntds-symbol-shell">${buildNtdsSvg(asset, selected)}</div><div class="ntds-asset-name" style="border-color:${palette.stroke}; background:${palette.chip}; color:${palette.text};">${asset.name}</div><div class="ntds-asset-meta">${profile.role} · ${assetAffiliationLabel(asset.affiliation)}</div></div>`;
+  return L.divIcon({ className: 'ntds-div-icon', html, iconSize: [118, 92], iconAnchor: [38, 30], popupAnchor: [0, -14] });
 }
 
 function clearLayers(arr, target) {
@@ -934,7 +931,7 @@ function renderPlayerPage() {
   sel.innerHTML = state.session.cells.map(c => `<option value="${c.id}" ${c.id === current ? 'selected' : ''}>${c.name}</option>`).join('');
   const cellId = getPlayerCell();
   const cell = state.session.cells.find(c => c.id === cellId);
-  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span><span class="tag">Map view synced</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small">This player view mirrors the facilitator-authored scenario from the same browser profile and updates when that scenario changes.</p>`;
+  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
   document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];
