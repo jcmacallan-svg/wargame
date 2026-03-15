@@ -20,3 +20,8 @@ textarea { width:100%; min-height:110px; resize:vertical; } .zone-selected { out
 .ntds-marker-wrap svg { overflow: visible; filter: drop-shadow(0 2px 4px rgba(2,6,23,.45)); }
 .ntds-asset-name { margin-top:-2px; padding:2px 8px; border-radius:999px; border:1px solid #334155; font-size:10px; font-weight:800; line-height:1.3; white-space:nowrap; text-align:center; max-width:168px; overflow:hidden; text-overflow:ellipsis; }
 .ntds-asset-meta { padding:1px 6px; border-radius:999px; background:rgba(248,250,252,.95); border:1px solid #cbd5e1; color:#0f172a; font-size:9px; font-weight:700; line-height:1.2; white-space:nowrap; text-align:center; max-width:190px; overflow:hidden; text-overflow:ellipsis; }
+
+.ntds-track .ntds-symbol-shell { background: rgba(15,23,42,.10); }
+.ntds-unit .ntds-symbol-shell { background: rgba(2,6,23,.16); }
+.ntds-track .ntds-asset-meta { background: rgba(255,251,235,.96); }
+.ntds-unit .ntds-asset-meta { background: rgba(248,250,252,.95); }
