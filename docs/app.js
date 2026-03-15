@@ -507,25 +507,94 @@ function nearestZone(lat, lon) {
   return best;
 }
 
-function assetIcon(asset) {
-  const symbols = {
-    frigate: '▲',
-    corvette: '◆',
-    patrol_vessel: '△',
-    submarine: '▼',
-    amphibious_ship: '⬟',
-    landing_craft: '▱',
-    auxiliary_ship: '■',
-    mine_warfare_vessel: '✦',
-    maritime_helicopter: '✈',
-    isr_drone: '◌',
-    boarding_team: '△',
-    port_support_unit: '▣',
-    command_element: '✚'
+function assetDoctrineAbbrev(asset) {
+  const map = {
+    frigate: 'FFG',
+    corvette: 'COR',
+    patrol_vessel: 'OPV',
+    submarine: 'SUB',
+    amphibious_ship: 'AMPH',
+    landing_craft: 'LC',
+    auxiliary_ship: 'AUX',
+    mine_warfare_vessel: 'MCM',
+    maritime_helicopter: 'HELO',
+    isr_drone: 'ISR',
+    boarding_team: 'VBSS',
+    port_support_unit: 'PORT',
+    command_element: 'C2'
   };
-  const symbol = symbols[normalizeAssetType(asset.type)] || '▲';
-  const color = state.selectedAssetId === asset.id ? '#f59e0b' : '#e5e7eb';
-  return L.divIcon({ className: '', html: '<div style="color:' + color + ';font-size:20px;font-weight:700;text-shadow:0 0 2px #000">' + symbol + '</div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+  return map[normalizeAssetType(asset.type)] || 'UNIT';
+}
+
+function assetDoctrineDomain(asset) {
+  const type = normalizeAssetType(asset.type);
+  if (type === 'submarine') return 'subsurface';
+  if (type === 'maritime_helicopter' || type === 'isr_drone') return 'air';
+  if (type === 'boarding_team' || type === 'port_support_unit' || type === 'command_element') return 'ground';
+  return 'surface';
+}
+
+function assetDoctrineSidc(asset) {
+  const domain = assetDoctrineDomain(asset);
+  if (domain === 'subsurface') return 'SFUP------';
+  if (domain === 'air') return 'SFAP------';
+  if (domain === 'ground') return 'SFGP------';
+  return 'SFSP------';
+}
+
+function assetDoctrineFrame(asset) {
+  const domain = assetDoctrineDomain(asset);
+  if (domain === 'subsurface') return { color: '#60a5fa', path: 'M6 16 Q22 4 38 16 Q22 28 6 16 Z' };
+  if (domain === 'air') return { color: '#60a5fa', path: 'M22 5 L39 16 L22 27 L5 16 Z' };
+  if (domain === 'ground') return { color: '#60a5fa', path: 'M5 7 H39 V25 H5 Z' };
+  return { color: '#60a5fa', path: 'M5 16 Q5 5 22 5 H39 Q39 16 39 16 Q39 27 22 27 H5 Q5 16 5 16 Z' };
+}
+
+function buildFallbackDoctrineSvg(asset, selected) {
+  const frame = assetDoctrineFrame(asset);
+  const outline = selected ? '#f59e0b' : '#08111f';
+  const text = assetDoctrineAbbrev(asset);
+  return `
+    <svg width="58" height="58" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="${frame.path}" fill="#e0f2fe" stroke="${outline}" stroke-width="3.4" />
+      <path d="${frame.path}" fill="none" stroke="${frame.color}" stroke-width="1.8" />
+      <text x="22" y="20" text-anchor="middle" dominant-baseline="middle" font-size="7.1" font-weight="700" fill="#0f172a">${text}</text>
+      <text x="22" y="33.5" text-anchor="middle" font-size="5.2" font-weight="700" fill="#cbd5e1">${assetTypeLabel(asset.type).toUpperCase()}</text>
+    </svg>`;
+}
+
+function buildMilsymbolMarker(asset, selected) {
+  if (typeof ms === 'undefined' || !ms || typeof ms.Symbol !== 'function') return null;
+  try {
+    const label = assetDoctrineAbbrev(asset);
+    const symbol = new ms.Symbol(assetDoctrineSidc(asset), {
+      size: 42,
+      uniqueDesignation: label,
+      higherFormation: selected ? 'SELECTED' : '',
+      infoFields: true,
+      outlineWidth: selected ? 6 : 2,
+      outlineColor: selected ? '#f59e0b' : '#0f172a'
+    });
+    const anchor = typeof symbol.getAnchor === 'function' ? symbol.getAnchor() : { x: 21, y: 21 };
+    const html = `<div class="app6-marker-wrap">${symbol.asSVG()}<div class="app6-asset-name">${asset.name}</div></div>`;
+    return L.divIcon({
+      className: 'app6-div-icon',
+      html,
+      iconSize: [84, 72],
+      iconAnchor: [Math.round(anchor.x || 21), Math.round((anchor.y || 21) + 6)],
+      popupAnchor: [0, -16]
+    });
+  } catch (err) {
+    return null;
+  }
+}
+
+function assetIcon(asset) {
+  const selected = state.selectedAssetId === asset.id;
+  const doctrinalIcon = buildMilsymbolMarker(asset, selected);
+  if (doctrinalIcon) return doctrinalIcon;
+  const html = `<div class="app6-marker-wrap">${buildFallbackDoctrineSvg(asset, selected)}<div class="app6-asset-name">${asset.name}</div></div>`;
+  return L.divIcon({ className: 'app6-div-icon', html, iconSize: [84, 72], iconAnchor: [29, 29], popupAnchor: [0, -12] });
 }
 
 function clearLayers(arr, target) {
@@ -613,7 +682,7 @@ function renderFacilitatorMap() {
   state.assets.forEach((a, idx) => {
     const ll = a.zone && state.zones[a.zone] ? zoneOffsetLatLng(a.zone, idx + 1) : [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + a.type + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + assetTypeLabel(a.type) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
     marker.on('click', () => selectAsset(a.id));
     marker.on('dragend', e => {
       if (!hasZones()) return;
