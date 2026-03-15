@@ -103,6 +103,25 @@ const TRACK_QUALITY_OPTIONS = [
   { value: 'q5', label: 'Q5 - Fragmentary / weak' }
 ];
 
+const COMMERCIAL_ASSET_TYPES = [
+  'container_ship', 'bulk_carrier', 'tanker', 'lng_carrier', 'ro_ro_ferry', 'passenger_ferry',
+  'fishing_vessel', 'tug_workboat', 'dredger', 'pilot_boat', 'research_survey_vessel'
+];
+
+const COMMERCIAL_NAME_PARTS = {
+  container_ship: { prefix: 'MV', nouns: ['Mercury', 'Atlas', 'Mariner', 'Horizon', 'Northstar', 'Venturer'] },
+  bulk_carrier: { prefix: 'MV', nouns: ['Iron Crest', 'Blue Ore', 'Harbor Stone', 'Baltic Grain', 'Ocean Bulk'] },
+  tanker: { prefix: 'MT', nouns: ['Sea Spirit', 'Silver Current', 'Ocean Pioneer', 'North Fuel', 'Blue Terminal'] },
+  lng_carrier: { prefix: 'LNG', nouns: ['Arctic Flow', 'Gas Meridian', 'Polar Flame', 'Blue Vapor'] },
+  ro_ro_ferry: { prefix: 'MV', nouns: ['Channel Runner', 'Sea Lift', 'Roadbridge', 'Harbor Link'] },
+  passenger_ferry: { prefix: 'MV', nouns: ['Island Star', 'Sea Bridge', 'Coastal Wave', 'Port Express'] },
+  fishing_vessel: { prefix: 'FV', nouns: ['North Net', 'Silver Herring', 'Deep Line', 'Morning Catch'] },
+  tug_workboat: { prefix: 'TB', nouns: ['Harbor Hand', 'Dock Assist', 'Mooring One', 'Towline'] },
+  dredger: { prefix: 'DV', nouns: ['Channel Maker', 'Delta Sand', 'Harbor Cut', 'Deep Cutter'] },
+  pilot_boat: { prefix: 'PB', nouns: ['Pilot One', 'Harbor Pilot', 'Channel Guide', 'Approach Lead'] },
+  research_survey_vessel: { prefix: 'RV', nouns: ['Ocean Quest', 'Surveyor', 'Sea Vector', 'Blue Datum'] }
+};
+
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -138,7 +157,7 @@ function migrateState(pkg) {
     representation: 'unit',
     status: 'available',
     zone: '',
-    fuel: 100,
+    fuel: 10,
     readiness: 5,
     assignedCell: merged.session.cells[0]?.id || '',
     lat: null,
@@ -582,28 +601,115 @@ function deleteSelectedZone() {
   initMaps(true);
 }
 
-function addAsset() {
+
+function currentMapBounds() {
+  if (!map) {
+    const c = state.scenario?.pinnedMapView?.center || state.scenario?.lastMapView?.center || [54.8, 7.55];
+    return { south: c[0] - 0.12, north: c[0] + 0.12, west: c[1] - 0.22, east: c[1] + 0.22 };
+  }
+  const b = map.getBounds();
+  return { south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast() };
+}
+
+function createAssetBase(type, overrides = {}) {
   const existingIds = state.assets.map(a => a.id);
-  const zone = state.selectedZoneId || zoneIds()[0] || '';
-  const basePos = zone && state.zones[zone] ? state.zones[zone].center : (map ? [map.getCenter().lat, map.getCenter().lng] : [54.8, 7.55]);
-  const asset = {
+  const existingNames = state.assets.map(a => a.name);
+  const zone = overrides.zone != null ? overrides.zone : (state.selectedZoneId || zoneIds()[0] || '');
+  const center = overrides.lat != null && overrides.lon != null
+    ? [Number(overrides.lat), Number(overrides.lon)]
+    : (zone && state.zones[zone] ? state.zones[zone].center : (map ? [map.getCenter().lat, map.getCenter().lng] : [54.8, 7.55]));
+  const normalizedType = normalizeAssetType(type || overrides.type || 'patrol_vessel');
+  return {
     id: uniqueId(`asset-${state.assets.length + 1}`, existingIds),
-    name: `New Asset ${state.assets.length + 1}`,
-    type: 'patrol_vessel',
+    name: autoNameForAssetType(normalizedType, existingNames),
+    type: normalizedType,
+    affiliation: normalizeAssetAffiliation(overrides.affiliation || (isCommercialAssetType(normalizedType) ? 'neutral' : 'friend')),
+    representation: normalizeAssetRepresentation(overrides.representation || (isCommercialAssetType(normalizedType) ? 'track' : 'unit')),
+    status: overrides.status || 'available',
+    zone,
+    fuel: overrides.fuel != null ? Math.max(0, Number(overrides.fuel)) : defaultFuelForAssetType(normalizedType),
+    readiness: overrides.readiness != null ? Math.max(0, Number(overrides.readiness)) : defaultReadinessForAssetType(normalizedType),
+    assignedCell: overrides.assignedCell || state.session.cells[0]?.id || '',
+    lat: Number(Number(center[0]).toFixed(6)),
+    lon: Number(Number(center[1]).toFixed(6)),
+    heading: normalizeHeading(overrides.heading ?? (Math.random() * 360)),
+    speed: normalizeSpeed(overrides.speed ?? (isCommercialAssetType(normalizedType) ? randomWithin(8, 18) : 12)),
+    trackQuality: normalizeTrackQuality(overrides.trackQuality || (isCommercialAssetType(normalizedType) ? 'q3' : 'q2')),
+    waypoints: Array.isArray(overrides.waypoints) ? clone(overrides.waypoints) : []
+  };
+}
+
+function duplicateSelectedAsset() {
+  const source = state.assets.find(a => a.id === state.selectedAssetId);
+  if (!source) {
+    alert('Select an asset to duplicate.');
+    return;
+  }
+  const copy = createAssetBase(source.type, Object.assign({}, source, {
+    lat: Number(source.lat || 0) + 0.015,
+    lon: Number(source.lon || 0) + 0.02,
+    waypoints: Array.isArray(source.waypoints) ? source.waypoints.map(w => Object.assign({}, w)) : []
+  }));
+  copy.name = isCommercialAssetType(source.type)
+    ? autoNameForAssetType(source.type, state.assets.map(a => a.name))
+    : `${source.name || 'Asset'} Copy`;
+  state.assets.push(copy);
+  state.selectedAssetId = copy.id;
+  saveState();
+  renderAll();
+  initMaps(true);
+}
+
+function autoPopulateCommercialTraffic() {
+  const bounds = currentMapBounds();
+  const count = Math.max(1, Math.min(40, Number(prompt('How many commercial vessels should OWGE add?', '12')) || 12));
+  const pool = COMMERCIAL_ASSET_TYPES;
+  for (let i = 0; i < count; i += 1) {
+    const type = pool[i % pool.length];
+    const lat = randomWithin(bounds.south, bounds.north);
+    const lon = randomWithin(bounds.west, bounds.east);
+    const asset = createAssetBase(type, {
+      lat, lon,
+      zone: hasZones() ? nearestZone(lat, lon) : '',
+      affiliation: Math.random() < 0.7 ? 'neutral' : (Math.random() < 0.5 ? 'unknown' : 'suspect'),
+      representation: Math.random() < 0.75 ? 'track' : 'unit',
+      heading: randomWithin(0, 359.9),
+      speed: randomWithin(type === 'pilot_boat' || type === 'tug_workboat' ? 6 : 10, type === 'container_ship' || type === 'lng_carrier' || type === 'tanker' ? 19 : 16),
+      trackQuality: ['q2','q3','q4'][Math.floor(Math.random()*3)]
+    });
+    state.assets.push(asset);
+  }
+  state.selectedAssetId = state.assets[state.assets.length - 1]?.id || '';
+  saveState();
+  renderAll();
+  initMaps(true);
+}
+
+function onSelectedAssetTypeChanged() {
+  const asset = state.assets.find(a => a.id === state.selectedAssetId);
+  const typeEl = document.getElementById('assetType');
+  const nameEl = document.getElementById('assetName');
+  const fuelEl = document.getElementById('assetFuel');
+  const readinessEl = document.getElementById('assetReadiness');
+  if (!typeEl || !nameEl) return;
+  const type = normalizeAssetType(typeEl.value);
+  if (asset) asset.type = type;
+  if (shouldAutoRenameAsset(nameEl.value)) {
+    const taken = state.assets.filter(a => a.id !== state.selectedAssetId).map(a => a.name);
+    nameEl.value = autoNameForAssetType(type, taken);
+  }
+  if (fuelEl && !String(fuelEl.value || '').trim()) fuelEl.value = defaultFuelForAssetType(type);
+  if (readinessEl && !String(readinessEl.value || '').trim()) readinessEl.value = defaultReadinessForAssetType(type);
+}
+
+function addAsset() {
+  const asset = createAssetBase('patrol_vessel', {
     affiliation: 'friend',
     representation: 'unit',
-    status: 'available',
-    zone,
-    fuel: 100,
-    readiness: 5,
-    assignedCell: state.session.cells[0]?.id || '',
-    lat: Number(basePos[0].toFixed(6)),
-    lon: Number(basePos[1].toFixed(6)),
     heading: 90,
     speed: 12,
-    trackQuality: 'q2',
-    waypoints: []
-  };
+    trackQuality: 'q2'
+  });
   state.assets.push(asset);
   state.selectedAssetId = asset.id;
   saveState();
@@ -634,8 +740,8 @@ function saveSelectedAssetProps() {
   asset.representation = normalizeAssetRepresentation(document.getElementById('assetRepresentation').value);
   asset.status = document.getElementById('assetStatus').value;
   asset.zone = document.getElementById('assetZone').value;
-  asset.fuel = Math.max(0, Number(document.getElementById('assetFuel').value) || 0);
-  asset.readiness = Math.max(0, Number(document.getElementById('assetReadiness').value) || 0);
+  asset.fuel = Math.max(0, Number(document.getElementById('assetFuel').value) || defaultFuelForAssetType(asset.type));
+  asset.readiness = Math.max(0, Number(document.getElementById('assetReadiness').value) || defaultReadinessForAssetType(asset.type));
   asset.assignedCell = document.getElementById('assetAssignedCell').value;
   asset.trackQuality = normalizeTrackQuality(document.getElementById('assetTrackQuality').value);
   asset.heading = normalizeHeading(document.getElementById('assetHeading').value);
@@ -947,12 +1053,12 @@ function lerp(a, b, t) {
 
 function fuelBurnRatePerHour(speed) {
   const s = Math.max(0, Number(speed || 0));
-  if (s <= 0.1) return 0.2;
-  if (s < 10) return lerp(1.2, 1.0, s / 10);
-  if (s <= 18) return lerp(1.0, 0.8, (s - 10) / 8);
-  if (s <= 24) return lerp(0.8, 1.0, (s - 18) / 6);
-  if (s <= 30) return lerp(1.0, 1.35, (s - 24) / 6);
-  return Math.min(2.2, 1.35 + ((s - 30) * 0.1));
+  if (s <= 0) return 0.04;
+  if (s <= 10) return 0.10;
+  if (s <= 18) return 0.10 + ((s - 10) / 8) * 0.04;
+  if (s <= 24) return 0.14 + ((s - 18) / 6) * 0.08;
+  if (s <= 30) return 0.22 + ((s - 24) / 6) * 0.08;
+  return Math.min(0.45, 0.30 + ((s - 30) * 0.02));
 }
 
 function fuelProfileLabel(speed) {
@@ -1352,8 +1458,8 @@ function renderAssetEditor() {
   if (assetRepresentation) assetRepresentation.value = normalizeAssetRepresentation(asset?.representation || 'unit');
   if (assetStatus) assetStatus.value = asset?.status || 'available';
   if (assetZone) assetZone.value = asset?.zone || '';
-  if (assetFuel) assetFuel.value = asset?.fuel ?? 100;
-  if (assetReadiness) assetReadiness.value = asset?.readiness ?? 5;
+  if (assetFuel) { assetFuel.value = asset?.fuel ?? defaultFuelForAssetType(asset?.type); assetFuel.placeholder = 'Fuel (default 10)'; assetFuel.title = 'Fuel remaining'; }
+  if (assetReadiness) { assetReadiness.value = asset?.readiness ?? defaultReadinessForAssetType(asset?.type); assetReadiness.placeholder = 'Readiness (1-5)'; assetReadiness.title = 'Operational readiness'; }
   if (assetAssignedCell) assetAssignedCell.value = asset?.assignedCell || state.session.cells[0]?.id || '';
   if (assetTrackQuality) assetTrackQuality.value = normalizeTrackQuality(asset?.trackQuality || 'q2');
   if (assetHeading) assetHeading.value = normalizeHeading(asset?.heading ?? 90);
