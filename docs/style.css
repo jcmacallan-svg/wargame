@@ -31,3 +31,23 @@ textarea { width:100%; min-height:110px; resize:vertical; } .zone-selected { out
 @media (max-width: 1400px) {
   .container { grid-template-columns: 420px 1fr 360px; }
 }
+
+
+html, body { height: 100%; overflow: hidden; }
+body { min-height: 100vh; }
+header { position: sticky; top: 0; z-index: 20; }
+.container { align-items: start; height: calc(100vh - 86px); overflow: hidden; }
+.container > .panel:first-child,
+.container > .panel:last-child { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+.container > .panel:nth-child(2) { height: 100%; position: sticky; top: 0; overflow: hidden; display: flex; flex-direction: column; }
+.container > .panel:nth-child(2) h2 { flex: 0 0 auto; }
+#map { flex: 1 1 auto; height: auto; min-height: 520px; }
+.legend-box { flex: 0 0 auto; }
+@media (max-width: 1100px) {
+  html, body { overflow: auto; }
+  .container { grid-template-columns: 1fr; height: auto; overflow: visible; }
+  .container > .panel:first-child,
+  .container > .panel:last-child,
+  .container > .panel:nth-child(2) { height: auto; overflow: visible; position: static; }
+  #map { height: 70vh; min-height: 420px; }
+}
