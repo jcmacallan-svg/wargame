@@ -9,7 +9,7 @@
 <body>
 <header>
   <h1>Open War Game Engine v16</h1>
-  <div class="small">Blank-map facilitator authoring: manually place zones and assets, then save the setup as a scenario package</div>
+  <div class="small">Blank-map facilitator authoring: manually place zones and assets, including commercial traffic and tracks, then save the setup as a scenario package</div>
 </header>
 <div class="container">
   <div class="panel">
@@ -71,7 +71,7 @@
     <div id="zoneList"></div>
 
     <h2 style="margin-top:18px">Blue Assets</h2>
-    <div class="small">Build the force package manually. Assign each asset to a zone and cell. Drag asset markers on the map to snap them to the nearest zone.</div>
+    <div class="small">Build the force package manually. Use confirmed units or tracks, set affiliation, track quality, heading and speed, and drag markers to set their precise chart position.</div>
     <div class="row" style="margin-top:10px">
       <button id="addAssetBtn">Add Asset</button>
       <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
@@ -90,10 +90,17 @@
       <option value="delayed">delayed</option>
       <option value="maintenance">maintenance</option>
     </select>
+    <select id="assetTrackQuality"></select>
     <select id="assetZone"></select>
     <select id="assetAssignedCell"></select>
-    <input id="assetFuel" type="number" min="0" placeholder="Fuel">
-    <input id="assetReadiness" type="number" min="0" placeholder="Readiness">
+    <div class="grid2" style="margin-top:8px">
+      <input id="assetHeading" type="number" min="0" max="359.9" step="0.1" placeholder="Heading (deg)">
+      <input id="assetSpeed" type="number" min="0" step="0.1" placeholder="Speed (kt)">
+      <input id="assetLat" type="number" step="0.000001" placeholder="Latitude">
+      <input id="assetLon" type="number" step="0.000001" placeholder="Longitude">
+      <input id="assetFuel" type="number" min="0" placeholder="Fuel">
+      <input id="assetReadiness" type="number" min="0" placeholder="Readiness">
+    </div>
     <button id="saveAssetPropsBtn" class="good">Save Asset Properties</button>
     <button id="deleteAssetBtn" class="warn">Delete Selected Asset</button>
 

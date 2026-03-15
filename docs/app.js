@@ -65,7 +65,18 @@ const ASSET_TYPE_OPTIONS = [
   { value: 'isr_drone', label: 'ISR Drone' },
   { value: 'boarding_team', label: 'Boarding Team' },
   { value: 'port_support_unit', label: 'Port Support Unit' },
-  { value: 'command_element', label: 'Command Element' }
+  { value: 'command_element', label: 'Command Element' },
+  { value: 'container_ship', label: 'Container Ship' },
+  { value: 'bulk_carrier', label: 'Bulk Carrier' },
+  { value: 'tanker', label: 'Tanker' },
+  { value: 'lng_carrier', label: 'LNG Carrier' },
+  { value: 'ro_ro_ferry', label: 'Ro-Ro Ferry' },
+  { value: 'passenger_ferry', label: 'Passenger Ferry' },
+  { value: 'fishing_vessel', label: 'Fishing Vessel' },
+  { value: 'tug_workboat', label: 'Tug / Workboat' },
+  { value: 'dredger', label: 'Dredger' },
+  { value: 'pilot_boat', label: 'Pilot Boat' },
+  { value: 'research_survey_vessel', label: 'Research / Survey Vessel' }
 ];
 
 const ASSET_AFFILIATION_OPTIONS = [
@@ -80,6 +91,14 @@ const ASSET_AFFILIATION_OPTIONS = [
 const ASSET_REPRESENTATION_OPTIONS = [
   { value: 'unit', label: 'Confirmed Unit' },
   { value: 'track', label: 'Track' }
+];
+
+const TRACK_QUALITY_OPTIONS = [
+  { value: 'q1', label: 'Q1 - High confidence' },
+  { value: 'q2', label: 'Q2 - Good confidence' },
+  { value: 'q3', label: 'Q3 - Fair confidence' },
+  { value: 'q4', label: 'Q4 - Poor confidence' },
+  { value: 'q5', label: 'Q5 - Fragmentary / weak' }
 ];
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -119,8 +138,22 @@ function migrateState(pkg) {
     zone: '',
     fuel: 6,
     readiness: 5,
-    assignedCell: merged.session.cells[0]?.id || ''
-  }, a, { type: normalizeAssetType(a?.type), affiliation: normalizeAssetAffiliation(a?.affiliation), representation: normalizeAssetRepresentation(a?.representation || a?.classification) }));
+    assignedCell: merged.session.cells[0]?.id || '',
+    lat: null,
+    lon: null,
+    heading: 90,
+    speed: 12,
+    trackQuality: 'q2'
+  }, a, {
+    type: normalizeAssetType(a?.type),
+    affiliation: normalizeAssetAffiliation(a?.affiliation),
+    representation: normalizeAssetRepresentation(a?.representation || a?.classification),
+    trackQuality: normalizeTrackQuality(a?.trackQuality),
+    lat: normalizeCoord(a?.lat),
+    lon: normalizeCoord(a?.lon),
+    heading: normalizeHeading(a?.heading),
+    speed: normalizeSpeed(a?.speed)
+  }));
   return merged;
 }
 function ensureSessionMaps(targetState = state) {
@@ -154,6 +187,26 @@ function normalizeAssetType(type) {
 function assetRepresentationLabel(value) { return ASSET_REPRESENTATION_OPTIONS.find(o => o.value === value)?.label || 'Confirmed Unit'; }
 function normalizeAssetRepresentation(value) {
   return ASSET_REPRESENTATION_OPTIONS.some(o => o.value === value) ? value : 'unit';
+}
+
+function trackQualityLabel(value) { return TRACK_QUALITY_OPTIONS.find(o => o.value === value)?.label || 'Q2 - Good confidence'; }
+function trackQualityShort(value) { return (TRACK_QUALITY_OPTIONS.find(o => o.value === value)?.label || 'Q2').split(' ')[0]; }
+function normalizeTrackQuality(value) { return TRACK_QUALITY_OPTIONS.some(o => o.value === value) ? value : 'q2'; }
+function normalizeCoord(value) {
+  if (value === '' || value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? Number(n.toFixed(6)) : null;
+}
+function normalizeHeading(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 90;
+  const h = ((n % 360) + 360) % 360;
+  return Number(h.toFixed(1));
+}
+function normalizeSpeed(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Number(n.toFixed(1));
 }
 
 function normalizeMapView(view) {
@@ -459,6 +512,7 @@ function deleteSelectedZone() {
 function addAsset() {
   const existingIds = state.assets.map(a => a.id);
   const zone = state.selectedZoneId || zoneIds()[0] || '';
+  const basePos = zone && state.zones[zone] ? state.zones[zone].center : (map ? [map.getCenter().lat, map.getCenter().lng] : [54.8, 7.55]);
   const asset = {
     id: uniqueId(`asset-${state.assets.length + 1}`, existingIds),
     name: `New Asset ${state.assets.length + 1}`,
@@ -469,7 +523,12 @@ function addAsset() {
     zone,
     fuel: 6,
     readiness: 5,
-    assignedCell: state.session.cells[0]?.id || ''
+    assignedCell: state.session.cells[0]?.id || '',
+    lat: Number(basePos[0].toFixed(6)),
+    lon: Number(basePos[1].toFixed(6)),
+    heading: 90,
+    speed: 12,
+    trackQuality: 'q2'
   };
   state.assets.push(asset);
   state.selectedAssetId = asset.id;
@@ -504,6 +563,11 @@ function saveSelectedAssetProps() {
   asset.fuel = Math.max(0, Number(document.getElementById('assetFuel').value) || 0);
   asset.readiness = Math.max(0, Number(document.getElementById('assetReadiness').value) || 0);
   asset.assignedCell = document.getElementById('assetAssignedCell').value;
+  asset.trackQuality = normalizeTrackQuality(document.getElementById('assetTrackQuality').value);
+  asset.heading = normalizeHeading(document.getElementById('assetHeading').value);
+  asset.speed = normalizeSpeed(document.getElementById('assetSpeed').value);
+  asset.lat = normalizeCoord(document.getElementById('assetLat').value);
+  asset.lon = normalizeCoord(document.getElementById('assetLon').value);
   state.selectedAssetId = asset.id;
   saveState();
   renderAll();
@@ -550,7 +614,18 @@ function assetDoctrineAbbrev(asset) {
     isr_drone: 'ISR',
     boarding_team: 'VBSS',
     port_support_unit: 'PORT',
-    command_element: 'C2'
+    command_element: 'C2',
+    container_ship: 'CONT',
+    bulk_carrier: 'BULK',
+    tanker: 'TNKR',
+    lng_carrier: 'LNG',
+    ro_ro_ferry: 'RORO',
+    passenger_ferry: 'FERY',
+    fishing_vessel: 'FISH',
+    tug_workboat: 'TUG',
+    dredger: 'DRDG',
+    pilot_boat: 'PILOT',
+    research_survey_vessel: 'SURV'
   };
   return map[normalizeAssetType(asset.type)] || 'UNIT';
 }
@@ -570,7 +645,18 @@ function assetDoctrineProfile(asset) {
     isr_drone: { short: 'UAV', code: 'ISR', role: 'ISR drone' },
     boarding_team: { short: 'VBSS', code: 'BDT', role: 'Boarding team' },
     port_support_unit: { short: 'PORT', code: 'SUP', role: 'Port support' },
-    command_element: { short: 'C2', code: 'CMD', role: 'Command' }
+    command_element: { short: 'C2', code: 'CMD', role: 'Command' },
+    container_ship: { short: 'CONT', code: 'COM', role: 'Container shipping' },
+    bulk_carrier: { short: 'BULK', code: 'COM', role: 'Bulk carrier' },
+    tanker: { short: 'TNKR', code: 'COM', role: 'Tanker' },
+    lng_carrier: { short: 'LNG', code: 'COM', role: 'Gas carrier' },
+    ro_ro_ferry: { short: 'RORO', code: 'COM', role: 'Ro-Ro ferry' },
+    passenger_ferry: { short: 'FERY', code: 'COM', role: 'Passenger ferry' },
+    fishing_vessel: { short: 'FISH', code: 'COM', role: 'Fishing vessel' },
+    tug_workboat: { short: 'TUG', code: 'COM', role: 'Tug / workboat' },
+    dredger: { short: 'DRDG', code: 'COM', role: 'Dredger' },
+    pilot_boat: { short: 'PILOT', code: 'COM', role: 'Pilot boat' },
+    research_survey_vessel: { short: 'SURV', code: 'COM', role: 'Research / survey' }
   };
   return map[type] || { short: 'UNIT', code: 'GEN', role: 'General' };
 }
@@ -672,6 +758,7 @@ function buildNtdsSvg(asset, selected) {
   const statusText = representation === 'track' ? 'T' : 'U';
   const statusFill = representation === 'track' ? '#111827' : '#020617';
   const statusStroke = representation === 'track' ? palette.stroke : '#94a3b8';
+  const qualityText = trackQualityShort(asset.trackQuality);
   return `
     <svg width="76" height="58" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="${geo.path}" fill="${fill}" stroke="${outline}" stroke-width="${mainStrokeWidth}" stroke-linejoin="round" stroke-dasharray="${dash}" />
@@ -683,6 +770,8 @@ function buildNtdsSvg(asset, selected) {
       <text x="58" y="10.2" text-anchor="middle" font-size="6.2" font-weight="800" fill="${palette.stroke}">${aff}</text>
       <rect x="4" y="3" rx="5" ry="5" width="12" height="10" fill="${statusFill}" stroke="${statusStroke}" stroke-width="1"></rect>
       <text x="10" y="10.2" text-anchor="middle" font-size="6.2" font-weight="800" fill="#f8fafc">${statusText}</text>
+      <rect x="22" y="33" rx="6" ry="6" width="24" height="10" fill="#020617" opacity=".86" stroke="${palette.stroke}" stroke-width="1"></rect>
+      <text x="34" y="40.2" text-anchor="middle" font-size="6.3" font-weight="800" fill="${palette.stroke}">${qualityText}</text>
     </svg>`;
 }
 
@@ -691,8 +780,41 @@ function assetIcon(asset) {
   const profile = assetDoctrineProfile(asset);
   const palette = assetNtdsPalette(asset);
   const representation = normalizeAssetRepresentation(asset.representation);
-  const html = `<div class="ntds-marker-wrap ntds-${representation}"><div class="ntds-symbol-shell">${buildNtdsSvg(asset, selected)}</div><div class="ntds-asset-name" style="border-color:${palette.stroke}; background:${palette.chip}; color:${palette.text};">${asset.name}</div><div class="ntds-asset-meta">${assetRepresentationLabel(representation)} · ${profile.role} · ${assetAffiliationLabel(asset.affiliation)}</div></div>`;
+  const html = `<div class="ntds-marker-wrap ntds-${representation}"><div class="ntds-symbol-shell">${buildNtdsSvg(asset, selected)}</div><div class="ntds-asset-name" style="border-color:${palette.stroke}; background:${palette.chip}; color:${palette.text};">${asset.name}</div><div class="ntds-asset-meta">${assetRepresentationLabel(representation)} · ${profile.role} · ${assetAffiliationLabel(asset.affiliation)} · ${trackQualityShort(asset.trackQuality)}</div></div>`;
   return L.divIcon({ className: 'ntds-div-icon', html, iconSize: [118, 92], iconAnchor: [38, 30], popupAnchor: [0, -14] });
+}
+
+
+function assetLatLng(asset, idx) {
+  const explicitLat = normalizeCoord(asset?.lat);
+  const explicitLon = normalizeCoord(asset?.lon);
+  if (explicitLat != null && explicitLon != null) return [explicitLat, explicitLon];
+  if (asset.zone && state.zones[asset.zone]) return zoneOffsetLatLng(asset.zone, idx + 1);
+  return [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
+}
+
+function courseVectorLatLngs(asset, idx) {
+  const origin = assetLatLng(asset, idx);
+  const heading = normalizeHeading(asset.heading);
+  const speed = Math.max(0, normalizeSpeed(asset.speed));
+  const distanceNm = Math.max(1.2, Math.min(12, speed * 0.22 + (normalizeAssetRepresentation(asset.representation) === 'track' ? 1.2 : 0)));
+  const radians = heading * Math.PI / 180;
+  const dLat = (distanceNm * Math.cos(radians)) / 60;
+  const lonScale = Math.cos(origin[0] * Math.PI / 180) || 0.00001;
+  const dLon = (distanceNm * Math.sin(radians)) / (60 * lonScale);
+  return [origin, [origin[0] + dLat, origin[1] + dLon]];
+}
+
+function trackQualityStyle(asset) {
+  const q = normalizeTrackQuality(asset.trackQuality);
+  const map = {
+    q1: { opacity: 0.95, weight: 3.2, dashArray: null },
+    q2: { opacity: 0.85, weight: 2.8, dashArray: '8 4' },
+    q3: { opacity: 0.72, weight: 2.4, dashArray: '6 5' },
+    q4: { opacity: 0.6, weight: 2.1, dashArray: '4 6' },
+    q5: { opacity: 0.45, weight: 1.8, dashArray: '2 7' }
+  };
+  return map[q] || map.q2;
 }
 
 function clearLayers(arr, target) {
@@ -777,13 +899,26 @@ function renderFacilitatorMap() {
   });
 
   state.assets.forEach((a, idx) => {
-    const ll = a.zone && state.zones[a.zone] ? zoneOffsetLatLng(a.zone, idx + 1) : [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
+    const ll = assetLatLng(a, idx);
+    const vector = courseVectorLatLngs(a, idx);
+    const palette = assetNtdsPalette(a);
+    const vectorStyle = trackQualityStyle(a);
+    const vectorLine = L.polyline(vector, {
+      color: palette.stroke,
+      weight: vectorStyle.weight,
+      opacity: vectorStyle.opacity,
+      dashArray: vectorStyle.dashArray,
+      lineCap: 'round'
+    }).addTo(map);
+    assetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
     marker.on('click', () => selectAsset(a.id));
     marker.on('dragend', e => {
-      if (!hasZones()) return;
-      a.zone = nearestZone(e.target.getLatLng().lat, e.target.getLatLng().lng);
+      const p = e.target.getLatLng();
+      a.lat = Number(p.lat.toFixed(6));
+      a.lon = Number(p.lng.toFixed(6));
+      if (hasZones()) a.zone = nearestZone(p.lat, p.lng);
       saveState();
       renderAll();
       initMaps(true);
@@ -805,9 +940,20 @@ function renderPlayerMap() {
     playerZoneLayers.push(circle);
   });
   state.assets.filter(a => !cellId || a.assignedCell === cellId).forEach((a, idx) => {
-    const ll = a.zone && state.zones[a.zone] ? zoneOffsetLatLng(a.zone, idx + 1) : [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
+    const ll = assetLatLng(a, idx);
+    const vector = courseVectorLatLngs(a, idx);
+    const palette = assetNtdsPalette(a);
+    const vectorStyle = trackQualityStyle(a);
+    const vectorLine = L.polyline(vector, {
+      color: palette.stroke,
+      weight: vectorStyle.weight,
+      opacity: Math.max(0.35, vectorStyle.opacity - 0.1),
+      dashArray: vectorStyle.dashArray,
+      lineCap: 'round'
+    }).addTo(playerMap);
+    playerAssetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), title: a.name }).addTo(playerMap);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Zone: ' + prettyZone(a.zone));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Zone: ' + prettyZone(a.zone));
     playerAssetLayers.push(marker);
   });
 }
@@ -898,8 +1044,10 @@ function renderAssets() {
           <span class="tag">${assetRepresentationLabel(a.representation)}</span>
           <span class="tag">${assetTypeLabel(a.type)}</span>
           <span class="tag">${assetAffiliationLabel(a.affiliation)}</span>
+          <span class="tag">${trackQualityShort(a.trackQuality)}</span>
           <span class="tag">${a.status}</span>
           <span class="tag">${prettyZone(a.zone)}</span>
+          <span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span>
           <span class="tag">${state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'}</span>
         </div>
         <button class="secondary" onclick="selectAsset('${a.id}')">Select</button>
@@ -920,12 +1068,18 @@ function renderAssetEditor() {
   const assetFuel = document.getElementById('assetFuel');
   const assetReadiness = document.getElementById('assetReadiness');
   const assetAssignedCell = document.getElementById('assetAssignedCell');
+  const assetTrackQuality = document.getElementById('assetTrackQuality');
+  const assetHeading = document.getElementById('assetHeading');
+  const assetSpeed = document.getElementById('assetSpeed');
+  const assetLat = document.getElementById('assetLat');
+  const assetLon = document.getElementById('assetLon');
   if (!assetZone || !assetAssignedCell) return;
   assetZone.innerHTML = ['<option value="">Unplaced</option>'].concat(zoneIds().map(id => `<option value="${id}">${state.zones[id].name}</option>`)).join('');
   assetAssignedCell.innerHTML = state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   if (assetType) assetType.innerHTML = ASSET_TYPE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetAffiliation) assetAffiliation.innerHTML = ASSET_AFFILIATION_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetRepresentation) assetRepresentation.innerHTML = ASSET_REPRESENTATION_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  if (assetTrackQuality) assetTrackQuality.innerHTML = TRACK_QUALITY_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetId) assetId.value = asset?.id || '';
   if (assetName) assetName.value = asset?.name || '';
   if (assetType) assetType.value = normalizeAssetType(asset?.type || 'patrol_vessel');
@@ -936,6 +1090,11 @@ function renderAssetEditor() {
   if (assetFuel) assetFuel.value = asset?.fuel ?? 6;
   if (assetReadiness) assetReadiness.value = asset?.readiness ?? 5;
   if (assetAssignedCell) assetAssignedCell.value = asset?.assignedCell || state.session.cells[0]?.id || '';
+  if (assetTrackQuality) assetTrackQuality.value = normalizeTrackQuality(asset?.trackQuality || 'q2');
+  if (assetHeading) assetHeading.value = normalizeHeading(asset?.heading ?? 90);
+  if (assetSpeed) assetSpeed.value = normalizeSpeed(asset?.speed ?? 12);
+  if (assetLat) assetLat.value = asset?.lat ?? '';
+  if (assetLon) assetLon.value = asset?.lon ?? '';
 }
 
 function renderInjects() {
@@ -970,7 +1129,7 @@ function renderPlayerPage() {
   const cell = state.session.cells.find(c => c.id === cellId);
   document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
-  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
+  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
