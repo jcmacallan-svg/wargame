@@ -69,3 +69,7 @@ header { position: sticky; top: 0; z-index: 20; }
 .aff-hostile { background:#b91c1c; }
 .aff-suspect { background:#d97706; }
 .aff-unknown { background:#6d28d9; }
+
+
+.asset-section { margin-bottom: 12px; }
+.section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #8fb4ff; margin: 6px 0; }

@@ -252,6 +252,31 @@ function isCommercialAssetType(type) {
 
 function assetScopeLabel(scope) { return ({ all: 'All assets', commercial: 'Commercial only', military: 'Non-commercial only' })[scope] || 'All assets'; }
 function normalizeAssetScope(scope) { return ['all','commercial','military'].includes(scope) ? scope : 'all'; }
+
+function assetOwningGroupLabel(asset) {
+  if (isCommercialAssetType(asset?.type) || normalizeAssetAffiliation(asset?.affiliation) === 'neutral') return 'Commercial Vessels';
+  return state.session.cells.find(c => c.id === asset?.assignedCell)?.name || 'Unassigned';
+}
+
+function groupedAssetSections(assets) {
+  const sections = [];
+  const assigned = [];
+  const commercial = [];
+  const contacts = [];
+  const other = [];
+  assets.forEach(a => {
+    const aff = normalizeAssetAffiliation(a.affiliation);
+    if (isCommercialAssetType(a.type) || aff === 'neutral') commercial.push(a);
+    else if (a.assignedCell) assigned.push(a);
+    else if (['unknown','suspect','hostile'].includes(aff)) contacts.push(a);
+    else other.push(a);
+  });
+  if (assigned.length) sections.push({ title: 'Blue / Assigned Units', assets: assigned });
+  if (commercial.length) sections.push({ title: 'Commercial Vessels', assets: commercial });
+  if (contacts.length) sections.push({ title: 'Other Contacts', assets: contacts });
+  if (other.length) sections.push({ title: 'Other Assets', assets: other });
+  return sections;
+}
 function getAssetFilters() {
   state.ui = state.ui || clone(DEFAULT_STATE.ui);
   state.ui.assetFilters = Object.assign(clone(DEFAULT_STATE.ui.assetFilters), state.ui.assetFilters || {});
@@ -519,6 +544,23 @@ function bindEvents() {
     document.getElementById('playerCellSelect').onchange = () => { renderPlayerPage(); initMaps(true); };
     document.getElementById('playerSubmitBtn').onclick = submitPlayerAction;
   }
+  window.addEventListener('storage', (e) => {
+    if (e.key !== STORAGE_KEY || !e.newValue) return;
+    try {
+      state = migrateState(JSON.parse(e.newValue));
+      ensureSessionMaps();
+      renderAll();
+      initMaps(true);
+    } catch (_) {}
+  });
+  window.addEventListener('focus', () => {
+    try {
+      state = loadState();
+      ensureSessionMaps();
+      renderAll();
+      initMaps(true);
+    } catch (_) {}
+  });
 }
 
 function setMapMode(mode) {
@@ -745,7 +787,7 @@ function createAssetBase(type, overrides = {}) {
     zone,
     fuel: overrides.fuel != null ? Math.max(0, Number(overrides.fuel)) : defaultFuelForAssetType(normalizedType),
     readiness: overrides.readiness != null ? Math.max(0, Number(overrides.readiness)) : defaultReadinessForAssetType(normalizedType),
-    assignedCell: overrides.assignedCell || state.session.cells[0]?.id || '',
+    assignedCell: overrides.assignedCell != null ? overrides.assignedCell : (isCommercialAssetType(normalizedType) ? '' : (state.session.cells[0]?.id || '')),
     lat: Number(Number(center[0]).toFixed(6)),
     lon: Number(Number(center[1]).toFixed(6)),
     heading: normalizeHeading(overrides.heading ?? (Math.random() * 360)),
@@ -1390,7 +1432,7 @@ function renderFacilitatorMap() {
     }).addTo(map);
     assetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
     marker.on('click', (ev) => { if (ev?.originalEvent) L.DomEvent.stopPropagation(ev.originalEvent); selectAsset(a.id); });
     marker.on('dragend', e => {
       const p = e.target.getLatLng();
@@ -1418,7 +1460,7 @@ function renderPlayerMap() {
     circle.bindTooltip(z.name);
     playerZoneLayers.push(circle);
   });
-  state.assets.filter(a => !cellId || a.assignedCell === cellId).forEach((a, idx) => {
+  state.assets.forEach((a, idx) => {
     const ll = assetLatLng(a, idx);
     const vector = courseVectorLatLngs(a, idx);
     const palette = assetNtdsPalette(a);
@@ -1432,7 +1474,7 @@ function renderPlayerMap() {
     }).addTo(playerMap);
     playerAssetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), title: a.name }).addTo(playerMap);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
     playerAssetLayers.push(marker);
   });
 }
@@ -1531,25 +1573,33 @@ function renderAssets() {
   const visibleAssets = state.assets.filter(a => assetMatchesFilters(a, filters));
   const countEl = document.getElementById('assetFilterCount');
   if (countEl) countEl.textContent = `${visibleAssets.length} shown / ${state.assets.length} total`;
-  panel.innerHTML = visibleAssets.length
-    ? visibleAssets.map(a => `
-      <div class="card asset ${a.id === state.selectedAssetId ? 'zone-selected' : ''}">
-        <strong>${a.name}</strong>
-        <div class="row" style="margin-top:6px">
-          <span class="tag">${assetRepresentationLabel(a.representation)}</span>
-          <span class="tag">${assetTypeLabel(a.type)}</span>
-          <span class="tag">${assetAffiliationLabel(a.affiliation)}</span>
-          <span class="tag">${trackQualityShort(a.trackQuality)}</span>
-          <span class="tag">${a.status}</span>
-          <span class="tag">${prettyZone(a.zone)}</span>
-          <span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span>
-          <span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span>
-          <span class="tag">${waypointSummary(a)}</span>
-          <span class="tag">${state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'}</span>
-        </div>
-        <button class="secondary" onclick="selectAsset('${a.id}')">Select</button>
-      </div>`).join('')
-    : '<div class="small">No assets match the current filter selection.</div>';
+  if (!visibleAssets.length) {
+    panel.innerHTML = '<div class="small">No assets match the current filter selection.</div>';
+    renderAssetEditor();
+    return;
+  }
+  const sections = groupedAssetSections(visibleAssets);
+  panel.innerHTML = sections.map(section => `
+    <div class="asset-section">
+      <div class="section-title">${section.title}</div>
+      ${section.assets.map(a => `
+        <div class="card asset ${a.id === state.selectedAssetId ? 'zone-selected' : ''}">
+          <strong>${a.name}</strong>
+          <div class="row" style="margin-top:6px">
+            <span class="tag">${assetRepresentationLabel(a.representation)}</span>
+            <span class="tag">${assetTypeLabel(a.type)}</span>
+            <span class="tag">${assetAffiliationLabel(a.affiliation)}</span>
+            <span class="tag">${trackQualityShort(a.trackQuality)}</span>
+            <span class="tag">${a.status}</span>
+            <span class="tag">${prettyZone(a.zone)}</span>
+            <span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span>
+            <span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span>
+            <span class="tag">${waypointSummary(a)}</span>
+            <span class="tag">${assetOwningGroupLabel(a)}</span>
+          </div>
+          <button class="secondary" onclick="selectAsset('${a.id}')">Select</button>
+        </div>`).join('')}
+    </div>`).join('');
   renderAssetEditor();
 }
 
@@ -1574,7 +1624,7 @@ function renderAssetEditor() {
   const assetWaypoints = document.getElementById('assetWaypoints');
   if (!assetZone || !assetAssignedCell) return;
   assetZone.innerHTML = ['<option value="">Unplaced</option>'].concat(zoneIds().map(id => `<option value="${id}">${state.zones[id].name}</option>`)).join('');
-  assetAssignedCell.innerHTML = state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  assetAssignedCell.innerHTML = ['<option value="">Unassigned / Commercial</option>'].concat(state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`)).join('');
   if (assetType) assetType.innerHTML = ASSET_TYPE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetAffiliation) assetAffiliation.innerHTML = ASSET_AFFILIATION_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetRepresentation) assetRepresentation.innerHTML = ASSET_REPRESENTATION_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
@@ -1632,15 +1682,25 @@ function renderPlayerPage() {
   sel.innerHTML = state.session.cells.map(c => `<option value="${c.id}" ${c.id === current ? 'selected' : ''}>${c.name}</option>`).join('');
   const cellId = getPlayerCell();
   const cell = state.session.cells.find(c => c.id === cellId);
-  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
-  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
+  const sharedCommercial = state.assets.filter(a => isCommercialAssetType(a.type) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
+  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">My assets: ${myAssets.length}</span><span class="tag">Shared map assets: ${state.assets.length}</span><span class="tag">Commercial: ${sharedCommercial.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Shared map mode</strong><br>The player map mirrors the facilitator battlespace, including commercial vessels and shared contacts, so everyone validates against the same chart picture.</p>`;
+  document.getElementById('playerAssetsPanel').innerHTML = `
+    <div class="asset-section">
+      <div class="section-title">Assigned to ${cell?.name || 'current cell'}</div>
+      ${myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
+    </div>
+    <div class="asset-section" style="margin-top:10px">
+      <div class="section-title">Commercial Vessels / Shared Contacts</div>
+      ${((sharedCommercial.length ? sharedCommercial : state.assets.filter(a => a.assignedCell !== cellId).slice(0, 12))).map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span></div></div>`).join('') || '<div class="small">No shared commercial vessels or contacts visible.</div>'}
+    </div>`;
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
   document.getElementById('playerActionLog').innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
   initMaps(true);
 }
+
 
 function renderAll() {
   ensureSessionMaps();
