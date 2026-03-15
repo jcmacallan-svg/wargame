@@ -138,7 +138,7 @@ function migrateState(pkg) {
     representation: 'unit',
     status: 'available',
     zone: '',
-    fuel: 6,
+    fuel: 100,
     readiness: 5,
     assignedCell: merged.session.cells[0]?.id || '',
     lat: null,
@@ -594,7 +594,7 @@ function addAsset() {
     representation: 'unit',
     status: 'available',
     zone,
-    fuel: 6,
+    fuel: 100,
     readiness: 5,
     assignedCell: state.session.cells[0]?.id || '',
     lat: Number(basePos[0].toFixed(6)),
@@ -941,14 +941,52 @@ function movementDistanceNm(asset, hours) {
   return Math.max(0, normalizeSpeed(asset.speed)) * Math.max(0, Number(hours || 0));
 }
 
+function lerp(a, b, t) {
+  return a + (b - a) * Math.max(0, Math.min(1, Number(t || 0)));
+}
+
+function fuelBurnRatePerHour(speed) {
+  const s = Math.max(0, Number(speed || 0));
+  if (s <= 0.1) return 0.2;
+  if (s < 10) return lerp(1.2, 1.0, s / 10);
+  if (s <= 18) return lerp(1.0, 0.8, (s - 10) / 8);
+  if (s <= 24) return lerp(0.8, 1.0, (s - 18) / 6);
+  if (s <= 30) return lerp(1.0, 1.35, (s - 24) / 6);
+  return Math.min(2.2, 1.35 + ((s - 30) * 0.1));
+}
+
+function fuelProfileLabel(speed) {
+  const s = Math.max(0, Number(speed || 0));
+  if (s <= 0.1) return 'idle';
+  if (s < 10) return 'slow / inefficient';
+  if (s <= 18) return s === 18 ? 'cruise optimum' : 'economical';
+  if (s <= 24) return 'fast cruise';
+  if (s <= 30) return 'high speed / inefficient';
+  return 'overstress';
+}
+
+function fuelPlanForTurn(asset, hours) {
+  const requestedHours = Math.max(0, Number(hours || 0));
+  const availableFuel = Math.max(0, Number(asset?.fuel || 0));
+  const speed = Math.max(0, normalizeSpeed(asset?.speed));
+  const burnRate = fuelBurnRatePerHour(speed);
+  const maxHoursByFuel = burnRate > 0 ? (availableFuel / burnRate) : requestedHours;
+  const effectiveHours = Math.max(0, Math.min(requestedHours, maxHoursByFuel));
+  const fuelUsed = Math.min(availableFuel, burnRate * effectiveHours);
+  const fuelRemaining = Math.max(0, availableFuel - fuelUsed);
+  const limitedByFuel = effectiveHours + 1e-6 < requestedHours;
+  return { requestedHours, effectiveHours, burnRate, fuelUsed, fuelRemaining, limitedByFuel, profile: fuelProfileLabel(speed) };
+}
+
 function movementPreviewRows() {
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
   return state.assets.map((asset, idx) => {
     const origin = assetLatLng(asset, idx);
-    const distanceNm = movementDistanceNm(asset, hours);
+    const fuelPlan = fuelPlanForTurn(asset, hours);
+    const distanceNm = movementDistanceNm(asset, fuelPlan.effectiveHours);
     const movement = distanceNm > 0 ? projectMovement(asset, origin, distanceNm) : { destination: origin, heading: normalizeHeading(asset.heading), remainingWaypoints: Array.isArray(asset.waypoints) ? clone(asset.waypoints) : [], consumedWaypoints: 0 };
     const destination = movement.destination;
-    return { asset, origin, destination, distanceNm, zone: hasZones() ? nearestZone(destination[0], destination[1]) : asset.zone || '', movement };
+    return { asset, origin, destination, distanceNm, zone: hasZones() ? nearestZone(destination[0], destination[1]) : asset.zone || '', movement, fuelPlan };
   });
 }
 
@@ -959,7 +997,7 @@ function previewNextTurnMovement() {
     return;
   }
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
-  const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm ${r.movement.consumedWaypoints ? `via ${r.movement.consumedWaypoints} WP` : `on ${normalizeHeading(r.movement.heading)}°`} to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}${r.movement.remainingWaypoints[0] ? ` · next ${r.movement.remainingWaypoints[0].label || 'WP'} ` : ''}`);
+  const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm ${r.movement.consumedWaypoints ? `via ${r.movement.consumedWaypoints} WP` : `on ${normalizeHeading(r.movement.heading)}°`} to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}${r.movement.remainingWaypoints[0] ? ` · next ${r.movement.remainingWaypoints[0].label || 'WP'}` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(2)} used / ${r.fuelPlan.fuelRemaining.toFixed(2)} left @ ${r.fuelPlan.burnRate.toFixed(2)}/h${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
   alert(`Movement preview for next turn (${hours}h):\n\n${lines.join('\n')}${rows.length > 10 ? `\n...and ${rows.length - 10} more asset(s)` : ''}`);
 }
 
@@ -976,8 +1014,9 @@ function advanceSimulationTurn() {
     r.asset.lon = Number(r.destination[1].toFixed(6));
     r.asset.heading = normalizeHeading(r.movement.heading);
     r.asset.waypoints = r.movement.remainingWaypoints;
+    r.asset.fuel = Number(r.fuelPlan.fuelRemaining.toFixed(2));
     if (r.zone) r.asset.zone = r.zone;
-    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''}`);
+    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(2)} used / ${r.fuelPlan.fuelRemaining.toFixed(2)} left${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
   });
   state.scenario.turn = Number(state.scenario.turn || 1) + 1;
   state.scenario.timeLabel = advanceTimeLabel(state.scenario.timeLabel, hours);
@@ -1123,7 +1162,7 @@ function renderFacilitatorMap() {
     }).addTo(map);
     assetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
     marker.on('click', (ev) => { if (ev?.originalEvent) L.DomEvent.stopPropagation(ev.originalEvent); selectAsset(a.id); });
     marker.on('dragend', e => {
       const p = e.target.getLatLng();
@@ -1165,7 +1204,7 @@ function renderPlayerMap() {
     }).addTo(playerMap);
     playerAssetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), title: a.name }).addTo(playerMap);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone));
     playerAssetLayers.push(marker);
   });
 }
@@ -1189,7 +1228,7 @@ function renderScenario() {
       <span class="tag">Duration: ${Number(state.scenario.turnDurationHours || 1)} h</span>
     </div>
     <p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>
-    <p class="small"><strong>Turn clock</strong><br>${state.scenario.timeLabel || 'H+0'} · each turn advances assets by heading/speed for ${Number(state.scenario.turnDurationHours || 1)} hour(s).</p>
+    <p class="small"><strong>Turn clock</strong><br>${state.scenario.timeLabel || 'H+0'} · each turn advances assets by heading/speed for ${Number(state.scenario.turnDurationHours || 1)} hour(s). Fuel burn is speed-based, with 18 kt as the most efficient cruise band.</p>
     <p class="small"><strong>Map start view</strong><br>${pinned ? `Pinned at ${pinned.center[0].toFixed(2)}, ${pinned.center[1].toFixed(2)} / zoom ${pinned.zoom}` : 'No pinned view saved.'}${remembered ? `<br>Last remembered view ${remembered.center[0].toFixed(2)}, ${remembered.center[1].toFixed(2)} / zoom ${remembered.zoom}` : ''}</p>
   `;
   const title = document.querySelector('header h1');
@@ -1271,6 +1310,7 @@ function renderAssets() {
           <span class="tag">${a.status}</span>
           <span class="tag">${prettyZone(a.zone)}</span>
           <span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span>
+          <span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span>
           <span class="tag">${waypointSummary(a)}</span>
           <span class="tag">${state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'}</span>
         </div>
@@ -1312,7 +1352,7 @@ function renderAssetEditor() {
   if (assetRepresentation) assetRepresentation.value = normalizeAssetRepresentation(asset?.representation || 'unit');
   if (assetStatus) assetStatus.value = asset?.status || 'available';
   if (assetZone) assetZone.value = asset?.zone || '';
-  if (assetFuel) assetFuel.value = asset?.fuel ?? 6;
+  if (assetFuel) assetFuel.value = asset?.fuel ?? 100;
   if (assetReadiness) assetReadiness.value = asset?.readiness ?? 5;
   if (assetAssignedCell) assetAssignedCell.value = asset?.assignedCell || state.session.cells[0]?.id || '';
   if (assetTrackQuality) assetTrackQuality.value = normalizeTrackQuality(asset?.trackQuality || 'q2');
@@ -1334,7 +1374,7 @@ function renderTimeline() {
   const el = document.getElementById('timelinePanel');
   if (!el) return;
   if (!state.timeline.length) {
-    el.innerHTML = `<div class="small">No movement turns resolved yet. Set heading/speed or add waypoints on an asset and click <strong>Resolve Turn</strong> to advance it automatically on the chart.</div>`;
+    el.innerHTML = `<div class="small">No movement turns resolved yet. Set heading/speed or add waypoints on an asset and click <strong>Resolve Turn</strong> to advance it automatically on the chart; fuel will tick down based on speed.</div>`;
     return;
   }
   el.innerHTML = state.timeline.slice().reverse().map(item => `<div class="timeline-item"><strong>${item.time || 'H+0'}</strong><br>${item.text}</div>`).join('');
@@ -1360,7 +1400,7 @@ function renderPlayerPage() {
   const cell = state.session.cells.find(c => c.id === cellId);
   document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
-  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
+  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
