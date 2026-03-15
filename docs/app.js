@@ -390,7 +390,7 @@ function setMapMode(mode) {
   state.mapMode = mode;
   saveState();
   renderScenario();
-  renderSelectedAssetEditor();
+  renderAssetEditor();
   renderFacilitatorMap();
   updateWaypointUi();
 }
