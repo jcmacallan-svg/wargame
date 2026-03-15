@@ -18,7 +18,8 @@ const DEFAULT_TEMPLATE = {
     redDoctrine: 'manual',
     rememberLastMapView: true,
     lastMapView: { center: [54.8, 7.55], zoom: 8 },
-    pinnedMapView: null
+    pinnedMapView: null,
+    turnDurationHours: 1
   },
   zones: {}
 };
@@ -290,8 +291,8 @@ async function init() {
 function bindEvents() {
   if (document.getElementById('map')) {
     document.getElementById('resetBtn').onclick = resetToBlankScenario;
-    document.getElementById('generatePressureBtn').onclick = () => alert('Pressure/adjudication is not the focus of this build. Use this build to author zones and assets, then save the scenario package.');
-    document.getElementById('nextTurnBtn').onclick = () => alert('Turn resolution is de-emphasized in this build. Use it for facilitator scenario setup.');
+    document.getElementById('generatePressureBtn').onclick = previewNextTurnMovement;
+    document.getElementById('nextTurnBtn').onclick = advanceSimulationTurn;
     document.getElementById('overlaySelect').onchange = (e) => { state.scenario.overlayMode = e.target.value; saveState(); initMaps(true); };
     document.getElementById('saveZonePropsBtn').onclick = saveSelectedZoneProps;
     document.getElementById('deleteZoneBtn').onclick = deleteSelectedZone;
@@ -417,6 +418,8 @@ function saveScenarioMeta() {
   state.scenario.overview = document.getElementById('scenarioOverviewInput').value.trim() || 'Facilitator-authored scenario.';
   state.scenario.currentSituation = document.getElementById('scenarioSituationInput').value.trim() || 'Facilitator-authored setup.';
   state.scenario.overlayMode = document.getElementById('overlaySelect').value;
+  const turnDurationInput = document.getElementById('turnDurationHoursInput');
+  state.scenario.turnDurationHours = Math.max(0.25, Math.min(24, Number(turnDurationInput?.value || state.scenario.turnDurationHours || 1) || 1));
   const rememberLast = document.getElementById('rememberLastMapView');
   state.scenario.rememberLastMapView = rememberLast ? !!rememberLast.checked : state.scenario.rememberLastMapView !== false;
   if (map && state.scenario.rememberLastMapView) state.scenario.lastMapView = currentMapView(map);
@@ -805,6 +808,75 @@ function courseVectorLatLngs(asset, idx) {
   return [origin, [origin[0] + dLat, origin[1] + dLon]];
 }
 
+function destinationLatLon(lat, lon, heading, distanceNm) {
+  const radians = normalizeHeading(heading) * Math.PI / 180;
+  const dLat = (distanceNm * Math.cos(radians)) / 60;
+  const lonScale = Math.cos(lat * Math.PI / 180) || 0.00001;
+  const dLon = (distanceNm * Math.sin(radians)) / (60 * lonScale);
+  return [lat + dLat, lon + dLon];
+}
+
+function advanceTimeLabel(currentLabel, hours) {
+  const match = /^H([+-])(\d+(?:\.\d+)?)$/.exec(String(currentLabel || 'H+0').trim());
+  let val = 0;
+  if (match) val = (match[1] === '-' ? -1 : 1) * Number(match[2] || 0);
+  val += hours;
+  const sign = val >= 0 ? '+' : '-';
+  const abs = Math.abs(val);
+  const rounded = Math.round(abs * 100) / 100;
+  return `H${sign}${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded}`;
+}
+
+function movementDistanceNm(asset, hours) {
+  return Math.max(0, normalizeSpeed(asset.speed)) * Math.max(0, Number(hours || 0));
+}
+
+function movementPreviewRows() {
+  const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
+  return state.assets.map((asset, idx) => {
+    const origin = assetLatLng(asset, idx);
+    const distanceNm = movementDistanceNm(asset, hours);
+    const destination = distanceNm > 0 ? destinationLatLon(origin[0], origin[1], asset.heading, distanceNm) : origin;
+    return { asset, origin, destination, distanceNm, zone: hasZones() ? nearestZone(destination[0], destination[1]) : asset.zone || '' };
+  });
+}
+
+function previewNextTurnMovement() {
+  const rows = movementPreviewRows();
+  if (!rows.length) {
+    alert('No assets available to preview. Add one or more assets first.');
+    return;
+  }
+  const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
+  const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm on ${normalizeHeading(r.asset.heading)}° to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}`);
+  alert(`Movement preview for next turn (${hours}h):\n\n${lines.join('\n')}${rows.length > 10 ? `\n...and ${rows.length - 10} more asset(s)` : ''}`);
+}
+
+function advanceSimulationTurn() {
+  const rows = movementPreviewRows();
+  if (!rows.length) {
+    alert('No assets available to move. Add one or more assets first.');
+    return;
+  }
+  const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
+  const moved = [];
+  rows.forEach(r => {
+    r.asset.lat = Number(r.destination[0].toFixed(6));
+    r.asset.lon = Number(r.destination[1].toFixed(6));
+    if (r.zone) r.asset.zone = r.zone;
+    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}`);
+  });
+  state.scenario.turn = Number(state.scenario.turn || 1) + 1;
+  state.scenario.timeLabel = advanceTimeLabel(state.scenario.timeLabel, hours);
+  state.timeline.push({
+    time: state.scenario.timeLabel,
+    text: `Resolved movement for ${rows.length} asset(s) over ${hours} hour(s). ${moved.slice(0,3).join('; ')}${moved.length > 3 ? '; ...' : ''}`
+  });
+  saveState();
+  renderAll();
+  initMaps(true);
+}
+
 function trackQualityStyle(asset) {
   const q = normalizeTrackQuality(asset.trackQuality);
   const map = {
@@ -973,8 +1045,11 @@ function renderScenario() {
       <span class="tag">Overlay: ${(state.scenario.overlayMode || 'openseamap') === 'openseamap' ? 'OSM + OpenSeaMap' : 'OSM only'}</span>
       <span class="tag">Remember view: ${state.scenario.rememberLastMapView === false ? 'Off' : 'On'}</span>
       <span class="tag">Pinned view: ${pinned ? 'Set' : 'Not set'}</span>
+      <span class="tag">Turn: ${state.scenario.turn || 1}</span>
+      <span class="tag">Duration: ${Number(state.scenario.turnDurationHours || 1)} h</span>
     </div>
     <p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>
+    <p class="small"><strong>Turn clock</strong><br>${state.scenario.timeLabel || 'H+0'} · each turn advances assets by heading/speed for ${Number(state.scenario.turnDurationHours || 1)} hour(s).</p>
     <p class="small"><strong>Map start view</strong><br>${pinned ? `Pinned at ${pinned.center[0].toFixed(2)}, ${pinned.center[1].toFixed(2)} / zoom ${pinned.zoom}` : 'No pinned view saved.'}${remembered ? `<br>Last remembered view ${remembered.center[0].toFixed(2)}, ${remembered.center[1].toFixed(2)} / zoom ${remembered.zoom}` : ''}</p>
   `;
   const title = document.querySelector('header h1');
@@ -994,6 +1069,8 @@ function renderScenario() {
   if (overlaySelect) overlaySelect.value = state.scenario.overlayMode || 'openseamap';
   const rememberLastMapView = document.getElementById('rememberLastMapView');
   if (rememberLastMapView) rememberLastMapView.checked = state.scenario.rememberLastMapView !== false;
+  const turnDurationHoursInput = document.getElementById('turnDurationHoursInput');
+  if (turnDurationHoursInput) turnDurationHoursInput.value = Number(state.scenario.turnDurationHours || 1);
 }
 
 function renderTemplates() {
@@ -1106,7 +1183,11 @@ function renderInjects() {
 function renderTimeline() {
   const el = document.getElementById('timelinePanel');
   if (!el) return;
-  el.innerHTML = `<div class="small">Use the saved package as your authored scenario baseline. Runtime turn history is not the focus of this build.</div>`;
+  if (!state.timeline.length) {
+    el.innerHTML = `<div class="small">No movement turns resolved yet. Set heading/speed on an asset and click <strong>Resolve Turn</strong> to advance it automatically on the chart.</div>`;
+    return;
+  }
+  el.innerHTML = state.timeline.slice().reverse().map(item => `<div class="timeline-item"><strong>${item.time || 'H+0'}</strong><br>${item.text}</div>`).join('');
 }
 
 function submitPlayerAction() {
@@ -1127,7 +1208,7 @@ function renderPlayerPage() {
   sel.innerHTML = state.session.cells.map(c => `<option value="${c.id}" ${c.id === current ? 'selected' : ''}>${c.name}</option>`).join('');
   const cellId = getPlayerCell();
   const cell = state.session.cells.find(c => c.id === cellId);
-  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
+  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
   document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];

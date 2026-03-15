@@ -26,6 +26,7 @@
         <option value="openseamap">OSM + OpenSeaMap</option>
         <option value="osm">OSM only</option>
       </select>
+      <input id="turnDurationHoursInput" type="number" min="0.25" max="24" step="0.25" value="1" placeholder="Turn hours">
       <button id="saveScenarioMetaBtn" class="good">Save Scenario Meta</button>
       <button id="newBlankScenarioBtn" class="secondary">New Blank Scenario</button>
     </div>
@@ -71,7 +72,7 @@
     <div id="zoneList"></div>
 
     <h2 style="margin-top:18px">Blue Assets</h2>
-    <div class="small">Build the force package manually. Use confirmed units or tracks, set affiliation, track quality, heading and speed, and drag markers to set their precise chart position.</div>
+    <div class="small">Build the force package manually. Use confirmed units or tracks, set affiliation, track quality, heading and speed, and drag markers to set their precise chart position. When you click <strong>Resolve Turn</strong>, each asset advances automatically along its heading and speed for the configured turn duration.</div>
     <div class="row" style="margin-top:10px">
       <button id="addAssetBtn">Add Asset</button>
       <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
@@ -105,7 +106,7 @@
     <button id="deleteAssetBtn" class="warn">Delete Selected Asset</button>
 
     <h2 style="margin-top:18px">Non-focus Buttons</h2>
-    <button id="generatePressureBtn">Generate Pressure</button>
+    <button id="generatePressureBtn">Preview Movement</button>
     <button id="nextTurnBtn" class="secondary">Resolve Turn</button>
     <button id="resetBtn" class="secondary">Reset to Blank</button>
   </div>
