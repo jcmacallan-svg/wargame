@@ -439,6 +439,8 @@ function bindEvents() {
     document.getElementById('addWaypointModeBtn').onclick = () => setMapMode(state.mapMode === 'add-waypoint' ? 'select' : 'add-waypoint');
     document.getElementById('clearWaypointsBtn').onclick = clearSelectedAssetWaypoints;
     document.getElementById('addAssetBtn').onclick = addAsset;
+    document.getElementById('duplicateAssetBtn').onclick = duplicateSelectedAsset;
+    document.getElementById('autoPopulateCommercialBtn').onclick = autoPopulateCommercialTraffic;
     document.getElementById('saveAssetPropsBtn').onclick = saveSelectedAssetProps;
     document.getElementById('deleteAssetBtn').onclick = deleteSelectedAsset;
     document.getElementById('clearAssetsBtn').onclick = clearAssets;
@@ -702,12 +704,17 @@ function duplicateSelectedAsset() {
   saveState();
   renderAll();
   initMaps(true);
+  if (map && Number.isFinite(copy.lat) && Number.isFinite(copy.lon)) {
+    map.panTo([copy.lat, copy.lon]);
+  }
+  alert(`Duplicated asset: ${copy.name}`);
 }
 
 function autoPopulateCommercialTraffic() {
   const bounds = currentMapBounds();
   const count = Math.max(1, Math.min(40, Number(prompt('How many commercial vessels should OWGE add?', '12')) || 12));
   const pool = COMMERCIAL_ASSET_TYPES;
+  const created = [];
   for (let i = 0; i < count; i += 1) {
     const type = pool[i % pool.length];
     const lat = randomWithin(bounds.south, bounds.north);
@@ -722,11 +729,17 @@ function autoPopulateCommercialTraffic() {
       trackQuality: ['q2','q3','q4'][Math.floor(Math.random()*3)]
     });
     state.assets.push(asset);
+    created.push(asset);
   }
-  state.selectedAssetId = state.assets[state.assets.length - 1]?.id || '';
+  state.selectedAssetId = created[created.length - 1]?.id || state.selectedAssetId || '';
   saveState();
   renderAll();
   initMaps(true);
+  if (map && created.length) {
+    const ll = created.map(a => [a.lat, a.lon]);
+    map.fitBounds(ll, { padding: [32, 32], maxZoom: Math.max(8, map.getZoom()) });
+  }
+  alert(`Added ${created.length} commercial vessel${created.length === 1 ? '' : 's'} to the current map view.`);
 }
 
 function onSelectedAssetTypeChanged() {
