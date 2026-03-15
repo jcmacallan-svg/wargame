@@ -2,14 +2,14 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v16 - Player</title>
+  <title>Open War Game Engine v15 - Player</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
 <body>
 <header>
-  <h1>Open War Game Engine v16</h1>
-  <div class="small">Player view with role-based asset visibility, filtered updates, and a simplified operational map</div>
+  <h1>Open War Game Engine v15</h1>
+  <div class="small">Player view with cell-specific feed, action log, and simplified operational map</div>
 </header>
 <div class="player-container">
   <div class="panel">
@@ -28,7 +28,7 @@
   <div class="panel">
     <h2>Player Map</h2>
     <div id="playerMap"></div>
-    <div class="legend-box">Players now only see zones, assets, and updates released to their cell or role.</div>
+    <div class="legend-box">Player sees own assets plus facilitator-released situation updates.</div>
     <h2 style="margin-top:18px">Facilitator Updates</h2>
     <div id="playerFeedPanel"></div>
   </div>

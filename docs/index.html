@@ -9,25 +9,32 @@
 <body>
 <header>
   <h1>Open War Game Engine v16</h1>
-  <div class="small">Role-based player visibility + richer manual zone semantics + map-defined operational overlay</div>
+  <div class="small">Blank-map facilitator authoring: manually place zones and assets, then save the setup as a scenario package</div>
 </header>
 <div class="container">
   <div class="panel">
     <h2>Scenario State</h2>
     <div id="scenarioPanel"></div>
+
+    <h2 style="margin-top:18px">Scenario Authoring</h2>
+    <input id="scenarioNameInput" placeholder="Scenario name">
+    <textarea id="scenarioOverviewInput" placeholder="Scenario overview"></textarea>
+    <textarea id="scenarioSituationInput" placeholder="Current situation / authoring notes"></textarea>
     <div class="row" style="margin-top:12px">
       <label class="small" for="overlaySelect">Chart overlay</label>
       <select id="overlaySelect">
         <option value="openseamap">OSM + OpenSeaMap</option>
         <option value="osm">OSM only</option>
       </select>
+      <button id="saveScenarioMetaBtn" class="good">Save Scenario Meta</button>
+      <button id="newBlankScenarioBtn" class="secondary">New Blank Scenario</button>
     </div>
 
     <h2 style="margin-top:18px">Scenario Templates</h2>
     <select id="templateSelect"></select>
 
-    <h2 style="margin-top:18px">Exercise Packages</h2>
-    <button id="savePackageBtn" class="good">Save Exercise Package</button>
+    <h2 style="margin-top:18px">Scenario / Exercise Packages</h2>
+    <button id="savePackageBtn" class="good">Save Scenario Package</button>
     <input id="loadPackageInput" type="file" accept=".json">
 
     <h2 style="margin-top:18px">Blue Cells</h2>
@@ -37,7 +44,11 @@
     <div id="playerLinks"></div>
 
     <h2 style="margin-top:18px">Selected Zone</h2>
-    <div class="small">Click a zone to edit it. Drag the zone center to move it. Double-click the map to create a new zone. The facilitator manually defines the overlay: harbors, bottlenecks, chokepoints, and play zones are not auto-generated.</div>
+    <div class="small">Start from a blank chart. Click <strong>Add Zone Mode</strong>, then click on the map to place a zone. Click an existing zone to edit it, and drag the center marker to reposition it.</div>
+    <div class="row" style="margin-top:10px">
+      <button id="addZoneModeBtn">Add Zone Mode</button>
+      <button id="resetZonesBtn" class="secondary">Clear All Zones</button>
+    </div>
     <input id="zoneId" placeholder="zone-id">
     <input id="zoneName" placeholder="Zone name">
     <input id="zoneRadius" type="number" placeholder="Radius meters">
@@ -49,49 +60,60 @@
       <option value="info">info</option>
       <option value="support">support</option>
     </select>
-    <input id="zoneTags" placeholder="tags, comma separated">
-    <div class="grid2">
-      <input id="zoneMovementModifier" type="number" placeholder="movement modifier">
-      <input id="zoneControlWeight" type="number" placeholder="control weight">
-    </div>
-    <select id="zoneVisibilityProfile">
-      <option value="all">all players</option>
-      <option value="restricted">restricted by role</option>
-      <option value="facilitator_only">facilitator only</option>
-    </select>
-    <label class="small"><input id="zoneAllowAssetPresence" type="checkbox" checked> allow asset presence</label>
-    <label class="small"><input id="zoneIsCore" type="checkbox"> mark as core zone</label>
-    <textarea id="zoneNotes" placeholder="Zone notes / adjudication notes"></textarea>
     <button id="saveZonePropsBtn" class="good">Save Zone Properties</button>
     <button id="deleteZoneBtn" class="warn">Delete Selected Zone</button>
-    <button id="resetZonesBtn" class="secondary">Reset Zones</button>
     <div id="zoneList"></div>
 
     <h2 style="margin-top:18px">Blue Assets</h2>
-    <div class="small">Assets have fuel and readiness. ISR reduces movement cost by 1 for other assets. Visibility routing is now per cell instead of globally shared.</div>
+    <div class="small">Build the force package manually. Assign each asset to a zone and cell. Drag asset markers on the map to snap them to the nearest zone.</div>
+    <div class="row" style="margin-top:10px">
+      <button id="addAssetBtn">Add Asset</button>
+      <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
+    </div>
     <div id="assetsPanel"></div>
+
+    <h3 style="margin-top:18px">Selected Asset</h3>
+    <input id="assetId" placeholder="asset-id">
+    <input id="assetName" placeholder="Asset name">
+    <select id="assetType">
+      <option value="patrol_vessel">patrol_vessel</option>
+      <option value="boarding_team">boarding_team</option>
+      <option value="isr">isr</option>
+      <option value="port_cell">port_cell</option>
+      <option value="support_vessel">support_vessel</option>
+    </select>
+    <select id="assetStatus">
+      <option value="available">available</option>
+      <option value="committed">committed</option>
+      <option value="delayed">delayed</option>
+      <option value="maintenance">maintenance</option>
+    </select>
+    <select id="assetZone"></select>
+    <select id="assetAssignedCell"></select>
+    <input id="assetFuel" type="number" min="0" placeholder="Fuel">
+    <input id="assetReadiness" type="number" min="0" placeholder="Readiness">
+    <button id="saveAssetPropsBtn" class="good">Save Asset Properties</button>
+    <button id="deleteAssetBtn" class="warn">Delete Selected Asset</button>
+
+    <h2 style="margin-top:18px">Non-focus Buttons</h2>
     <button id="generatePressureBtn">Generate Pressure</button>
     <button id="nextTurnBtn" class="secondary">Resolve Turn</button>
-    <button id="resetBtn" class="secondary">Reset Game State</button>
+    <button id="resetBtn" class="secondary">Reset to Blank</button>
   </div>
 
   <div class="panel">
     <h2>Battlespace Map</h2>
     <div id="map"></div>
     <div class="legend-box">
-      The facilitator defines the operational geometry directly on the chart. Zones are hand-placed overlays that show where play space exists and where units operate.
+      This build starts empty by design. Facilitator-defined zones are the operational overlay. Save the authored package when the battlespace and assets are in place.
     </div>
   </div>
 
   <div class="panel">
-    <h2>Generated Pressure / Incidents</h2>
+    <h2>Authoring Notes</h2>
     <div id="injectsPanel"></div>
-    <h2 style="margin-top:18px">Turn Timeline</h2>
+    <h2 style="margin-top:18px">Scenario Save Goal</h2>
     <div id="timelinePanel"></div>
-    <h2 style="margin-top:18px">What changed in v16</h2>
-    <div class="small">
-      Player views now use role-based visibility, and zones now carry gameplay semantics such as control weight, movement modifier, visibility profile, and asset allowance.
-    </div>
   </div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>

@@ -14,32 +14,7 @@
       "failureState": "",
       "currentSituation": "Commercial confidence is weakening as irregular maritime interference rises near the corridor and port approaches.",
       "overlayMode": "openseamap",
-      "redDoctrine": "ambiguity_first",
-      "informationPolicy": "role_based",
-      "zonePlacementMode": "manual",
-      "objectives": [
-        {
-          "id": "secure_corridor",
-          "name": "Keep the corridor open",
-          "type": "tag_control",
-          "target": "corridor",
-          "weight": 2
-        },
-        {
-          "id": "protect_port",
-          "name": "Protect port throughput",
-          "type": "tag_control",
-          "target": "port",
-          "weight": 2
-        },
-        {
-          "id": "retain_confidence",
-          "name": "Retain commercial confidence",
-          "type": "shipping_confidence",
-          "target": "shipping_confidence",
-          "weight": 1
-        }
-      ]
+      "redDoctrine": "ambiguity_first"
     },
     "zones": {
       "main_port": {
@@ -49,16 +24,7 @@
           7.1
         ],
         "radius": 12000,
-        "kind": "port",
-        "tags": [
-          "port"
-        ],
-        "movementModifier": 1,
-        "controlWeight": 2,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": true
+        "kind": "port"
       },
       "north_approach": {
         "name": "North Approach",
@@ -67,16 +33,7 @@
           7.55
         ],
         "radius": 18000,
-        "kind": "sea",
-        "tags": [
-          "approach"
-        ],
-        "movementModifier": 0,
-        "controlWeight": 1,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": true
+        "kind": "sea"
       },
       "corridor": {
         "name": "Transit Corridor",
@@ -85,16 +42,7 @@
           7.8
         ],
         "radius": 22000,
-        "kind": "bottleneck",
-        "tags": [
-          "corridor"
-        ],
-        "movementModifier": 1,
-        "controlWeight": 3,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": true
+        "kind": "bottleneck"
       },
       "territorial_waters": {
         "name": "Territorial Waters",
@@ -103,16 +51,7 @@
           7.43
         ],
         "radius": 16000,
-        "kind": "sea",
-        "tags": [
-          "territorial"
-        ],
-        "movementModifier": 0,
-        "controlWeight": 1,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": true
+        "kind": "sea"
       },
       "info_space": {
         "name": "Information Space",
@@ -121,16 +60,7 @@
           8.15
         ],
         "radius": 8000,
-        "kind": "info",
-        "tags": [
-          "information"
-        ],
-        "movementModifier": 0,
-        "controlWeight": 1,
-        "visibilityProfile": "restricted",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": false
+        "kind": "info"
       },
       "offmap": {
         "name": "Off-map",
@@ -139,16 +69,7 @@
           8.4
         ],
         "radius": 10000,
-        "kind": "support",
-        "tags": [
-          "support"
-        ],
-        "movementModifier": 0,
-        "controlWeight": 1,
-        "visibilityProfile": "restricted",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": false
+        "kind": "support"
       }
     }
   },
@@ -167,32 +88,7 @@
       "failureState": "",
       "currentSituation": "Port throughput is under pressure and adversary activity is concentrated around approaches and harbor services.",
       "overlayMode": "openseamap",
-      "redDoctrine": "port_denial",
-      "informationPolicy": "role_based",
-      "zonePlacementMode": "manual",
-      "objectives": [
-        {
-          "id": "secure_corridor",
-          "name": "Keep the corridor open",
-          "type": "tag_control",
-          "target": "corridor",
-          "weight": 2
-        },
-        {
-          "id": "protect_port",
-          "name": "Protect port throughput",
-          "type": "tag_control",
-          "target": "port",
-          "weight": 2
-        },
-        {
-          "id": "retain_confidence",
-          "name": "Retain commercial confidence",
-          "type": "shipping_confidence",
-          "target": "shipping_confidence",
-          "weight": 1
-        }
-      ]
+      "redDoctrine": "port_denial"
     },
     "zones": {
       "main_port": {
@@ -202,16 +98,7 @@
           7.1
         ],
         "radius": 15000,
-        "kind": "harbor",
-        "tags": [
-          "port"
-        ],
-        "movementModifier": 1,
-        "controlWeight": 2,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": true
+        "kind": "harbor"
       },
       "outer_harbor": {
         "name": "Outer Harbor",
@@ -220,14 +107,7 @@
           7.2
         ],
         "radius": 14000,
-        "kind": "bottleneck",
-        "tags": [],
-        "movementModifier": 1,
-        "controlWeight": 3,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": false
+        "kind": "bottleneck"
       },
       "north_approach": {
         "name": "North Approach",
@@ -236,16 +116,7 @@
           7.4
         ],
         "radius": 17000,
-        "kind": "sea",
-        "tags": [
-          "approach"
-        ],
-        "movementModifier": 0,
-        "controlWeight": 1,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": true
+        "kind": "sea"
       },
       "corridor": {
         "name": "Shipping Lane",
@@ -254,16 +125,7 @@
           7.62
         ],
         "radius": 20000,
-        "kind": "bottleneck",
-        "tags": [
-          "corridor"
-        ],
-        "movementModifier": 1,
-        "controlWeight": 3,
-        "visibilityProfile": "all",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": true
+        "kind": "bottleneck"
       },
       "info_space": {
         "name": "Information Space",
@@ -272,16 +134,7 @@
           8.15
         ],
         "radius": 8000,
-        "kind": "info",
-        "tags": [
-          "information"
-        ],
-        "movementModifier": 0,
-        "controlWeight": 1,
-        "visibilityProfile": "restricted",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": false
+        "kind": "info"
       },
       "offmap": {
         "name": "Off-map",
@@ -290,16 +143,7 @@
           8.35
         ],
         "radius": 10000,
-        "kind": "support",
-        "tags": [
-          "support"
-        ],
-        "movementModifier": 0,
-        "controlWeight": 1,
-        "visibilityProfile": "restricted",
-        "allowAssetPresence": true,
-        "notes": "",
-        "isCore": false
+        "kind": "support"
       }
     }
   }
