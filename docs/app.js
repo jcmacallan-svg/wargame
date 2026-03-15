@@ -43,7 +43,14 @@ const DEFAULT_STATE = {
   selectedActions: {},
   playerFeedByCell: { 'blue-maritime': [], 'blue-port': [] },
   actionLogByCell: { 'blue-maritime': [], 'blue-port': [] },
-  timeline: []
+  timeline: [],
+  ui: {
+    assetFilters: {
+      affiliations: ['friend','assumed_friend','neutral','hostile','suspect','unknown'],
+      representations: ['unit','track'],
+      scope: 'all'
+    }
+  }
 };
 
 let state = loadState();
@@ -241,6 +248,61 @@ function normalizeSpeed(value) {
 
 function isCommercialAssetType(type) {
   return COMMERCIAL_ASSET_TYPES.includes(normalizeAssetType(type));
+}
+
+function assetScopeLabel(scope) { return ({ all: 'All assets', commercial: 'Commercial only', military: 'Non-commercial only' })[scope] || 'All assets'; }
+function normalizeAssetScope(scope) { return ['all','commercial','military'].includes(scope) ? scope : 'all'; }
+function getAssetFilters() {
+  state.ui = state.ui || clone(DEFAULT_STATE.ui);
+  state.ui.assetFilters = Object.assign(clone(DEFAULT_STATE.ui.assetFilters), state.ui.assetFilters || {});
+  state.ui.assetFilters.affiliations = Array.isArray(state.ui.assetFilters.affiliations) && state.ui.assetFilters.affiliations.length
+    ? state.ui.assetFilters.affiliations.filter(v => ASSET_AFFILIATION_OPTIONS.some(o => o.value === v))
+    : clone(DEFAULT_STATE.ui.assetFilters.affiliations);
+  state.ui.assetFilters.representations = Array.isArray(state.ui.assetFilters.representations) && state.ui.assetFilters.representations.length
+    ? state.ui.assetFilters.representations.filter(v => ASSET_REPRESENTATION_OPTIONS.some(o => o.value === v))
+    : clone(DEFAULT_STATE.ui.assetFilters.representations);
+  state.ui.assetFilters.scope = normalizeAssetScope(state.ui.assetFilters.scope);
+  return state.ui.assetFilters;
+}
+function assetMatchesFilters(asset, filters = getAssetFilters()) {
+  const aff = normalizeAssetAffiliation(asset?.affiliation);
+  const rep = normalizeAssetRepresentation(asset?.representation);
+  const type = normalizeAssetType(asset?.type);
+  if (!filters.affiliations.includes(aff)) return false;
+  if (!filters.representations.includes(rep)) return false;
+  if (filters.scope === 'commercial' && !isCommercialAssetType(type)) return false;
+  if (filters.scope === 'military' && isCommercialAssetType(type)) return false;
+  return true;
+}
+function bindAssetFilterControls() {
+  const filters = getAssetFilters();
+  const affWrap = document.getElementById('assetAffiliationFilters');
+  const repWrap = document.getElementById('assetRepresentationFilters');
+  const scopeEl = document.getElementById('assetScopeFilter');
+  if (scopeEl) {
+    scopeEl.value = filters.scope;
+    scopeEl.onchange = () => { filters.scope = normalizeAssetScope(scopeEl.value); saveState(); renderAssets(); };
+  }
+  if (affWrap) {
+    affWrap.innerHTML = ASSET_AFFILIATION_OPTIONS.map(o => `<label class="filter-check"><input type="checkbox" data-aff="${o.value}" ${filters.affiliations.includes(o.value) ? 'checked' : ''}> ${o.label}</label>`).join('');
+    affWrap.querySelectorAll('input[type=checkbox]').forEach(cb => cb.onchange = () => {
+      const vals = Array.from(affWrap.querySelectorAll('input[type=checkbox]:checked')).map(n => n.getAttribute('data-aff'));
+      filters.affiliations = vals.length ? vals : clone(DEFAULT_STATE.ui.assetFilters.affiliations);
+      saveState();
+      renderAssets();
+    });
+  }
+  if (repWrap) {
+    repWrap.innerHTML = ASSET_REPRESENTATION_OPTIONS.map(o => `<label class="filter-check"><input type="checkbox" data-rep="${o.value}" ${filters.representations.includes(o.value) ? 'checked' : ''}> ${o.label}</label>`).join('');
+    repWrap.querySelectorAll('input[type=checkbox]').forEach(cb => cb.onchange = () => {
+      const vals = Array.from(repWrap.querySelectorAll('input[type=checkbox]:checked')).map(n => n.getAttribute('data-rep'));
+      filters.representations = vals.length ? vals : clone(DEFAULT_STATE.ui.assetFilters.representations);
+      saveState();
+      renderAssets();
+    });
+  }
+  const summary = document.getElementById('assetFilterSummary');
+  if (summary) summary.textContent = `${filters.affiliations.map(assetAffiliationLabel).join(', ')} · ${filters.representations.map(assetRepresentationLabel).join(', ')} · ${assetScopeLabel(filters.scope)}`;
 }
 
 function shouldAutoRenameAsset(name) {
@@ -1001,9 +1063,6 @@ function buildNtdsSvg(asset, selected) {
   const dash = representation === 'track' ? '5 3' : '0';
   const fill = representation === 'track' ? 'rgba(2,6,23,0.10)' : palette.fill;
   const label = representation === 'track' ? 'TRK' : profile.short;
-  const statusText = representation === 'track' ? 'T' : 'U';
-  const statusFill = representation === 'track' ? '#111827' : '#020617';
-  const statusStroke = representation === 'track' ? palette.stroke : '#94a3b8';
   const qualityText = trackQualityShort(asset.trackQuality);
   return `
     <svg width="76" height="58" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1014,8 +1073,6 @@ function buildNtdsSvg(asset, selected) {
       <text x="34" y="27" text-anchor="middle" dominant-baseline="middle" font-size="${representation === 'track' ? '8.4' : '9.6'}" font-weight="800" fill="#f8fafc" letter-spacing=".4">${label}</text>
       <rect x="52" y="3" rx="5" ry="5" width="12" height="10" fill="#020617" opacity=".82"></rect>
       <text x="58" y="10.2" text-anchor="middle" font-size="6.2" font-weight="800" fill="${palette.stroke}">${aff}</text>
-      <rect x="4" y="3" rx="5" ry="5" width="12" height="10" fill="${statusFill}" stroke="${statusStroke}" stroke-width="1"></rect>
-      <text x="10" y="10.2" text-anchor="middle" font-size="6.2" font-weight="800" fill="#f8fafc">${statusText}</text>
       <rect x="22" y="33" rx="6" ry="6" width="24" height="10" fill="#020617" opacity=".86" stroke="${palette.stroke}" stroke-width="1"></rect>
       <text x="34" y="40.2" text-anchor="middle" font-size="6.3" font-weight="800" fill="${palette.stroke}">${qualityText}</text>
     </svg>`;
@@ -1469,8 +1526,13 @@ function renderZoneEditor() {
 function renderAssets() {
   const panel = document.getElementById('assetsPanel');
   if (!panel) return;
-  panel.innerHTML = state.assets.length
-    ? state.assets.map(a => `
+  bindAssetFilterControls();
+  const filters = getAssetFilters();
+  const visibleAssets = state.assets.filter(a => assetMatchesFilters(a, filters));
+  const countEl = document.getElementById('assetFilterCount');
+  if (countEl) countEl.textContent = `${visibleAssets.length} shown / ${state.assets.length} total`;
+  panel.innerHTML = visibleAssets.length
+    ? visibleAssets.map(a => `
       <div class="card asset ${a.id === state.selectedAssetId ? 'zone-selected' : ''}">
         <strong>${a.name}</strong>
         <div class="row" style="margin-top:6px">
@@ -1487,9 +1549,10 @@ function renderAssets() {
         </div>
         <button class="secondary" onclick="selectAsset('${a.id}')">Select</button>
       </div>`).join('')
-    : '<div class="small">No assets yet. Add them manually after creating zones.</div>';
+    : '<div class="small">No assets match the current filter selection.</div>';
   renderAssetEditor();
 }
+
 
 function renderAssetEditor() {
   const asset = state.assets.find(a => a.id === state.selectedAssetId) || null;
@@ -1586,6 +1649,7 @@ function renderAll() {
   renderCells();
   renderZoneEditor();
   renderAssets();
+  bindAssetFilterControls();
   renderInjects();
   renderTimeline();
   renderPlayerPage();

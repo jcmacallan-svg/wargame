@@ -82,6 +82,21 @@
       <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
     </div>
     <div id="waypointStatus" class="small" style="margin-top:8px;padding:8px 10px;border:1px dashed #4b5563;border-radius:10px;background:#0f172a">Select an asset, click Add Waypoint Mode, then click on the chart to drop waypoints.</div>
+    <details class="asset-filter-box" open>
+      <summary>Asset list filters</summary>
+      <div class="small" id="assetFilterSummary" style="margin-top:6px"></div>
+      <div class="small" id="assetFilterCount" style="margin-top:4px"></div>
+      <label class="small" for="assetScopeFilter" style="margin-top:8px;display:block">Scope</label>
+      <select id="assetScopeFilter">
+        <option value="all">All assets</option>
+        <option value="commercial">Commercial only</option>
+        <option value="military">Non-commercial only</option>
+      </select>
+      <div class="small" style="margin-top:8px">Affiliation</div>
+      <div id="assetAffiliationFilters" class="filter-grid"></div>
+      <div class="small" style="margin-top:8px">Representation</div>
+      <div id="assetRepresentationFilters" class="filter-grid"></div>
+    </details>
     <div id="assetsPanel"></div>
 
     <h3 style="margin-top:18px">Selected Asset</h3>
@@ -123,7 +138,18 @@
     <h2>Battlespace Map</h2>
     <div id="map"></div>
     <div class="legend-box">
-      This build starts empty by design. Facilitator-defined zones are the operational overlay. Save the authored package when the battlespace and assets are in place.
+      <div>This build starts empty by design. Facilitator-defined zones are the operational overlay. Save the authored package when the battlespace and assets are in place.</div>
+      <div class="map-legend" style="margin-top:10px">
+        <div class="small"><strong>Map legend</strong></div>
+        <div class="legend-row"><span class="legend-symbol legend-unit"></span> Confirmed unit</div>
+        <div class="legend-row"><span class="legend-symbol legend-track"></span> Track</div>
+        <div class="legend-row"><span class="legend-chip aff-friend">F</span> Friendly</div>
+        <div class="legend-row"><span class="legend-chip aff-assumed_friend">AF</span> Assumed Friendly</div>
+        <div class="legend-row"><span class="legend-chip aff-neutral">N</span> Neutral</div>
+        <div class="legend-row"><span class="legend-chip aff-hostile">H</span> Hostile</div>
+        <div class="legend-row"><span class="legend-chip aff-suspect">S</span> Suspect</div>
+        <div class="legend-row"><span class="legend-chip aff-unknown">U</span> Unknown</div>
+      </div>
     </div>
   </div>
 
