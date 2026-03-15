@@ -230,6 +230,50 @@ function normalizeSpeed(value) {
   return Number(n.toFixed(1));
 }
 
+
+function isCommercialAssetType(type) {
+  return COMMERCIAL_ASSET_TYPES.includes(normalizeAssetType(type));
+}
+
+function shouldAutoRenameAsset(name) {
+  const s = String(name || '').trim();
+  if (!s) return true;
+  return /^(new asset|asset\s*\d+|unit\s*\d+|track\s*\d+|vessel\s*\d+)$/i.test(s);
+}
+
+function autoNameForAssetType(type, existingNames = []) {
+  const normalized = normalizeAssetType(type);
+  const existing = new Set((existingNames || []).map(v => String(v || '').trim()).filter(Boolean));
+  if (COMMERCIAL_NAME_PARTS[normalized]) {
+    const part = COMMERCIAL_NAME_PARTS[normalized];
+    for (const noun of part.nouns) {
+      const candidate = `${part.prefix} ${noun}`;
+      if (!existing.has(candidate)) return candidate;
+    }
+    let i = 2;
+    while (existing.has(`${part.prefix} ${assetTypeLabel(normalized)} ${i}`)) i += 1;
+    return `${part.prefix} ${assetTypeLabel(normalized)} ${i}`;
+  }
+  const label = assetTypeLabel(normalized);
+  if (!existing.has(label)) return label;
+  let i = 2;
+  while (existing.has(`${label} ${i}`)) i += 1;
+  return `${label} ${i}`;
+}
+
+function defaultFuelForAssetType(type) {
+  const normalized = normalizeAssetType(type);
+  if (['maritime_helicopter', 'isr_drone', 'boarding_team', 'port_support_unit', 'command_element'].includes(normalized)) return 10;
+  return 10;
+}
+
+function defaultReadinessForAssetType(type) {
+  const normalized = normalizeAssetType(type);
+  if (isCommercialAssetType(normalized)) return 4;
+  if (['boarding_team', 'port_support_unit', 'command_element'].includes(normalized)) return 5;
+  return 5;
+}
+
 function parseWaypointText(text) {
   return String(text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
     const parts = line.split(',');
