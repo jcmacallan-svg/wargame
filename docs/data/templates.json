@@ -1,0 +1,150 @@
+{
+  "northern_corridor": {
+    "scenario": {
+      "name": "Northern Corridor Crisis",
+      "overview": "Blue must protect territorial waters, keep the corridor open, and prevent coercive maritime disruption while operating under time pressure.",
+      "turn": 1,
+      "timeLabel": "H+0",
+      "movementPressure": 0,
+      "timePressure": 0,
+      "assetPressure": 0,
+      "shippingConfidence": 6,
+      "zoneControlScore": 0,
+      "objectiveScore": 0,
+      "failureState": "",
+      "currentSituation": "Commercial confidence is weakening as irregular maritime interference rises near the corridor and port approaches.",
+      "overlayMode": "openseamap",
+      "redDoctrine": "ambiguity_first"
+    },
+    "zones": {
+      "main_port": {
+        "name": "Main Port",
+        "center": [
+          54.5,
+          7.1
+        ],
+        "radius": 12000,
+        "kind": "port"
+      },
+      "north_approach": {
+        "name": "North Approach",
+        "center": [
+          55.03,
+          7.55
+        ],
+        "radius": 18000,
+        "kind": "sea"
+      },
+      "corridor": {
+        "name": "Transit Corridor",
+        "center": [
+          54.86,
+          7.8
+        ],
+        "radius": 22000,
+        "kind": "bottleneck"
+      },
+      "territorial_waters": {
+        "name": "Territorial Waters",
+        "center": [
+          54.7,
+          7.43
+        ],
+        "radius": 16000,
+        "kind": "sea"
+      },
+      "info_space": {
+        "name": "Information Space",
+        "center": [
+          54.95,
+          8.15
+        ],
+        "radius": 8000,
+        "kind": "info"
+      },
+      "offmap": {
+        "name": "Off-map",
+        "center": [
+          55.12,
+          8.4
+        ],
+        "radius": 10000,
+        "kind": "support"
+      }
+    }
+  },
+  "harbor_siege": {
+    "scenario": {
+      "name": "Harbor Siege Drill",
+      "overview": "Blue must keep a single port functioning under disruption while protecting inbound traffic and preventing a confidence collapse.",
+      "turn": 1,
+      "timeLabel": "H+0",
+      "movementPressure": 0,
+      "timePressure": 0,
+      "assetPressure": 0,
+      "shippingConfidence": 5,
+      "zoneControlScore": 0,
+      "objectiveScore": 0,
+      "failureState": "",
+      "currentSituation": "Port throughput is under pressure and adversary activity is concentrated around approaches and harbor services.",
+      "overlayMode": "openseamap",
+      "redDoctrine": "port_denial"
+    },
+    "zones": {
+      "main_port": {
+        "name": "Harbor Core",
+        "center": [
+          54.5,
+          7.1
+        ],
+        "radius": 15000,
+        "kind": "harbor"
+      },
+      "outer_harbor": {
+        "name": "Outer Harbor",
+        "center": [
+          54.62,
+          7.2
+        ],
+        "radius": 14000,
+        "kind": "bottleneck"
+      },
+      "north_approach": {
+        "name": "North Approach",
+        "center": [
+          55.0,
+          7.4
+        ],
+        "radius": 17000,
+        "kind": "sea"
+      },
+      "corridor": {
+        "name": "Shipping Lane",
+        "center": [
+          54.82,
+          7.62
+        ],
+        "radius": 20000,
+        "kind": "bottleneck"
+      },
+      "info_space": {
+        "name": "Information Space",
+        "center": [
+          54.95,
+          8.15
+        ],
+        "radius": 8000,
+        "kind": "info"
+      },
+      "offmap": {
+        "name": "Off-map",
+        "center": [
+          55.1,
+          8.35
+        ],
+        "radius": 10000,
+        "kind": "support"
+      }
+    }
+  }
+}
