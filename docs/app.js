@@ -68,6 +68,13 @@ const ASSET_TYPE_OPTIONS = [
   { value: 'command_element', label: 'Command Element' }
 ];
 
+const ASSET_AFFILIATION_OPTIONS = [
+  { value: 'friend', label: 'Friendly' },
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'hostile', label: 'Hostile' },
+  { value: 'unknown', label: 'Unknown' }
+];
+
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -99,12 +106,13 @@ function migrateState(pkg) {
     id: `asset-${Math.random().toString(36).slice(2, 8)}`,
     name: 'New Asset',
     type: 'patrol_vessel',
+    affiliation: 'friend',
     status: 'available',
     zone: '',
     fuel: 6,
     readiness: 5,
     assignedCell: merged.session.cells[0]?.id || ''
-  }, a, { type: normalizeAssetType(a?.type) }));
+  }, a, { type: normalizeAssetType(a?.type), affiliation: normalizeAssetAffiliation(a?.affiliation) }));
   return merged;
 }
 function ensureSessionMaps(targetState = state) {
@@ -123,6 +131,10 @@ function getPlayerCell() {
 }
 function prettyZone(zoneId) { return state.zones[zoneId]?.name || (zoneId || 'Unplaced'); }
 function assetTypeLabel(type) { return ASSET_TYPE_OPTIONS.find(o => o.value === type)?.label || type || 'Asset'; }
+function assetAffiliationLabel(value) { return ASSET_AFFILIATION_OPTIONS.find(o => o.value === value)?.label || 'Friendly'; }
+function normalizeAssetAffiliation(value) {
+  return ASSET_AFFILIATION_OPTIONS.some(o => o.value === value) ? value : 'friend';
+}
 function normalizeAssetType(type) {
   const legacy = {
     isr: 'isr_drone',
@@ -470,6 +482,7 @@ function saveSelectedAssetProps() {
   asset.id = requestedId;
   asset.name = document.getElementById('assetName').value.trim() || asset.name;
   asset.type = normalizeAssetType(document.getElementById('assetType').value);
+  asset.affiliation = normalizeAssetAffiliation(document.getElementById('assetAffiliation').value);
   asset.status = document.getElementById('assetStatus').value;
   asset.zone = document.getElementById('assetZone').value;
   asset.fuel = Math.max(0, Number(document.getElementById('assetFuel').value) || 0);
@@ -526,6 +539,34 @@ function assetDoctrineAbbrev(asset) {
   return map[normalizeAssetType(asset.type)] || 'UNIT';
 }
 
+function assetDoctrineProfile(asset) {
+  const type = normalizeAssetType(asset.type);
+  const map = {
+    frigate: { short: 'FFG', code: 'ESC', role: 'Escort combatant' },
+    corvette: { short: 'COR', code: 'LIT', role: 'Littoral combatant' },
+    patrol_vessel: { short: 'OPV', code: 'PAT', role: 'Patrol' },
+    submarine: { short: 'SSK', code: 'SUB', role: 'Subsurface' },
+    amphibious_ship: { short: 'AMP', code: 'AMP', role: 'Amphibious' },
+    landing_craft: { short: 'LC', code: 'LND', role: 'Landing craft' },
+    auxiliary_ship: { short: 'AUX', code: 'LOG', role: 'Support / logistics' },
+    mine_warfare_vessel: { short: 'MCM', code: 'MIW', role: 'Mine warfare' },
+    maritime_helicopter: { short: 'HEL', code: 'AIR', role: 'Maritime helicopter' },
+    isr_drone: { short: 'UAV', code: 'ISR', role: 'ISR drone' },
+    boarding_team: { short: 'VBSS', code: 'BDT', role: 'Boarding team' },
+    port_support_unit: { short: 'PORT', code: 'SUP', role: 'Port support' },
+    command_element: { short: 'C2', code: 'CMD', role: 'Command' }
+  };
+  return map[type] || { short: 'UNIT', code: 'GEN', role: 'General' };
+}
+
+function assetDoctrineAffiliationCode(asset) {
+  const aff = normalizeAssetAffiliation(asset.affiliation);
+  if (aff === 'hostile') return 'H';
+  if (aff === 'neutral') return 'N';
+  if (aff === 'unknown') return 'U';
+  return 'F';
+}
+
 function assetDoctrineDomain(asset) {
   const type = normalizeAssetType(asset.type);
   if (type === 'submarine') return 'subsurface';
@@ -536,53 +577,68 @@ function assetDoctrineDomain(asset) {
 
 function assetDoctrineSidc(asset) {
   const domain = assetDoctrineDomain(asset);
-  if (domain === 'subsurface') return 'SFUP------';
-  if (domain === 'air') return 'SFAP------';
-  if (domain === 'ground') return 'SFGP------';
-  return 'SFSP------';
+  const aff = assetDoctrineAffiliationCode(asset);
+  if (domain === 'subsurface') return `S${aff}UP------`;
+  if (domain === 'air') return `S${aff}AP------`;
+  if (domain === 'ground') return `S${aff}GP------`;
+  return `S${aff}SP------`;
 }
 
 function assetDoctrineFrame(asset) {
   const domain = assetDoctrineDomain(asset);
-  if (domain === 'subsurface') return { color: '#60a5fa', path: 'M6 16 Q22 4 38 16 Q22 28 6 16 Z' };
-  if (domain === 'air') return { color: '#60a5fa', path: 'M22 5 L39 16 L22 27 L5 16 Z' };
-  if (domain === 'ground') return { color: '#60a5fa', path: 'M5 7 H39 V25 H5 Z' };
-  return { color: '#60a5fa', path: 'M5 16 Q5 5 22 5 H39 Q39 16 39 16 Q39 27 22 27 H5 Q5 16 5 16 Z' };
+  const aff = normalizeAssetAffiliation(asset.affiliation);
+  const colorMap = {
+    friend: '#60a5fa',
+    hostile: '#f87171',
+    neutral: '#34d399',
+    unknown: '#fbbf24'
+  };
+  const color = colorMap[aff] || '#60a5fa';
+  if (domain === 'subsurface') return { color, path: 'M6 16 Q22 4 38 16 Q22 28 6 16 Z' };
+  if (domain === 'air') return { color, path: 'M22 5 L39 16 L22 27 L5 16 Z' };
+  if (domain === 'ground') return { color, path: 'M5 7 H39 V25 H5 Z' };
+  return { color, path: 'M5 16 Q5 5 22 5 H39 Q39 16 39 16 Q39 27 22 27 H5 Q5 16 5 16 Z' };
 }
 
 function buildFallbackDoctrineSvg(asset, selected) {
   const frame = assetDoctrineFrame(asset);
   const outline = selected ? '#f59e0b' : '#08111f';
-  const text = assetDoctrineAbbrev(asset);
+  const text = assetDoctrineProfile(asset).short;
+  const role = assetDoctrineProfile(asset).code;
   return `
-    <svg width="58" height="58" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="${frame.path}" fill="#e0f2fe" stroke="${outline}" stroke-width="3.4" />
-      <path d="${frame.path}" fill="none" stroke="${frame.color}" stroke-width="1.8" />
-      <text x="22" y="20" text-anchor="middle" dominant-baseline="middle" font-size="7.1" font-weight="700" fill="#0f172a">${text}</text>
-      <text x="22" y="33.5" text-anchor="middle" font-size="5.2" font-weight="700" fill="#cbd5e1">${assetTypeLabel(asset.type).toUpperCase()}</text>
+    <svg width="66" height="66" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="${frame.path}" fill="#f8fafc" stroke="${outline}" stroke-width="3.4" />
+      <path d="${frame.path}" fill="none" stroke="${frame.color}" stroke-width="2" />
+      <text x="22" y="18.5" text-anchor="middle" dominant-baseline="middle" font-size="7.6" font-weight="700" fill="#0f172a">${text}</text>
+      <text x="22" y="27.5" text-anchor="middle" font-size="5.6" font-weight="700" fill="${frame.color}">${role}</text>
+      <circle cx="38" cy="8" r="4" fill="${frame.color}" opacity=".18"></circle>
+      <text x="38" y="9.9" text-anchor="middle" font-size="4.4" font-weight="700" fill="${frame.color}">${assetDoctrineAffiliationCode(asset)}</text>
     </svg>`;
 }
 
 function buildMilsymbolMarker(asset, selected) {
   if (typeof ms === 'undefined' || !ms || typeof ms.Symbol !== 'function') return null;
   try {
-    const label = assetDoctrineAbbrev(asset);
+    const profile = assetDoctrineProfile(asset);
     const symbol = new ms.Symbol(assetDoctrineSidc(asset), {
-      size: 42,
-      uniqueDesignation: label,
+      size: 46,
+      uniqueDesignation: profile.short,
+      type: assetTypeLabel(asset.type).toUpperCase(),
+      additionalInformation: profile.code,
+      staffComments: assetAffiliationLabel(asset.affiliation).toUpperCase(),
       higherFormation: selected ? 'SELECTED' : '',
       infoFields: true,
       outlineWidth: selected ? 6 : 2,
       outlineColor: selected ? '#f59e0b' : '#0f172a'
     });
-    const anchor = typeof symbol.getAnchor === 'function' ? symbol.getAnchor() : { x: 21, y: 21 };
-    const html = `<div class="app6-marker-wrap">${symbol.asSVG()}<div class="app6-asset-name">${asset.name}</div></div>`;
+    const anchor = typeof symbol.getAnchor === 'function' ? symbol.getAnchor() : { x: 23, y: 23 };
+    const html = `<div class="app6-marker-wrap"><div class="app6-symbol-shell">${symbol.asSVG()}</div><div class="app6-asset-name">${asset.name}</div><div class="app6-asset-meta">${profile.role} · ${assetAffiliationLabel(asset.affiliation)}</div></div>`;
     return L.divIcon({
       className: 'app6-div-icon',
       html,
-      iconSize: [84, 72],
-      iconAnchor: [Math.round(anchor.x || 21), Math.round((anchor.y || 21) + 6)],
-      popupAnchor: [0, -16]
+      iconSize: [104, 94],
+      iconAnchor: [Math.round(anchor.x || 23), Math.round((anchor.y || 23) + 6)],
+      popupAnchor: [0, -18]
     });
   } catch (err) {
     return null;
@@ -594,7 +650,7 @@ function assetIcon(asset) {
   const doctrinalIcon = buildMilsymbolMarker(asset, selected);
   if (doctrinalIcon) return doctrinalIcon;
   const html = `<div class="app6-marker-wrap">${buildFallbackDoctrineSvg(asset, selected)}<div class="app6-asset-name">${asset.name}</div></div>`;
-  return L.divIcon({ className: 'app6-div-icon', html, iconSize: [84, 72], iconAnchor: [29, 29], popupAnchor: [0, -12] });
+  return L.divIcon({ className: 'app6-div-icon', html, iconSize: [104, 94], iconAnchor: [33, 33], popupAnchor: [0, -12] });
 }
 
 function clearLayers(arr, target) {
@@ -673,8 +729,7 @@ function renderFacilitatorMap() {
       state.zones[key].center = [e.latlng.lat, e.latlng.lng];
       saveState();
       renderZoneEditor();
-      map.on('moveend', () => persistLastMapView(map));
-    renderFacilitatorMap();
+      renderFacilitatorMap();
     });
     zoneCenterLayers.push(center);
   });
@@ -682,7 +737,7 @@ function renderFacilitatorMap() {
   state.assets.forEach((a, idx) => {
     const ll = a.zone && state.zones[a.zone] ? zoneOffsetLatLng(a.zone, idx + 1) : [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + assetTypeLabel(a.type) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
     marker.on('click', () => selectAsset(a.id));
     marker.on('dragend', e => {
       if (!hasZones()) return;
@@ -710,7 +765,7 @@ function renderPlayerMap() {
   state.assets.filter(a => !cellId || a.assignedCell === cellId).forEach((a, idx) => {
     const ll = a.zone && state.zones[a.zone] ? zoneOffsetLatLng(a.zone, idx + 1) : [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
     const marker = L.marker(ll, { icon: assetIcon(a), title: a.name }).addTo(playerMap);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + assetTypeLabel(a.type) + '<br>Zone: ' + prettyZone(a.zone));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Zone: ' + prettyZone(a.zone));
     playerAssetLayers.push(marker);
   });
 }
@@ -799,6 +854,7 @@ function renderAssets() {
         <strong>${a.name}</strong>
         <div class="row" style="margin-top:6px">
           <span class="tag">${assetTypeLabel(a.type)}</span>
+          <span class="tag">${assetAffiliationLabel(a.affiliation)}</span>
           <span class="tag">${a.status}</span>
           <span class="tag">${prettyZone(a.zone)}</span>
           <span class="tag">${state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'}</span>
@@ -814,6 +870,7 @@ function renderAssetEditor() {
   const assetId = document.getElementById('assetId');
   const assetName = document.getElementById('assetName');
   const assetType = document.getElementById('assetType');
+  const assetAffiliation = document.getElementById('assetAffiliation');
   const assetStatus = document.getElementById('assetStatus');
   const assetZone = document.getElementById('assetZone');
   const assetFuel = document.getElementById('assetFuel');
@@ -865,7 +922,7 @@ function renderPlayerPage() {
   const cell = state.session.cells.find(c => c.id === cellId);
   document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
-  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
+  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
