@@ -49,6 +49,22 @@ let map, playerMap, seaLayer, playerSeaLayer;
 let zoneLayers = [], assetLayers = [], zoneCenterLayers = [];
 let playerZoneLayers = [], playerAssetLayers = [];
 
+const ASSET_TYPE_OPTIONS = [
+  { value: 'frigate', label: 'Frigate' },
+  { value: 'corvette', label: 'Corvette' },
+  { value: 'patrol_vessel', label: 'Patrol Vessel' },
+  { value: 'submarine', label: 'Submarine' },
+  { value: 'amphibious_ship', label: 'Amphibious Ship' },
+  { value: 'landing_craft', label: 'Landing Craft' },
+  { value: 'auxiliary_ship', label: 'Auxiliary Ship' },
+  { value: 'mine_warfare_vessel', label: 'Mine Warfare Vessel' },
+  { value: 'maritime_helicopter', label: 'Maritime Helicopter' },
+  { value: 'isr_drone', label: 'ISR Drone' },
+  { value: 'boarding_team', label: 'Boarding Team' },
+  { value: 'port_support_unit', label: 'Port Support Unit' },
+  { value: 'command_element', label: 'Command Element' }
+];
+
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -82,7 +98,7 @@ function migrateState(pkg) {
     fuel: 6,
     readiness: 5,
     assignedCell: merged.session.cells[0]?.id || ''
-  }, a));
+  }, a, { type: normalizeAssetType(a?.type) }));
   return merged;
 }
 function ensureSessionMaps(targetState = state) {
@@ -100,6 +116,14 @@ function getPlayerCell() {
   return params.get('cell') || document.getElementById('playerCellSelect')?.value || state.session.cells[0]?.id || '';
 }
 function prettyZone(zoneId) { return state.zones[zoneId]?.name || (zoneId || 'Unplaced'); }
+function assetTypeLabel(type) { return ASSET_TYPE_OPTIONS.find(o => o.value === type)?.label || type || 'Asset'; }
+function normalizeAssetType(type) {
+  const legacy = {
+    isr: 'isr_drone',
+    port_cell: 'port_support_unit'
+  };
+  return legacy[type] || (ASSET_TYPE_OPTIONS.some(o => o.value === type) ? type : 'patrol_vessel');
+}
 function zoneStyle(kind) {
   if (kind === 'port' || kind === 'harbor') return { color: '#fde68a', fillColor: '#fde68a', fillOpacity: 0.10 };
   if (kind === 'info') return { color: '#c084fc', fillColor: '#c084fc', fillOpacity: 0.09 };
@@ -390,7 +414,7 @@ function saveSelectedAssetProps() {
   }
   asset.id = requestedId;
   asset.name = document.getElementById('assetName').value.trim() || asset.name;
-  asset.type = document.getElementById('assetType').value;
+  asset.type = normalizeAssetType(document.getElementById('assetType').value);
   asset.status = document.getElementById('assetStatus').value;
   asset.zone = document.getElementById('assetZone').value;
   asset.fuel = Math.max(0, Number(document.getElementById('assetFuel').value) || 0);
@@ -429,7 +453,22 @@ function nearestZone(lat, lon) {
 }
 
 function assetIcon(asset) {
-  const symbol = asset.type === 'boarding_team' ? '△' : asset.type === 'isr' ? '◌' : asset.type === 'port_cell' ? '▣' : '▲';
+  const symbols = {
+    frigate: '▲',
+    corvette: '◆',
+    patrol_vessel: '△',
+    submarine: '▼',
+    amphibious_ship: '⬟',
+    landing_craft: '▱',
+    auxiliary_ship: '■',
+    mine_warfare_vessel: '✦',
+    maritime_helicopter: '✈',
+    isr_drone: '◌',
+    boarding_team: '△',
+    port_support_unit: '▣',
+    command_element: '✚'
+  };
+  const symbol = symbols[normalizeAssetType(asset.type)] || '▲';
   const color = state.selectedAssetId === asset.id ? '#f59e0b' : '#e5e7eb';
   return L.divIcon({ className: '', html: '<div style="color:' + color + ';font-size:20px;font-weight:700;text-shadow:0 0 2px #000">' + symbol + '</div>', iconSize: [20, 20], iconAnchor: [10, 10] });
 }
@@ -543,7 +582,7 @@ function renderPlayerMap() {
   state.assets.filter(a => !cellId || a.assignedCell === cellId).forEach((a, idx) => {
     const ll = a.zone && state.zones[a.zone] ? zoneOffsetLatLng(a.zone, idx + 1) : [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
     const marker = L.marker(ll, { icon: assetIcon(a), title: a.name }).addTo(playerMap);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + a.type + '<br>Zone: ' + prettyZone(a.zone));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Type: ' + assetTypeLabel(a.type) + '<br>Zone: ' + prettyZone(a.zone));
     playerAssetLayers.push(marker);
   });
 }
@@ -624,7 +663,7 @@ function renderAssets() {
       <div class="card asset ${a.id === state.selectedAssetId ? 'zone-selected' : ''}">
         <strong>${a.name}</strong>
         <div class="row" style="margin-top:6px">
-          <span class="tag">${a.type}</span>
+          <span class="tag">${assetTypeLabel(a.type)}</span>
           <span class="tag">${a.status}</span>
           <span class="tag">${prettyZone(a.zone)}</span>
           <span class="tag">${state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'}</span>
@@ -648,9 +687,10 @@ function renderAssetEditor() {
   if (!assetZone || !assetAssignedCell) return;
   assetZone.innerHTML = ['<option value="">Unplaced</option>'].concat(zoneIds().map(id => `<option value="${id}">${state.zones[id].name}</option>`)).join('');
   assetAssignedCell.innerHTML = state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  if (assetType) assetType.innerHTML = ASSET_TYPE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetId) assetId.value = asset?.id || '';
   if (assetName) assetName.value = asset?.name || '';
-  if (assetType) assetType.value = asset?.type || 'patrol_vessel';
+  if (assetType) assetType.value = normalizeAssetType(asset?.type || 'patrol_vessel');
   if (assetStatus) assetStatus.value = asset?.status || 'available';
   if (assetZone) assetZone.value = asset?.zone || '';
   if (assetFuel) assetFuel.value = asset?.fuel ?? 6;
@@ -690,7 +730,7 @@ function renderPlayerPage() {
   const cell = state.session.cells.find(c => c.id === cellId);
   document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
-  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${a.type}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
+  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
