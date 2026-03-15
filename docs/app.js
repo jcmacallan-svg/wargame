@@ -123,6 +123,14 @@ const COMMERCIAL_NAME_PARTS = {
 };
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function randomWithin(min, max) {
+  const a = Number(min);
+  const b = Number(max);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  const low = Math.min(a, b);
+  const high = Math.max(a, b);
+  return low + Math.random() * (high - low);
+}
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return clone(DEFAULT_STATE);
