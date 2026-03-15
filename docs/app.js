@@ -60,6 +60,9 @@ let map, playerMap, seaLayer, playerSeaLayer;
 let zoneLayers = [], assetLayers = [], zoneCenterLayers = [], waypointGuideLayers = [];
 let playerZoneLayers = [], playerAssetLayers = [];
 let lastHoveredLatLng = null;
+let playerMapMode = 'select';
+let playerSelectedAssetId = '';
+let playerLastHoveredLatLng = null;
 
 const ASSET_TYPE_OPTIONS = [
   { value: 'frigate', label: 'Frigate' },
@@ -395,6 +398,73 @@ function waypointSummary(asset) {
 function selectedAsset() {
   return state.assets.find(a => a.id === state.selectedAssetId) || null;
 }
+
+function selectedPlayerAsset() {
+  const cellId = getPlayerCell();
+  const myAssets = state.assets.filter(a => a.assignedCell === cellId);
+  if (!myAssets.length) return null;
+  const found = myAssets.find(a => a.id === playerSelectedAssetId);
+  if (found) return found;
+  playerSelectedAssetId = myAssets[0].id;
+  return myAssets[0];
+}
+
+function appendWaypointToPlayerAsset(latlng) {
+  const asset = selectedPlayerAsset();
+  if (!asset) {
+    updatePlayerWaypointUi('Select one of your assigned assets first.');
+    return;
+  }
+  asset.waypoints = Array.isArray(asset.waypoints) ? asset.waypoints : [];
+  const wp = { lat: Number(latlng.lat.toFixed(6)), lon: Number(latlng.lng.toFixed(6)), label: `WP${asset.waypoints.length + 1}` };
+  asset.waypoints.push(wp);
+  saveState();
+  updatePlayerWaypointUi(`Added ${wp.label} to ${asset.name} at ${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}.`);
+  renderPlayerPage();
+}
+
+function clearPlayerSelectedWaypoints() {
+  const asset = selectedPlayerAsset();
+  if (!asset) return;
+  asset.waypoints = [];
+  saveState();
+  updatePlayerWaypointUi(`Cleared waypoints for ${asset.name}.`);
+  renderPlayerPage();
+}
+
+function selectPlayerAsset(assetId) {
+  const cellId = getPlayerCell();
+  const asset = state.assets.find(a => a.id === assetId && a.assignedCell === cellId);
+  if (!asset) return;
+  playerSelectedAssetId = assetId;
+  updatePlayerWaypointUi(`Selected ${asset.name}.`);
+  renderPlayerPage();
+}
+
+function updatePlayerWaypointUi(msg) {
+  const el = document.getElementById('playerWaypointStatus');
+  if (!el) return;
+  const asset = selectedPlayerAsset();
+  const modeText = playerMapMode === 'add-waypoint' ? 'Waypoint mode is ON.' : 'Waypoint mode is OFF.';
+  const assetText = asset ? ` Selected asset: ${asset.name}.` : ' Select one of your assigned assets.';
+  const cursorText = playerLastHoveredLatLng ? ` Cursor ${playerLastHoveredLatLng.lat.toFixed(4)}, ${playerLastHoveredLatLng.lng.toFixed(4)}.` : '';
+  el.textContent = msg || (modeText + assetText + cursorText);
+}
+
+function savePlayerAssetOrders() {
+  const asset = selectedPlayerAsset();
+  if (!asset) return;
+  const headingEl = document.getElementById('playerAssetHeading');
+  const speedEl = document.getElementById('playerAssetSpeed');
+  const waypointsEl = document.getElementById('playerAssetWaypoints');
+  asset.heading = normalizeHeading(headingEl?.value || asset.heading);
+  asset.speed = normalizeSpeed(speedEl?.value || asset.speed);
+  asset.waypoints = parseWaypointText(waypointsEl?.value || '');
+  saveState();
+  updatePlayerWaypointUi(`Saved orders for ${asset.name}.`);
+  renderPlayerPage();
+}
+
 
 function appendWaypointToSelectedAsset(latlng) {
   const asset = selectedAsset();
@@ -1359,6 +1429,13 @@ function initMaps(force) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(playerMap);
     playerSeaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') playerSeaLayer.addTo(playerMap);
+    playerMap.on('click', e => {
+      if (playerMapMode === 'add-waypoint') appendWaypointToPlayerAsset(e.latlng);
+    });
+    playerMap.on('mousemove', e => {
+      playerLastHoveredLatLng = e.latlng;
+      if (playerMapMode === 'add-waypoint') updatePlayerWaypointUi();
+    });
     renderPlayerMap();
   }
 }
@@ -1460,6 +1537,23 @@ function renderPlayerMap() {
     circle.bindTooltip(z.name);
     playerZoneLayers.push(circle);
   });
+  const selected = selectedPlayerAsset();
+  if (selected) {
+    const idx = state.assets.findIndex(a => a.id === selected.id);
+    const assetOrigin = assetLatLng(selected, idx);
+    const wpQueue = Array.isArray(selected.waypoints) ? selected.waypoints : [];
+    const points = [assetOrigin].concat(wpQueue.map(w => [normalizeCoord(w.lat), normalizeCoord(w.lon)]).filter(w => w[0] != null && w[1] != null));
+    if (points.length > 1) {
+      const line = L.polyline(points, { color: '#f59e0b', weight: 3, opacity: 0.9, dashArray: '6 6' }).addTo(playerMap);
+      playerAssetLayers.push(line);
+    }
+    wpQueue.forEach((wp, i) => {
+      if (normalizeCoord(wp.lat) == null || normalizeCoord(wp.lon) == null) return;
+      const marker = L.circleMarker([normalizeCoord(wp.lat), normalizeCoord(wp.lon)], { radius: 7, color: '#f59e0b', weight: 2, fillColor: '#fff7ed', fillOpacity: 0.95 }).addTo(playerMap);
+      marker.bindTooltip(`${wp.label || `WP${i+1}`} · ${normalizeCoord(wp.lat).toFixed(4)}, ${normalizeCoord(wp.lon).toFixed(4)}`);
+      playerAssetLayers.push(marker);
+    });
+  }
   state.assets.forEach((a, idx) => {
     const ll = assetLatLng(a, idx);
     const vector = courseVectorLatLngs(a, idx);
@@ -1473,8 +1567,21 @@ function renderPlayerMap() {
       lineCap: 'round'
     }).addTo(playerMap);
     playerAssetLayers.push(vectorLine);
-    const marker = L.marker(ll, { icon: assetIcon(a), title: a.name }).addTo(playerMap);
+    const isOwn = a.assignedCell === cellId;
+    const marker = L.marker(ll, { icon: assetIcon(a), title: a.name, draggable: isOwn }).addTo(playerMap);
     marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
+    if (isOwn) {
+      marker.on('click', () => selectPlayerAsset(a.id));
+      marker.on('dragend', e => {
+        const p = e.target.getLatLng();
+        a.lat = Number(p.lat.toFixed(6));
+        a.lon = Number(p.lng.toFixed(6));
+        if (hasZones()) a.zone = nearestZone(p.lat, p.lng);
+        saveState();
+        updatePlayerWaypointUi(`Moved ${a.name} to ${a.lat.toFixed(4)}, ${a.lon.toFixed(4)}.`);
+        renderPlayerPage();
+      });
+    }
     playerAssetLayers.push(marker);
   });
 }
@@ -1685,15 +1792,22 @@ function renderPlayerPage() {
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
   const sharedCommercial = state.assets.filter(a => isCommercialAssetType(a.type) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
   document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">My assets: ${myAssets.length}</span><span class="tag">Shared map assets: ${state.assets.length}</span><span class="tag">Commercial: ${sharedCommercial.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Shared map mode</strong><br>The player map mirrors the facilitator battlespace, including commercial vessels and shared contacts, so everyone validates against the same chart picture.</p>`;
+  if (!myAssets.find(a => a.id === playerSelectedAssetId)) playerSelectedAssetId = myAssets[0]?.id || '';
+  const selected = selectedPlayerAsset();
   document.getElementById('playerAssetsPanel').innerHTML = `
     <div class="asset-section">
       <div class="section-title">Assigned to ${cell?.name || 'current cell'}</div>
-      ${myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
+      ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div><button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
     </div>
     <div class="asset-section" style="margin-top:10px">
       <div class="section-title">Commercial Vessels / Shared Contacts</div>
       ${((sharedCommercial.length ? sharedCommercial : state.assets.filter(a => a.assignedCell !== cellId).slice(0, 12))).map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span></div></div>`).join('') || '<div class="small">No shared commercial vessels or contacts visible.</div>'}
     </div>`;
+  const editor = document.getElementById('playerAssetEditor');
+  if (editor) {
+    editor.innerHTML = selected ? `<div class="card"><strong>${selected.name}</strong><div class="grid2" style="margin-top:8px"><label>Heading<input id="playerAssetHeading" type="number" min="0" max="359" step="1" value="${normalizeHeading(selected.heading)}"></label><label>Speed (kt)<input id="playerAssetSpeed" type="number" min="0" max="60" step="0.1" value="${normalizeSpeed(selected.speed)}"></label></div><label style="display:block;margin-top:10px">Waypoints<textarea id="playerAssetWaypoints" placeholder="Click Add Waypoint Mode and then click the map, or type one waypoint per line as lat,lon,label">${formatWaypointText(selected.waypoints || [])}</textarea></label><div class="row" style="margin-top:10px"><button onclick="savePlayerAssetOrders()">Save Orders</button><button class="secondary" onclick="playerMapMode = (playerMapMode === 'add-waypoint' ? 'select' : 'add-waypoint'); updatePlayerWaypointUi(); renderPlayerPage();">${playerMapMode === 'add-waypoint' ? 'Exit Waypoint Mode' : 'Add Waypoint Mode'}</button><button class="secondary" onclick="clearPlayerSelectedWaypoints()">Clear Waypoints</button></div><div class="small" style="margin-top:8px">Only your own assigned assets can be moved or receive waypoints from this player view.</div></div>` : '<div class="small">Select one of your assigned assets to set heading, speed, and waypoints.</div>';
+  }
+  updatePlayerWaypointUi();
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
