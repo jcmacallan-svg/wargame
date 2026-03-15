@@ -14,7 +14,40 @@
       "failureState": "",
       "currentSituation": "Commercial confidence is weakening as irregular maritime interference rises near the corridor and port approaches.",
       "overlayMode": "openseamap",
-      "redDoctrine": "ambiguity_first"
+      "redDoctrine": "ambiguity_first",
+      "doctrineOptions": [
+        "ambiguity_first",
+        "port_denial",
+        "confidence_collapse"
+      ],
+      "selectedDoctrine": "ambiguity_first",
+      "zonePlacementMode": "manual",
+      "objectives": [
+        {
+          "id": "obj-corridor",
+          "name": "Keep corridor open",
+          "metric": "blue_presence",
+          "targetZone": "corridor",
+          "threshold": 1,
+          "weight": 3
+        },
+        {
+          "id": "obj-port",
+          "name": "Keep main port functioning",
+          "metric": "blue_presence",
+          "targetZone": "main_port",
+          "threshold": 1,
+          "weight": 2
+        },
+        {
+          "id": "obj-confidence",
+          "name": "Protect shipping confidence",
+          "metric": "shipping_confidence_min",
+          "targetZone": "",
+          "threshold": 4,
+          "weight": 3
+        }
+      ]
     },
     "zones": {
       "main_port": {
@@ -88,7 +121,40 @@
       "failureState": "",
       "currentSituation": "Port throughput is under pressure and adversary activity is concentrated around approaches and harbor services.",
       "overlayMode": "openseamap",
-      "redDoctrine": "port_denial"
+      "redDoctrine": "port_denial",
+      "doctrineOptions": [
+        "ambiguity_first",
+        "port_denial",
+        "confidence_collapse"
+      ],
+      "selectedDoctrine": "port_denial",
+      "zonePlacementMode": "manual",
+      "objectives": [
+        {
+          "id": "obj-harbor",
+          "name": "Keep harbor core functioning",
+          "metric": "blue_presence",
+          "targetZone": "main_port",
+          "threshold": 1,
+          "weight": 3
+        },
+        {
+          "id": "obj-outer",
+          "name": "Control outer harbor",
+          "metric": "blue_presence",
+          "targetZone": "outer_harbor",
+          "threshold": 1,
+          "weight": 2
+        },
+        {
+          "id": "obj-confidence",
+          "name": "Protect shipping confidence",
+          "metric": "shipping_confidence_min",
+          "targetZone": "",
+          "threshold": 4,
+          "weight": 3
+        }
+      ]
     },
     "zones": {
       "main_port": {

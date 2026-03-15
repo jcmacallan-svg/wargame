@@ -26,6 +26,24 @@
     <h2 style="margin-top:18px">Scenario Templates</h2>
     <select id="templateSelect"></select>
 
+    <h2 style="margin-top:18px">Scenario Authoring</h2>
+    <div class="small">Adjust scenario metadata, doctrine, and objective logic for the current package.</div>
+    <input id="scenarioNameInput" placeholder="Scenario name">
+    <textarea id="scenarioOverviewInput" placeholder="Scenario overview" style="width:100%;min-height:72px"></textarea>
+    <label class="small" for="scenarioDoctrineSelect">Doctrine</label>
+    <select id="scenarioDoctrineSelect"></select>
+    <label class="small" for="scenarioZonePlacementMode">Zone placement</label>
+    <select id="scenarioZonePlacementMode">
+      <option value="manual">manual</option>
+    </select>
+    <button id="saveScenarioMetaBtn" class="good">Save Scenario Metadata</button>
+
+    <h2 style="margin-top:18px">Objectives</h2>
+    <div class="small">Objectives are package-level and now feed into the turn score.</div>
+    <div id="objectivesPanel"></div>
+    <button id="addObjectiveBtn" class="secondary">Add Objective</button>
+    <button id="saveObjectivesBtn" class="good">Save Objectives</button>
+
     <h2 style="margin-top:18px">Exercise Packages</h2>
     <button id="savePackageBtn" class="good">Save Exercise Package</button>
     <input id="loadPackageInput" type="file" accept=".json">
@@ -77,7 +95,7 @@
     <div id="timelinePanel"></div>
     <h2 style="margin-top:18px">What changed in v16</h2>
     <div class="small">
-      This build adds a turn preview/resolve split, v16 package fields, and facilitator-defined manual zone placement as an explicit design rule.
+      This build adds a turn preview/resolve split, v16 package fields, facilitator-defined manual zone placement, and first-pass scenario authoring for doctrine and objectives.
     </div>
   </div>
 </div>
