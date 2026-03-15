@@ -210,6 +210,55 @@ function normalizeSpeed(value) {
   return Number(n.toFixed(1));
 }
 
+function parseWaypointText(text) {
+  return String(text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
+    const parts = line.split(',');
+    if (parts.length < 2) return null;
+    const lat = normalizeCoord(parts[0]);
+    const lon = normalizeCoord(parts[1]);
+    const label = parts.slice(2).join(',').trim();
+    if (lat == null || lon == null) return null;
+    return { lat, lon, label };
+  }).filter(Boolean);
+}
+
+function formatWaypointText(waypoints) {
+  return (Array.isArray(waypoints) ? waypoints : []).map(w => `${normalizeCoord(w.lat)},${normalizeCoord(w.lon)}${w.label ? ',' + w.label : ''}`).join('\n');
+}
+
+function waypointSummary(asset) {
+  const count = Array.isArray(asset?.waypoints) ? asset.waypoints.length : 0;
+  if (!count) return 'No waypoints';
+  const next = asset.waypoints[0];
+  return `${count} WP${count === 1 ? '' : 's'}${next ? ` · next ${next.lat?.toFixed?.(3) || next.lat}, ${next.lon?.toFixed?.(3) || next.lon}` : ''}`;
+}
+
+function selectedAsset() {
+  return state.assets.find(a => a.id === state.selectedAssetId) || null;
+}
+
+function appendWaypointToSelectedAsset(latlng) {
+  const asset = selectedAsset();
+  if (!asset) {
+    alert('Select an asset first, then use Add Waypoint Mode.');
+    return;
+  }
+  asset.waypoints = Array.isArray(asset.waypoints) ? asset.waypoints : [];
+  asset.waypoints.push({ lat: Number(latlng.lat.toFixed(6)), lon: Number(latlng.lng.toFixed(6)), label: `WP${asset.waypoints.length + 1}` });
+  saveState();
+  renderAll();
+  initMaps(true);
+}
+
+function clearSelectedAssetWaypoints() {
+  const asset = selectedAsset();
+  if (!asset) return;
+  asset.waypoints = [];
+  saveState();
+  renderAll();
+  initMaps(true);
+}
+
 function normalizeMapView(view) {
   if (!view || !Array.isArray(view.center) || view.center.length !== 2) return null;
   const lat = Number(view.center[0]);
@@ -309,6 +358,8 @@ function bindEvents() {
     document.getElementById('clearPinnedMapViewBtn').onclick = clearPinnedMapView;
     document.getElementById('centerSavedMapViewBtn').onclick = centerMapOnSavedView;
     document.getElementById('addZoneModeBtn').onclick = () => setMapMode(state.mapMode === 'add-zone' ? 'select' : 'add-zone');
+    document.getElementById('addWaypointModeBtn').onclick = () => setMapMode(state.mapMode === 'add-waypoint' ? 'select' : 'add-waypoint');
+    document.getElementById('clearWaypointsBtn').onclick = clearSelectedAssetWaypoints;
     document.getElementById('addAssetBtn').onclick = addAsset;
     document.getElementById('saveAssetPropsBtn').onclick = saveSelectedAssetProps;
     document.getElementById('deleteAssetBtn').onclick = deleteSelectedAsset;
@@ -531,7 +582,8 @@ function addAsset() {
     lon: Number(basePos[1].toFixed(6)),
     heading: 90,
     speed: 12,
-    trackQuality: 'q2'
+    trackQuality: 'q2',
+    waypoints: []
   };
   state.assets.push(asset);
   state.selectedAssetId = asset.id;
@@ -571,6 +623,7 @@ function saveSelectedAssetProps() {
   asset.speed = normalizeSpeed(document.getElementById('assetSpeed').value);
   asset.lat = normalizeCoord(document.getElementById('assetLat').value);
   asset.lon = normalizeCoord(document.getElementById('assetLon').value);
+  asset.waypoints = parseWaypointText(document.getElementById('assetWaypoints')?.value || '');
   state.selectedAssetId = asset.id;
   saveState();
   renderAll();
@@ -796,16 +849,27 @@ function assetLatLng(asset, idx) {
   return [54.8 + (idx % 3) * 0.04, 7.2 + (idx % 4) * 0.06];
 }
 
+function distanceNmBetween(lat1, lon1, lat2, lon2) {
+  const meanLat = ((lat1 + lat2) / 2) * Math.PI / 180;
+  const dLatNm = (lat2 - lat1) * 60;
+  const dLonNm = (lon2 - lon1) * 60 * Math.cos(meanLat);
+  return Math.sqrt(dLatNm * dLatNm + dLonNm * dLonNm);
+}
+
+function bearingBetween(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2 - lon1) * Math.cos(((lat1 + lat2) / 2) * Math.PI / 180);
+  const dLat = (lat2 - lat1);
+  const angle = Math.atan2(dLon, dLat) * 180 / Math.PI;
+  return normalizeHeading(angle);
+}
+
 function courseVectorLatLngs(asset, idx) {
   const origin = assetLatLng(asset, idx);
-  const heading = normalizeHeading(asset.heading);
+  const waypoint = Array.isArray(asset.waypoints) && asset.waypoints.length ? asset.waypoints[0] : null;
+  const heading = waypoint ? bearingBetween(origin[0], origin[1], waypoint.lat, waypoint.lon) : normalizeHeading(asset.heading);
   const speed = Math.max(0, normalizeSpeed(asset.speed));
-  const distanceNm = Math.max(1.2, Math.min(12, speed * 0.22 + (normalizeAssetRepresentation(asset.representation) === 'track' ? 1.2 : 0)));
-  const radians = heading * Math.PI / 180;
-  const dLat = (distanceNm * Math.cos(radians)) / 60;
-  const lonScale = Math.cos(origin[0] * Math.PI / 180) || 0.00001;
-  const dLon = (distanceNm * Math.sin(radians)) / (60 * lonScale);
-  return [origin, [origin[0] + dLat, origin[1] + dLon]];
+  const distanceNm = waypoint ? Math.max(1.2, Math.min(12, distanceNmBetween(origin[0], origin[1], waypoint.lat, waypoint.lon))) : Math.max(1.2, Math.min(12, speed * 0.22 + (normalizeAssetRepresentation(asset.representation) === 'track' ? 1.2 : 0)));
+  return [origin, destinationLatLon(origin[0], origin[1], heading, distanceNm)];
 }
 
 function destinationLatLon(lat, lon, heading, distanceNm) {
@@ -814,6 +878,33 @@ function destinationLatLon(lat, lon, heading, distanceNm) {
   const lonScale = Math.cos(lat * Math.PI / 180) || 0.00001;
   const dLon = (distanceNm * Math.sin(radians)) / (60 * lonScale);
   return [lat + dLat, lon + dLon];
+}
+
+function projectMovement(asset, origin, distanceNm) {
+  let remaining = Math.max(0, Number(distanceNm || 0));
+  let current = [origin[0], origin[1]];
+  let heading = normalizeHeading(asset.heading);
+  let consumedWaypoints = 0;
+  const queue = Array.isArray(asset.waypoints) ? asset.waypoints.map(w => ({ lat: normalizeCoord(w.lat), lon: normalizeCoord(w.lon), label: String(w.label || '') })).filter(w => w.lat != null && w.lon != null) : [];
+  while (remaining > 0 && queue.length) {
+    const wp = queue[0];
+    const legDistance = distanceNmBetween(current[0], current[1], wp.lat, wp.lon);
+    heading = bearingBetween(current[0], current[1], wp.lat, wp.lon);
+    if (legDistance <= remaining + 0.0001) {
+      current = [wp.lat, wp.lon];
+      remaining -= legDistance;
+      queue.shift();
+      consumedWaypoints += 1;
+    } else {
+      current = destinationLatLon(current[0], current[1], heading, remaining);
+      remaining = 0;
+    }
+  }
+  if (remaining > 0) {
+    current = destinationLatLon(current[0], current[1], heading, remaining);
+  }
+  if (queue.length) heading = bearingBetween(current[0], current[1], queue[0].lat, queue[0].lon);
+  return { destination: current, heading, remainingWaypoints: queue, consumedWaypoints };
 }
 
 function advanceTimeLabel(currentLabel, hours) {
@@ -836,8 +927,9 @@ function movementPreviewRows() {
   return state.assets.map((asset, idx) => {
     const origin = assetLatLng(asset, idx);
     const distanceNm = movementDistanceNm(asset, hours);
-    const destination = distanceNm > 0 ? destinationLatLon(origin[0], origin[1], asset.heading, distanceNm) : origin;
-    return { asset, origin, destination, distanceNm, zone: hasZones() ? nearestZone(destination[0], destination[1]) : asset.zone || '' };
+    const movement = distanceNm > 0 ? projectMovement(asset, origin, distanceNm) : { destination: origin, heading: normalizeHeading(asset.heading), remainingWaypoints: Array.isArray(asset.waypoints) ? clone(asset.waypoints) : [], consumedWaypoints: 0 };
+    const destination = movement.destination;
+    return { asset, origin, destination, distanceNm, zone: hasZones() ? nearestZone(destination[0], destination[1]) : asset.zone || '', movement };
   });
 }
 
@@ -848,7 +940,7 @@ function previewNextTurnMovement() {
     return;
   }
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
-  const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm on ${normalizeHeading(r.asset.heading)}° to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}`);
+  const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm ${r.movement.consumedWaypoints ? `via ${r.movement.consumedWaypoints} WP` : `on ${normalizeHeading(r.movement.heading)}°`} to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}${r.movement.remainingWaypoints[0] ? ` · next ${r.movement.remainingWaypoints[0].label || 'WP'} ` : ''}`);
   alert(`Movement preview for next turn (${hours}h):\n\n${lines.join('\n')}${rows.length > 10 ? `\n...and ${rows.length - 10} more asset(s)` : ''}`);
 }
 
@@ -863,8 +955,10 @@ function advanceSimulationTurn() {
   rows.forEach(r => {
     r.asset.lat = Number(r.destination[0].toFixed(6));
     r.asset.lon = Number(r.destination[1].toFixed(6));
+    r.asset.heading = normalizeHeading(r.movement.heading);
+    r.asset.waypoints = r.movement.remainingWaypoints;
     if (r.zone) r.asset.zone = r.zone;
-    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}`);
+    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''}`);
   });
   state.scenario.turn = Number(state.scenario.turn || 1) + 1;
   state.scenario.timeLabel = advanceTimeLabel(state.scenario.timeLabel, hours);
@@ -984,7 +1078,7 @@ function renderFacilitatorMap() {
     }).addTo(map);
     assetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Cell: ' + (state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'));
     marker.on('click', () => selectAsset(a.id));
     marker.on('dragend', e => {
       const p = e.target.getLatLng();
@@ -1025,7 +1119,7 @@ function renderPlayerMap() {
     }).addTo(playerMap);
     playerAssetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), title: a.name }).addTo(playerMap);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Zone: ' + prettyZone(a.zone));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone));
     playerAssetLayers.push(marker);
   });
 }
@@ -1125,6 +1219,7 @@ function renderAssets() {
           <span class="tag">${a.status}</span>
           <span class="tag">${prettyZone(a.zone)}</span>
           <span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span>
+          <span class="tag">${waypointSummary(a)}</span>
           <span class="tag">${state.session.cells.find(c => c.id === a.assignedCell)?.name || 'Unassigned'}</span>
         </div>
         <button class="secondary" onclick="selectAsset('${a.id}')">Select</button>
@@ -1150,6 +1245,7 @@ function renderAssetEditor() {
   const assetSpeed = document.getElementById('assetSpeed');
   const assetLat = document.getElementById('assetLat');
   const assetLon = document.getElementById('assetLon');
+  const assetWaypoints = document.getElementById('assetWaypoints');
   if (!assetZone || !assetAssignedCell) return;
   assetZone.innerHTML = ['<option value="">Unplaced</option>'].concat(zoneIds().map(id => `<option value="${id}">${state.zones[id].name}</option>`)).join('');
   assetAssignedCell.innerHTML = state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -1172,19 +1268,20 @@ function renderAssetEditor() {
   if (assetSpeed) assetSpeed.value = normalizeSpeed(asset?.speed ?? 12);
   if (assetLat) assetLat.value = asset?.lat ?? '';
   if (assetLon) assetLon.value = asset?.lon ?? '';
+  if (assetWaypoints) assetWaypoints.value = formatWaypointText(asset?.waypoints || []);
 }
 
 function renderInjects() {
   const el = document.getElementById('injectsPanel');
   if (!el) return;
-  el.innerHTML = `<div class="small">This build is focused on facilitator authoring: start blank, place zones, place assets, and save the package as your scenario baseline.</div>`;
+  el.innerHTML = `<div class="small">This build is focused on facilitator authoring: start blank, place zones, place assets, give them waypoints if needed, and save the package as your scenario baseline.</div>`;
 }
 
 function renderTimeline() {
   const el = document.getElementById('timelinePanel');
   if (!el) return;
   if (!state.timeline.length) {
-    el.innerHTML = `<div class="small">No movement turns resolved yet. Set heading/speed on an asset and click <strong>Resolve Turn</strong> to advance it automatically on the chart.</div>`;
+    el.innerHTML = `<div class="small">No movement turns resolved yet. Set heading/speed or add waypoints on an asset and click <strong>Resolve Turn</strong> to advance it automatically on the chart.</div>`;
     return;
   }
   el.innerHTML = state.timeline.slice().reverse().map(item => `<div class="timeline-item"><strong>${item.time || 'H+0'}</strong><br>${item.text}</div>`).join('');
@@ -1210,7 +1307,7 @@ function renderPlayerPage() {
   const cell = state.session.cells.find(c => c.id === cellId);
   document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assets: ${state.assets.filter(a => a.assignedCell === cellId).length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p>`;
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
-  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
+  document.getElementById('playerAssetsPanel').innerHTML = myAssets.length ? myAssets.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${a.fuel}</span><span class="tag">Readiness ${a.readiness}</span></div></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>';
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];

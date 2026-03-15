@@ -72,9 +72,11 @@
     <div id="zoneList"></div>
 
     <h2 style="margin-top:18px">Blue Assets</h2>
-    <div class="small">Build the force package manually. Use confirmed units or tracks, set affiliation, track quality, heading and speed, and drag markers to set their precise chart position. When you click <strong>Resolve Turn</strong>, each asset advances automatically along its heading and speed for the configured turn duration.</div>
+    <div class="small">Build the force package manually. Use confirmed units or tracks, set affiliation, track quality, heading and speed, and drag markers to set their precise chart position. Assets can also follow waypoints to visit specific locations before resuming free movement. When you click <strong>Resolve Turn</strong>, each asset advances automatically for the configured turn duration.</div>
     <div class="row" style="margin-top:10px">
       <button id="addAssetBtn">Add Asset</button>
+      <button id="addWaypointModeBtn" class="secondary">Add Waypoint Mode</button>
+      <button id="clearWaypointsBtn" class="secondary">Clear Selected Waypoints</button>
       <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
     </div>
     <div id="assetsPanel"></div>
@@ -102,6 +104,7 @@
       <input id="assetFuel" type="number" min="0" placeholder="Fuel">
       <input id="assetReadiness" type="number" min="0" placeholder="Readiness">
     </div>
+    <textarea id="assetWaypoints" placeholder="Waypoints: one per line as lat,lon,label"></textarea>
     <button id="saveAssetPropsBtn" class="good">Save Asset Properties</button>
     <button id="deleteAssetBtn" class="warn">Delete Selected Asset</button>
 
