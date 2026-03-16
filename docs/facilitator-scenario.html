@@ -16,6 +16,22 @@
   <div class="panel">
     <h2>Scenario State</h2>
     <div id="scenarioPanel"></div>
+
+    <h2 style="margin-top:18px">Scenario Authoring</h2>
+    <input id="scenarioNameInput" placeholder="Scenario name">
+    <textarea id="scenarioOverviewInput" placeholder="Scenario overview"></textarea>
+    <textarea id="scenarioSituationInput" placeholder="Current situation / authoring notes"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="saveScenarioMetaBtn" class="good">Save Scenario Meta</button>
+      <button id="newBlankScenarioBtn" class="secondary">New Blank Scenario</button>
+    </div>
+
+    <h2 style="margin-top:18px">Scenario Templates</h2>
+    <select id="templateSelect"></select>
+
+    <h2 style="margin-top:18px">Scenario / Exercise Packages</h2>
+    <button id="savePackageBtn" class="good">Save Scenario Package</button>
+    <input id="loadPackageInput" type="file" accept=".json">
   </div>
   <div class="panel">
     <h2>Timeline</h2>

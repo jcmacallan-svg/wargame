@@ -1530,36 +1530,44 @@ async function init() {
 }
 
 function bindEvents() {
-  if (document.getElementById('map')) {
-    document.getElementById('resetBtn').onclick = resetToBlankScenario;
-    document.getElementById('generatePressureBtn').onclick = previewNextTurnMovement;
-    document.getElementById('nextTurnBtn').onclick = advanceSimulationTurn;
-    document.getElementById('overlaySelect').onchange = (e) => { state.scenario.overlayMode = e.target.value; saveState(); initMaps(true); };
-    document.getElementById('saveZonePropsBtn').onclick = saveSelectedZoneProps;
-    document.getElementById('deleteZoneBtn').onclick = deleteSelectedZone;
-    document.getElementById('resetZonesBtn').onclick = clearZones;
-    document.getElementById('addCellBtn').onclick = () => addCellRow();
-    document.getElementById('saveCellsBtn').onclick = saveCells;
-    document.getElementById('templateSelect').onchange = applyTemplate;
-    document.getElementById('savePackageBtn').onclick = saveExercisePackage;
-    document.getElementById('loadPackageInput').onchange = loadExercisePackage;
-    document.getElementById('newBlankScenarioBtn').onclick = resetToBlankScenario;
-    document.getElementById('saveScenarioMetaBtn').onclick = saveScenarioMeta;
-    document.getElementById('rememberLastMapView').onchange = (e) => { state.scenario.rememberLastMapView = !!e.target.checked; if (state.scenario.rememberLastMapView && map) state.scenario.lastMapView = currentMapView(map); saveState(); renderScenario(); };
-    document.getElementById('pinMapViewBtn').onclick = pinCurrentMapView;
-    document.getElementById('clearPinnedMapViewBtn').onclick = clearPinnedMapView;
-    document.getElementById('centerSavedMapViewBtn').onclick = centerMapOnSavedView;
-    document.getElementById('addZoneModeBtn').onclick = () => setMapMode(state.mapMode === 'add-zone' ? 'select' : 'add-zone');
-    document.getElementById('addWaypointModeBtn').onclick = () => setMapMode(state.mapMode === 'add-waypoint' ? 'select' : 'add-waypoint');
-    document.getElementById('clearWaypointsBtn').onclick = clearSelectedAssetWaypoints;
-    const undoBtn = document.getElementById('undoWaypointBtn'); if (undoBtn) undoBtn.onclick = undoLastSelectedWaypoint;
-    document.getElementById('addAssetBtn').onclick = addAsset;
-    document.getElementById('duplicateAssetBtn').onclick = duplicateSelectedAsset;
-    document.getElementById('autoPopulateCommercialBtn').onclick = autoPopulateCommercialTraffic;
-    document.getElementById('saveAssetPropsBtn').onclick = saveSelectedAssetProps;
-    document.getElementById('deleteAssetBtn').onclick = deleteSelectedAsset;
-    document.getElementById('clearAssetsBtn').onclick = clearAssets;
-  }
+  const bindClick = (id, handler) => {
+    const el = document.getElementById(id);
+    if (el) el.onclick = handler;
+  };
+  const bindChange = (id, handler) => {
+    const el = document.getElementById(id);
+    if (el) el.onchange = handler;
+  };
+
+  bindClick('resetBtn', resetToBlankScenario);
+  bindClick('generatePressureBtn', previewNextTurnMovement);
+  bindClick('nextTurnBtn', advanceSimulationTurn);
+  bindChange('overlaySelect', (e) => { state.scenario.overlayMode = e.target.value; saveState(); initMaps(true); });
+  bindClick('saveZonePropsBtn', saveSelectedZoneProps);
+  bindClick('deleteZoneBtn', deleteSelectedZone);
+  bindClick('resetZonesBtn', clearZones);
+  bindClick('addCellBtn', () => addCellRow());
+  bindClick('saveCellsBtn', saveCells);
+  bindChange('templateSelect', applyTemplate);
+  bindClick('savePackageBtn', saveExercisePackage);
+  bindChange('loadPackageInput', loadExercisePackage);
+  bindClick('newBlankScenarioBtn', resetToBlankScenario);
+  bindClick('saveScenarioMetaBtn', saveScenarioMeta);
+  bindChange('rememberLastMapView', (e) => { state.scenario.rememberLastMapView = !!e.target.checked; if (state.scenario.rememberLastMapView && map) state.scenario.lastMapView = currentMapView(map); saveState(); renderScenario(); });
+  bindClick('pinMapViewBtn', pinCurrentMapView);
+  bindClick('clearPinnedMapViewBtn', clearPinnedMapView);
+  bindClick('centerSavedMapViewBtn', centerMapOnSavedView);
+  bindClick('addZoneModeBtn', () => setMapMode(state.mapMode === 'add-zone' ? 'select' : 'add-zone'));
+  bindClick('addWaypointModeBtn', () => setMapMode(state.mapMode === 'add-waypoint' ? 'select' : 'add-waypoint'));
+  bindClick('clearWaypointsBtn', clearSelectedAssetWaypoints);
+  const undoBtn = document.getElementById('undoWaypointBtn'); if (undoBtn) undoBtn.onclick = undoLastSelectedWaypoint;
+  bindClick('addAssetBtn', addAsset);
+  bindClick('duplicateAssetBtn', duplicateSelectedAsset);
+  bindClick('autoPopulateCommercialBtn', autoPopulateCommercialTraffic);
+  bindClick('saveAssetPropsBtn', saveSelectedAssetProps);
+  bindClick('deleteAssetBtn', deleteSelectedAsset);
+  bindClick('clearAssetsBtn', clearAssets);
+
   if (document.getElementById('playerCellSelect')) {
     document.getElementById('playerCellSelect').onchange = (e) => {
       const cellId = e.target.value;
@@ -1695,7 +1703,8 @@ function saveScenarioMeta() {
   state.scenario.name = document.getElementById('scenarioNameInput').value.trim() || 'Untitled Scenario';
   state.scenario.overview = document.getElementById('scenarioOverviewInput').value.trim() || 'Facilitator-authored scenario.';
   state.scenario.currentSituation = document.getElementById('scenarioSituationInput').value.trim() || 'Facilitator-authored setup.';
-  state.scenario.overlayMode = document.getElementById('overlaySelect').value;
+  const overlaySelect = document.getElementById('overlaySelect');
+  state.scenario.overlayMode = overlaySelect ? overlaySelect.value : (state.scenario.overlayMode || 'openseamap');
   const symbolStyleSelect = document.getElementById('symbolStyleSelect');
   state.scenario.symbolStyle = symbolStyleSelect ? symbolStyleSelect.value : (state.scenario.symbolStyle || 'ntds');
   const turnDurationInput = document.getElementById('turnDurationHoursInput');

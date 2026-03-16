@@ -15,28 +15,20 @@
 </header>
 <div class="container">
   <div class="panel">
-    <h2>Scenario State</h2>
-    <div id="scenarioPanel"></div>
-
-    <h2 style="margin-top:18px">Scenario Authoring</h2>
-    <input id="scenarioNameInput" placeholder="Scenario name">
-    <textarea id="scenarioOverviewInput" placeholder="Scenario overview"></textarea>
-    <textarea id="scenarioSituationInput" placeholder="Current situation / authoring notes"></textarea>
+    <h2>Chart Controls</h2>
     <div class="row" style="margin-top:12px">
       <label class="small" for="overlaySelect">Chart overlay</label>
       <select id="overlaySelect">
         <option value="openseamap">OSM + OpenSeaMap</option>
         <option value="osm">OSM only</option>
       </select>
-      <input id="turnDurationHoursInput" type="number" min="0.25" max="24" step="0.25" value="1" placeholder="Turn hours">
       <select id="symbolStyleSelect" title="Map symbol style">
         <option value="ntds">NTDS</option>
         <option value="app6">APP-6 / NATO</option>
         <option value="minimal">Minimal</option>
         <option value="commercial">Vessel Icons</option>
       </select>
-      <button id="saveScenarioMetaBtn" class="good">Save Scenario Meta</button>
-      <button id="newBlankScenarioBtn" class="secondary">New Blank Scenario</button>
+      <input id="turnDurationHoursInput" type="number" min="0.25" max="24" step="0.25" value="1" placeholder="Turn hours">
     </div>
     <div class="row" style="margin-top:10px">
       <label><input type="checkbox" id="rememberLastMapView" checked> Remember last map view</label>
@@ -44,13 +36,6 @@
       <button id="clearPinnedMapViewBtn" class="secondary">Clear Pin</button>
       <button id="centerSavedMapViewBtn" class="secondary">Center on Saved View</button>
     </div>
-
-    <h2 style="margin-top:18px">Scenario Templates</h2>
-    <select id="templateSelect"></select>
-
-    <h2 style="margin-top:18px">Scenario / Exercise Packages</h2>
-    <button id="savePackageBtn" class="good">Save Scenario Package</button>
-    <input id="loadPackageInput" type="file" accept=".json">
 
     <h2 style="margin-top:18px">Blue Cells</h2>
     <div id="cellsEditor"></div>

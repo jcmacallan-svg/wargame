@@ -43,3 +43,9 @@
 ## Latest update
 
 - Measuring tool toegevoegd als zichtbare map-overlay control op facilitator- en playermap; klik Start, kies startpunt en eindpunt, lees afstand in nautische mijlen af.
+
+## IA patch - facilitator pages
+- Done: removed Scenario State from Facilitator Ops and Map page.
+- Done: moved Scenario Authoring plus Templates and Scenario/Exercise Packages to Scenario tab.
+- Done: Map page now starts with chart controls (overlay, icon style, turn hours, remember view) followed by Blue Cells.
+- Open: verify whether Blue Cells should later also move to Scenario tab or remain on Map.
