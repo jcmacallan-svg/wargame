@@ -28,7 +28,8 @@ const DEFAULT_TEMPLATE = {
   },
   "pinnedMapView": null,
   "turnDurationHours": 1,
-  "symbolStyle": "ntds"
+  "symbolStyle": "ntds",
+  "statusUpdateIntervalHours": 6
 },
   zones: {}
 };
@@ -60,7 +61,8 @@ const DEFAULT_STATE = {
     },
     "pinnedMapView": null,
     "turnDurationHours": 1,
-    "symbolStyle": "ntds"
+    "symbolStyle": "ntds",
+    "statusUpdateIntervalHours": 6
   },
   "zones": {},
   "selectedZoneId": "",
@@ -78,7 +80,9 @@ const DEFAULT_STATE = {
         "name": "Blue Port Authority",
         "domain": "logistics"
       }
-    ]
+    ],
+    "initialStatusSentByCell": {},
+    "lastRoutineStatusBucketByCell": {}
   },
   "assets": [
     {
@@ -723,6 +727,89 @@ function fuelPercentLabel(asset) {
 function readinessPercentLabel(asset) {
   return `${clampPercent(asset?.readiness, 100).toFixed(0)}%`;
 }
+function fuelTagClass(asset) {
+  return clampPercent(asset?.fuel, 100) < 20 ? 'tag tag-critical' : 'tag';
+}
+function readinessTagClass(asset) {
+  return clampPercent(asset?.readiness, 100) < 50 ? 'tag tag-critical' : 'tag';
+}
+function operationalSystemsSummary(asset) {
+  const readiness = clampPercent(asset?.readiness, 100);
+  const profile = sensorProfileForAsset(asset);
+  const working = ['Navigation', 'Engineering', 'Communications'];
+  const limited = [];
+  const offline = [];
+  if ((profile.radar || 0) > 0) {
+    if (readiness >= 55) working.push('Radar');
+    else if (readiness >= 35) limited.push('Radar');
+    else offline.push('Radar');
+  }
+  if ((profile.visual || 0) > 0) working.push('Visual watch');
+  if ((profile.ew || 0) > 0) {
+    if (readiness >= 65) working.push('EW');
+    else if (readiness >= 45) limited.push('EW');
+    else offline.push('EW');
+  }
+  if ((profile.inspection || 0) > 0) {
+    if (readiness >= 70) working.push('Boarding team');
+    else if (readiness >= 45) limited.push('Boarding team');
+    else offline.push('Boarding team');
+  }
+  if (readiness < 70) limited.push('Damage control');
+  if (readiness < 40) offline.push('Flight ops');
+  const uniq = arr => [...new Set(arr.filter(Boolean))];
+  return { working: uniq(working), limited: uniq(limited), offline: uniq(offline) };
+}
+function assetStatusReportLine(asset) {
+  const systems = operationalSystemsSummary(asset);
+  const segments = [
+    `<strong>${escapeHtml(asset.name || 'Asset')}</strong> (${escapeHtml(assetTypeLabel(asset.type))})`,
+    `status ${escapeHtml(asset.status || 'available')}`,
+    `fuel ${fuelPercentLabel(asset)}`,
+    `readiness ${readinessPercentLabel(asset)}`,
+    `heading ${normalizeHeading(asset.heading)}°`,
+    `speed ${normalizeSpeed(asset.speed)} kt`
+  ];
+  const details = [];
+  if (systems.working.length) details.push(`working: ${escapeHtml(systems.working.join(', '))}`);
+  if (systems.limited.length) details.push(`limited: ${escapeHtml(systems.limited.join(', '))}`);
+  if (systems.offline.length) details.push(`offline: ${escapeHtml(systems.offline.join(', '))}`);
+  return `${segments.join(' · ')}${details.length ? ' · ' + details.join(' · ') : ''}`;
+}
+function pushStatusUpdateToCell(cellId, label = 'Status update', options = {}) {
+  const cell = state.session.cells.find(c => c.id === cellId);
+  if (!cell) return;
+  ensureSessionMaps();
+  const time = state.scenario.timeLabel || 'H+0';
+  const assets = state.assets.filter(a => a.assignedCell === cellId);
+  const header = `${label} for ${cell.name}`;
+  const body = assets.length ? assets.map(assetStatusReportLine).join('<br>') : 'No assigned assets available for this cell at this time.';
+  state.playerFeedByCell[cellId].push({ time, text: `${header}<br>${body}` });
+  if (options.logTimeline !== false) state.timeline.push({ time, text: `${label} sent to ${cell.name}.` });
+}
+function maybeQueueInitialStatusUpdate(cellId) {
+  if (!cellId) return;
+  ensureSessionMaps();
+  if (state.session.initialStatusSentByCell[cellId]) return;
+  pushStatusUpdateToCell(cellId, 'Initial status update', { logTimeline: false });
+  state.session.initialStatusSentByCell[cellId] = true;
+}
+function maybeSendRoutineStatusUpdates(previousLabel, currentLabel) {
+  ensureSessionMaps();
+  const interval = Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6));
+  const prevHours = timeLabelToHours(previousLabel);
+  const currentHours = timeLabelToHours(currentLabel);
+  state.session.cells.forEach(cell => {
+    const currentBucket = Math.floor(currentHours / interval);
+    const prevBucket = Number.isFinite(prevHours) ? Math.floor(prevHours / interval) : -1;
+    const lastSentBucket = Number(state.session.lastRoutineStatusBucketByCell[cell.id]);
+    const baselineBucket = Number.isFinite(lastSentBucket) ? lastSentBucket : prevBucket;
+    if (currentHours > 0 && currentBucket > baselineBucket) {
+      pushStatusUpdateToCell(cell.id, `Routine status update (${interval}h)`);
+      state.session.lastRoutineStatusBucketByCell[cell.id] = currentBucket;
+    }
+  });
+}
 function sensorProfileForAsset(asset) {
   const preset = modernPresetForType(asset?.type);
   const base = preset?.sensorProfile || defaultSensorProfileForAssetType(asset?.type);
@@ -788,7 +875,9 @@ function loadState() {
   }
 }
 function saveState() {
+  state.meta = Object.assign({}, state.meta, { syncToken: Date.now() });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  lastKnownSyncToken = state.meta?.syncToken || lastKnownSyncToken;
   if (stateChannel) {
     try { stateChannel.postMessage({ type: 'state-updated', ts: Date.now() }); } catch (_) {}
   }
@@ -797,12 +886,15 @@ function migrateState(pkg) {
   const merged = Object.assign(clone(DEFAULT_STATE), pkg || {});
   merged.version = 17;
   merged.scenario = Object.assign(clone(DEFAULT_STATE.scenario), pkg?.scenario || {});
+  merged.scenario.statusUpdateIntervalHours = Math.max(1, Math.min(24, Number(merged.scenario.statusUpdateIntervalHours || 6) || 6));
   merged.zones = pkg?.zones || {};
   merged.assets = Array.isArray(pkg?.assets) ? pkg.assets : [];
   merged.selectedZoneId = merged.selectedZoneId && merged.zones[merged.selectedZoneId] ? merged.selectedZoneId : (Object.keys(merged.zones)[0] || '');
   merged.selectedAssetId = merged.selectedAssetId && merged.assets.find(a => a.id === merged.selectedAssetId) ? merged.selectedAssetId : (merged.assets[0]?.id || '');
   merged.mapMode = merged.mapMode || 'select';
   ensureSessionMaps(merged);
+  merged.session.initialStatusSentByCell = merged.session.initialStatusSentByCell || {};
+  merged.session.lastRoutineStatusBucketByCell = merged.session.lastRoutineStatusBucketByCell || {};
   merged.scenario.rememberLastMapView = merged.scenario.rememberLastMapView !== false;
   merged.scenario.lastMapView = normalizeMapView(merged.scenario.lastMapView) || { center: [54.8, 7.55], zoom: 8 };
   merged.scenario.pinnedMapView = normalizeMapView(merged.scenario.pinnedMapView);
@@ -910,6 +1002,7 @@ function claimPlayerCell(cellId) {
   if (!canClaimCell(cellId)) return false;
   state.session.cellLocks[cellId] = { ownerId: getPlayerInstanceId(), claimedAt: new Date().toISOString() };
   setStoredPlayerClaim(cellId);
+  maybeQueueInitialStatusUpdate(cellId);
   saveState();
   return true;
 }
@@ -1731,6 +1824,23 @@ function centerMapOnSavedView() {
   const view = getInitialMapView();
   map.setView(view.center, view.zoom);
 }
+function setupStateSyncPolling() {
+  if (syncPollTimer) return;
+  lastKnownSyncToken = state?.meta?.syncToken || null;
+  syncPollTimer = window.setInterval(() => {
+    try {
+      const latest = loadState();
+      const token = latest?.meta?.syncToken || null;
+      if (!token || token === lastKnownSyncToken) return;
+      lastKnownSyncToken = token;
+      state = latest;
+      ensureSessionMaps();
+      syncPlayerClaimFromUrl();
+      renderAll();
+      initMaps(true);
+    } catch (_) {}
+  }, 1200);
+}
 function zoneStyle(kind) {
   if (kind === 'port' || kind === 'harbor') return { color: '#fde68a', fillColor: '#fde68a', fillOpacity: 0.10 };
   if (kind === 'info') return { color: '#c084fc', fillColor: '#c084fc', fillOpacity: 0.09 };
@@ -1765,6 +1875,7 @@ async function init() {
   ensureSessionMaps();
   syncPlayerClaimFromUrl();
   bindEvents();
+  setupStateSyncPolling();
   renderAll();
   initMaps(true);
 }
@@ -1840,6 +1951,7 @@ function bindEvents() {
         if (event?.data?.type !== 'state-updated') return;
         try {
           state = loadState();
+          lastKnownSyncToken = state?.meta?.syncToken || lastKnownSyncToken;
           ensureSessionMaps();
           syncPlayerClaimFromUrl();
           renderAll();
@@ -1852,6 +1964,7 @@ function bindEvents() {
     if (e.key !== STORAGE_KEY || !e.newValue) return;
     try {
       state = migrateState(JSON.parse(e.newValue));
+      lastKnownSyncToken = state?.meta?.syncToken || lastKnownSyncToken;
       ensureSessionMaps();
       syncPlayerClaimFromUrl();
       renderAll();
@@ -1861,6 +1974,7 @@ function bindEvents() {
   window.addEventListener('focus', () => {
     try {
       state = loadState();
+      lastKnownSyncToken = state?.meta?.syncToken || lastKnownSyncToken;
       ensureSessionMaps();
       syncPlayerClaimFromUrl();
       renderAll();
@@ -2802,6 +2916,7 @@ function fuelPlanForTurn(asset, hours) {
 }
 
 function movementPreviewRows() {
+  const previousLabel = state.scenario.timeLabel || 'H+0';
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
   return state.assets.map((asset, idx) => {
     const origin = assetLatLng(asset, idx);
@@ -2821,6 +2936,7 @@ function previewNextTurnMovement() {
     alert('No assets available to preview. Add one or more assets first.');
     return;
   }
+  const previousLabel = state.scenario.timeLabel || 'H+0';
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
   const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm ${r.movement.consumedWaypoints ? `via ${r.movement.consumedWaypoints} WP` : `on ${normalizeHeading(r.movement.heading)}°`} to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}${r.movement.remainingWaypoints[0] ? ` · next ${r.movement.remainingWaypoints[0].label || 'WP'}` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(1)}% used / ${r.fuelPlan.fuelRemaining.toFixed(1)}% left @ ${r.fuelPlan.burnRate.toFixed(1)}%/h${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
   alert(`Movement preview for next turn (${hours}h):\n\n${lines.join('\n')}${rows.length > 10 ? `\n...and ${rows.length - 10} more asset(s)` : ''}`);
@@ -2853,6 +2969,7 @@ function pushTurnSnapshot() {
 }
 
 function restorePreviousTurn() {
+  const previousLabel = state.scenario.timeLabel || 'H+0';
   state.turnHistory = Array.isArray(state.turnHistory) ? state.turnHistory : [];
   if (!state.turnHistory.length) {
     alert('No previous resolved turn snapshot is available yet.');
@@ -2885,6 +3002,7 @@ function restorePreviousTurn() {
   state.boardingRequests = clone(snapshot.boardingRequests || []);
   ensureSessionMaps();
   saveState();
+  maybeSendRoutineStatusUpdates(previousLabel, state.scenario.timeLabel || previousLabel);
   renderAll();
   initMaps(true);
 }
@@ -2896,6 +3014,7 @@ function advanceSimulationTurn() {
     alert('No assets available to move. Add one or more assets first.');
     return;
   }
+  const previousLabel = state.scenario.timeLabel || 'H+0';
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
   pushTurnSnapshot();
   const moved = [];
@@ -2922,6 +3041,7 @@ function advanceSimulationTurn() {
   });
   if (visualConfirms.length) state.releasedInjects = visualConfirms.map((t, i) => ({ id: `AUTO-CONF-${i+1}`, title: 'Automatic visual confirmation', situation: t }));
   saveState();
+  maybeSendRoutineStatusUpdates(previousLabel, state.scenario.timeLabel || previousLabel);
   renderAll();
   initMaps(true);
 }
@@ -3147,20 +3267,9 @@ function renderFacilitatorMap() {
     zoneCenterLayers.push(center);
   });
 
-  (state.session.cells || []).forEach((cell, idx) => {
-    if (!Number.isFinite(Number(cell.lat)) || !Number.isFinite(Number(cell.lon))) return;
-    const badge = L.divIcon({ className: 'cell-div-icon', html: `<div class="cell-map-badge">${escapeHtml(cell.name || ('Cell ' + (idx + 1)))}</div>`, iconSize: [110, 24], iconAnchor: [55, 12] });
-    const marker = L.marker([cell.lat, cell.lon], { icon: badge, draggable: true, title: cell.name || 'Cell' }).addTo(map);
-    marker.on('dragend', e => {
-      const p = e.target.getLatLng();
-      cell.lat = Number(p.lat.toFixed(6));
-      cell.lon = Number(p.lng.toFixed(6));
-      saveState();
-      renderScenario();
-      renderFacilitatorMap();
-    });
-    assetLayers.push(marker);
-  });
+  // Cell map badges intentionally hidden on the facilitator map.
+  // Cells are managed from the Scenario tab and still keep their stored map positions,
+  // but their floating name pills are not rendered on the battlespace.
 
   const selected = selectedAsset();
   if (selected) {
@@ -3386,7 +3495,7 @@ function renderAssets() {
             <span class="tag">${a.status}</span>
             <span class="tag">${prettyZone(a.zone)}</span>
             <span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span>
-            <span class="tag">Fuel ${fuelPercentLabel(a)}</span><span class="tag">Ready ${readinessPercentLabel(a)}</span>
+            <span class="${fuelTagClass(a)}">Fuel ${fuelPercentLabel(a)}</span><span class="${readinessTagClass(a)}">Ready ${readinessPercentLabel(a)}</span>
             <span class="tag">${waypointSummary(a)}</span>
             <span class="tag">${assetOwningGroupLabel(a)}</span>
             ${(roleTagsForAsset(a) || []).slice(0,3).map(tag => `<span class="tag">${tag}</span>`).join('')}
@@ -3462,6 +3571,7 @@ function renderInjects() {
     <div class="card"><strong>Pending boarding requests</strong>${boardingHtml}</div>
     <div class="card"><strong>Boarding outcomes</strong>${resolvedHtml}</div>
     <div class="card"><strong>Facilitator inject release</strong><div class="row" style="margin-top:8px"><select id="facInjectSelect"><option value="">Select inject</option>${injectOptions.map(i => `<option value="${i.id}">${i.id} · ${i.title}</option>`).join('')}</select><select id="facInjectCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button onclick="releaseSelectedInject()">Release Inject</button></div><textarea id="facCustomUpdate" placeholder="Custom facilitator update to a cell or to all cells" style="margin-top:10px"></textarea><div class="row" style="margin-top:8px"><select id="facCustomCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendFacilitatorUpdate()">Send Update</button></div></div>
+    <div class="card"><strong>Player status updates</strong><div class="small" style="margin-top:6px">Players receive an initial status update at H-0 when they lock a cell. Routine updates are sent every configured number of hours.</div><div class="row" style="margin-top:8px"><label style="max-width:160px">Routine interval (hours)<input id="statusUpdateIntervalInput" type="number" min="1" max="24" step="1" value="${Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6))}"></label><button class="secondary" onclick="saveStatusUpdateInterval()">Apply interval</button></div><div class="row" style="margin-top:8px"><select id="facStatusCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendManualStatusUpdate()">Send Status Update</button></div></div>
     <div class="card"><strong>Recent inject/output</strong>${(state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>'}</div>`;
 }
 
@@ -3485,6 +3595,21 @@ function sendFacilitatorUpdate() {
   targets.forEach(cid => state.playerFeedByCell[cid].push({ time: state.scenario.timeLabel || 'H+0', text }));
   state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: `Facilitator update sent to ${cellId === 'all' ? 'all cells' : cellId}: ${text}` });
   saveState(); renderAll();
+}
+
+function saveStatusUpdateInterval() {
+  const raw = Number(document.getElementById('statusUpdateIntervalInput')?.value || 6);
+  state.scenario.statusUpdateIntervalHours = Math.max(1, Math.min(24, raw || 6));
+  saveState();
+  renderAll();
+}
+
+function sendManualStatusUpdate() {
+  const cellId = document.getElementById('facStatusCell')?.value || 'all';
+  const targets = cellId === 'all' ? state.session.cells.map(c => c.id) : [cellId];
+  targets.forEach(cid => pushStatusUpdateToCell(cid, 'Facilitator-requested status update'));
+  saveState();
+  renderAll();
 }
 
 function renderTimeline() {
@@ -3543,7 +3668,7 @@ function renderPlayerPage() {
   document.getElementById('playerAssetsPanel').innerHTML = `
     <div class="asset-section">
       <div class="section-title">Assigned Assets</div>
-      ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${fuelPercentLabel(a)}</span><span class="tag">Ready ${readinessPercentLabel(a)}</span><span class="tag">Readiness ${a.readiness}</span></div>${(!isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral') ? `<button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button>` : `<div class="small" style="margin-top:8px">Facilitator-controlled contact. Visible, but not movable from player view.</div>`}</div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
+      ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="${fuelTagClass(a)}">Fuel ${fuelPercentLabel(a)}</span><span class="${readinessTagClass(a)}">Ready ${readinessPercentLabel(a)}</span></div>${(!isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral') ? `<button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button>` : `<div class="small" style="margin-top:8px">Facilitator-controlled contact. Visible, but not movable from player view.</div>`}</div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
     </div>`;
   const visualPanel = document.getElementById('playerVisualContactsPanel');
   if (visualPanel) visualPanel.innerHTML = `
@@ -3595,6 +3720,8 @@ function renderAll() {
   updateMeasurementControl('facilitator');
   updateMeasurementControl('player');
   renderPlayerPage();
+  if (map) renderFacilitatorMap();
+  if (playerMap) renderPlayerMap();
 }
 
 window.selectZone = selectZone;
