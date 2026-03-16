@@ -505,6 +505,7 @@ const DEFAULT_STATE = {
   "timeline": [],
   "inspections": [],
   "boardingRequests": [],
+  "hailingRequests": [],
   "ui": {
     "assetFilters": {
       "affiliations": [
@@ -933,27 +934,49 @@ function assetProfileSummary(asset) {
     fuelCapacity: fuelCapacityForAsset(asset)
   };
 }
+function libraryCategoryForPreset(preset) {
+  if (!preset) return 'Other';
+  const faction = String(preset.faction || '').toLowerCase();
+  const base = normalizeAssetType(preset.baseType);
+  if (faction === 'commercial') return 'Commercial Traffic';
+  if (['attack_submarine','ballistic_missile_submarine','submarine','midget_submarine'].includes(base)) return 'Subsurface';
+  if (['aircraft_carrier','helicopter_carrier','amphibious_ship','amphibious_assault_ship','landing_ship','replenishment_ship','support_ship','hospital_ship'].includes(base)) return 'Capital / Amphibious / Support';
+  return 'Surface Combatants';
+}
+function populateLibrarySelect() {
+  const select = document.getElementById('modernAssetLibrarySelect');
+  if (!select) return;
+  const current = select.value;
+  const groups = {};
+  NAVAL_CLASS_LIBRARY.forEach(item => {
+    const category = libraryCategoryForPreset(item);
+    if (!groups[category]) groups[category] = [];
+    groups[category].push(item);
+  });
+  const order = ['Surface Combatants', 'Subsurface', 'Capital / Amphibious / Support', 'Commercial Traffic', 'Other'];
+  select.innerHTML = '<option value="">Select library asset</option>' + order.filter(cat => groups[cat]?.length).map(cat => `<optgroup label="${cat}">${groups[cat].map(item => `<option value="${item.value}">${item.label}</option>`).join('')}</optgroup>`).join('');
+  if (current && NAVAL_CLASS_LIBRARY_BY_KEY[current]) select.value = current;
+}
 function renderModernAssetLibraryInfo() {
   const select = document.getElementById('modernAssetLibrarySelect');
   const panel = document.getElementById('modernAssetLibraryInfo');
   if (!select || !panel) return;
-  if (!select.options.length) {
-    select.innerHTML = NAVAL_CLASS_LIBRARY.map(item => `<option value="${item.value}">${item.label}</option>`).join('');
-  }
+  if (!select.options.length) populateLibrarySelect();
   const preset = NAVAL_CLASS_LIBRARY_BY_KEY[select.value] || NAVAL_CLASS_LIBRARY[0];
   if (!preset) { panel.innerHTML = ''; return; }
   const tags = (preset.roleTags || []).map(tag => `<span class="tag">${tag}</span>`).join(' ');
   panel.innerHTML = `
     <div class="card" style="margin-top:8px">
       <strong>${preset.label}</strong>
-      <div class="row" style="margin-top:6px">
+      <div class="row" style="margin-top:6px;flex-wrap:wrap">
+        <span class="tag">Category: ${libraryCategoryForPreset(preset)}</span>
         <span class="tag">${preset.faction}</span>
         <span class="tag">Base class: ${assetTypeLabel(preset.baseType)}</span>
         <span class="tag">Default affiliation: ${assetAffiliationLabel(preset.affiliation)}</span>
         <span class="tag">Fuel 100% = ${preset.fuelCapacity} endurance units</span>
         <span class="tag">Readiness ${preset.readiness}%</span>
       </div>
-      <div class="row" style="margin-top:6px">${tags}</div>
+      <div class="row" style="margin-top:6px;flex-wrap:wrap">${tags}</div>
       <div class="small" style="margin-top:8px">Sensors: radar ${preset.sensorProfile.radar} nm · visual ${preset.sensorProfile.visual} nm · EW ${preset.sensorProfile.ew} · boarding / inspection ${preset.sensorProfile.inspection}</div>
       <div class="small" style="margin-top:6px"><strong>Variant / class:</strong> ${preset.label}<br>${preset.notes}</div>
     </div>`;
@@ -1046,6 +1069,7 @@ function migrateState(pkg) {
     });
   });
   merged.boardingRequests = Array.isArray(pkg?.boardingRequests) ? pkg.boardingRequests.map(r => Object.assign({ status: 'pending', facilitatorModifier: 0, envDifficulty: 'moderate', rationale: '', adjudication: null }, r || {})) : [];
+  merged.hailingRequests = Array.isArray(pkg?.hailingRequests) ? pkg.hailingRequests.map(r => Object.assign({ status: 'pending', rationale: '', adjudication: null, requestedWithinVisualRange: false, effectiveRangeNm: 8 }, r || {})) : [];
   merged.turnHistory = Array.isArray(pkg?.turnHistory) ? pkg.turnHistory : [];
   merged.turnFuture = Array.isArray(pkg?.turnFuture) ? pkg.turnFuture : [];
   return merged;
@@ -1304,7 +1328,8 @@ function renderPlayerOpsActionPanel(cellId, controllableAssets, visibleContacts)
   panel.innerHTML = `
     <div class="card"><strong>Selected asset / contact</strong><div class="small" style="margin-top:6px">Asset: <strong>${escapeHtml(selected?.name || 'None')}</strong> · Contact: <strong>${escapeHtml(selectedContact?.name || 'None')}</strong></div><div class="row" style="margin-top:10px">${assetButtons}</div><div class="row" style="margin-top:10px">${contactButtons}</div></div>
     <div class="card" style="margin-top:12px"><strong>Quick actions</strong><div class="row" style="margin-top:10px"><button class="secondary" onclick="queuePlayerActionTemplate('hail')">Hail on radio</button><button class="secondary" onclick="queuePlayerActionTemplate('resupply')">Request resupply</button><button class="secondary" onclick="queuePlayerActionTemplate('reinforcements')">Request reinforcements</button><button class="secondary" onclick="queuePlayerActionTemplate('status')">Request status update</button></div><label style="display:block;margin-top:10px">Action text<textarea id="playerActionText" placeholder="Describe your intended action, intent, timing, and desired effect"></textarea></label><div class="row" style="margin-top:10px"><button id="playerSubmitBtn" class="good">Submit Action</button></div></div>
-    <div class="card" style="margin-top:12px"><strong>Boarding / contact actions</strong><div class="small" style="margin-top:6px">Boarding requires a selected own asset, a selected contact, and a range of 2.00 nm or less.</div><label style="display:block;margin-top:10px">Boarding rationale<textarea id="playerBoardingRationale" placeholder="Explain why the boarding should have a good chance of success."></textarea></label><div class="row" style="margin-top:10px"><button ${boardingDistance <= 2 ? '' : 'disabled'} onclick="requestPlayerBoarding()">Request Boarding</button><span class="tag">Distance: ${Number.isFinite(boardingDistance) ? boardingDistance.toFixed(2) : '--'} nm</span></div></div>`;
+    <div class="card" style="margin-top:12px"><strong>Boarding / contact actions</strong><div class="small" style="margin-top:6px">Boarding requires a selected own asset, a selected contact, and a range of 2.00 nm or less.</div><label style="display:block;margin-top:10px">Boarding rationale<textarea id="playerBoardingRationale" placeholder="Explain why the boarding should have a good chance of success."></textarea></label><div class="row" style="margin-top:10px"><button ${boardingDistance <= 2 ? '' : 'disabled'} onclick="requestPlayerBoarding()">Request Boarding</button><span class="tag">Distance: ${Number.isFinite(boardingDistance) ? boardingDistance.toFixed(2) : '--'} nm</span></div></div>
+    <div class="card" style="margin-top:12px"><strong>Radio hailing</strong><div class="small" style="margin-top:6px">A hail is most likely to influence the contact within 8 nm, where the target can also see who is ordering it to stop or identify. Outside 8 nm, the contact may simply ignore the call.</div><label style="display:block;margin-top:10px">Hailing rationale<textarea id="playerHailRationale" placeholder="Explain whether you want the contact to identify, slow, stop, or answer your challenge."></textarea></label><div class="row" style="margin-top:10px"><button onclick="requestPlayerHail()">Request Hail</button><span class="tag">Distance: ${Number.isFinite(boardingDistance) ? boardingDistance.toFixed(2) : '--'} nm</span>${boardingDistance <= 8 ? '<span class="tag">Likely effective ≤ 8 nm</span>' : '<span class="tag">May be ignored > 8 nm</span>'}</div></div>`;
   const submitBtn = document.getElementById('playerSubmitBtn');
   if (submitBtn) submitBtn.onclick = submitPlayerAction;
 }
@@ -1714,6 +1739,93 @@ function releaseExpiredBoardingHolds() {
   state.assets.forEach(asset => {
     if (Number(asset.boardingHoldUntilTurn || 0) < currentTurn) asset.boardingHoldUntilTurn = 0;
   });
+}
+
+function applyHailingOutcome(target, response) {
+  if (!target) return;
+  const normalized = String(response || '').trim();
+  if (normalized === 'stop_comply') {
+    target.speed = 0;
+    target.status = 'committed';
+    target.representation = 'unit';
+    target.trackQuality = 'q4';
+  } else if (normalized === 'answers_continue') {
+    target.representation = 'unit';
+    target.trackQuality = 'q3';
+  } else if (normalized === 'identify_ais') {
+    target.representation = 'unit';
+    target.trackQuality = 'q4';
+    if (normalizeAssetAffiliation(target.affiliation) === 'unknown') target.affiliation = 'neutral';
+  } else if (normalized === 'deceptive') {
+    target.representation = 'unit';
+    target.trackQuality = 'q3';
+    target.affiliation = 'suspect';
+  } else if (normalized === 'hostile') {
+    target.representation = 'unit';
+    target.trackQuality = 'q4';
+    target.affiliation = 'hostile';
+  }
+}
+function requestPlayerHail() {
+  const cellId = getPlayerCell();
+  const inspector = selectedPlayerAsset();
+  const target = selectedPlayerContact();
+  if (!cellId) return alert('Lock a player cell first.');
+  if (!inspector) return alert('Select one of your own assets first.');
+  if (!target) return alert('Select a contact first.');
+  const distanceNm = computeDistanceNm(inspector, target);
+  const rationale = String(document.getElementById('playerHailRationale')?.value || '').trim();
+  state.hailingRequests = Array.isArray(state.hailingRequests) ? state.hailingRequests : [];
+  const duplicatePending = state.hailingRequests.some(r => r.status === 'pending' && r.inspectorAssetId === inspector.id && r.targetAssetId === target.id);
+  if (duplicatePending) return alert('A hailing request for this pair is already pending.');
+  const req = {
+    id: `hail-${Date.now()}`,
+    time: state.scenario.timeLabel || 'H+0',
+    cellId,
+    inspectorAssetId: inspector.id,
+    targetAssetId: target.id,
+    distanceNm: Number.isFinite(distanceNm) ? Number(distanceNm.toFixed(2)) : null,
+    requestedWithinVisualRange: Number.isFinite(distanceNm) ? distanceNm <= 8 : false,
+    effectiveRangeNm: 8,
+    rationale,
+    status: 'pending',
+    adjudication: null
+  };
+  state.hailingRequests.push(req);
+  state.playerFeedByCell[cellId].push({ time: req.time, text: `Hailing request submitted from ${inspector.name} to ${target.name}${req.requestedWithinVisualRange ? ' within 8 nm.' : ' beyond 8 nm; target may ignore the call.'}` });
+  state.timeline.push({ time: req.time, text: `${state.session.cells.find(c => c.id === cellId)?.name || cellId} requested radio hail: ${inspector.name} → ${target.name}${Number.isFinite(distanceNm) ? ` (${distanceNm.toFixed(2)} nm)` : ''}` });
+  saveState();
+  const box = document.getElementById('playerHailRationale');
+  if (box) box.value = '';
+  renderPlayerPage();
+  renderInjects();
+}
+function adjudicateHailingRequest(requestId) {
+  const req = (state.hailingRequests || []).find(r => r.id === requestId);
+  if (!req || req.status !== 'pending') return;
+  const inspector = state.assets.find(a => a.id === req.inspectorAssetId);
+  const target = state.assets.find(a => a.id === req.targetAssetId);
+  const response = document.getElementById(`hailResponse-${requestId}`)?.value || (req.requestedWithinVisualRange ? 'answers_continue' : 'no_response');
+  const facNote = String(document.getElementById(`hailFacNote-${requestId}`)?.value || '').trim();
+  applyHailingOutcome(target, response);
+  req.status = 'resolved';
+  req.adjudication = { response, note: facNote, resolvedAt: state.scenario.timeLabel || 'H+0' };
+  const responseTextMap = {
+    no_response: 'No response / ignores hail',
+    stop_comply: 'Complies, slows or stops for inspection',
+    answers_continue: 'Answers basic questions and continues',
+    identify_ais: 'Identifies properly / activates AIS / confirmed unit',
+    deceptive: 'Gives evasive or deceptive response',
+    hostile: 'Hostile or escalatory response'
+  };
+  const facText = `Hailing adjudication: ${inspector?.name || 'Unknown caller'} → ${target?.name || 'Unknown contact'} · ${responseTextMap[response] || response}${facNote ? ` · ${facNote}` : ''}`;
+  state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: facText });
+  if (req.cellId && state.playerFeedByCell[req.cellId]) state.playerFeedByCell[req.cellId].push({ time: state.scenario.timeLabel || 'H+0', text: facText });
+  state.releasedInjects.push({ id: req.id, title: 'Hailing adjudication', situation: facText, text: facText, time: state.scenario.timeLabel || 'H+0' });
+  saveState();
+  renderInjects();
+  renderAll();
+  initMaps(true);
 }
 
 function requestPlayerBoarding() {
@@ -2164,6 +2276,7 @@ function bindEvents() {
   bindClick('clearMeasurePlayerBtn', () => clearMeasurement('player'));
   bindClick('addModernAssetBtn', addModernAssetFromLibrary);
   bindChange('modernAssetLibrarySelect', renderModernAssetLibraryInfo);
+  populateLibrarySelect();
   bindChange('overlaySelect', (e) => { state.scenario.overlayMode = e.target.value; saveState(); initMaps(true); });
   bindChange('turnDurationHoursInput', saveScenarioMeta);
   bindChange('turnDurationUnitSelect', saveScenarioMeta);
@@ -2252,6 +2365,7 @@ function setMapMode(mode) {
   renderAssetEditor();
   renderFacilitatorMap();
   updateWaypointUi();
+  populateLibrarySelect();
   renderModernAssetLibraryInfo();
   renderFacilitatorWeatherPanel();
 }
@@ -2298,7 +2412,8 @@ function buildPackage() {
     playerFeedByCell: state.playerFeedByCell,
     actionLogByCell: state.actionLogByCell,
     timeline: state.timeline,
-    boardingRequests: state.boardingRequests
+    boardingRequests: state.boardingRequests,
+    hailingRequests: state.hailingRequests
   });
 }
 
@@ -2628,6 +2743,7 @@ function onSelectedAssetTypeChanged() {
     const roleSelect = document.getElementById('assetRoleProfile');
     if (roleSelect && roleSelect.value) applyRoleProfileToAsset(asset, roleSelect.value);
   }
+  populateLibrarySelect();
   renderModernAssetLibraryInfo();
   renderFacilitatorWeatherPanel();
 }
@@ -3289,6 +3405,7 @@ function restorePreviousTurn() {
   state.playerFeedByCell = clone(snapshot.playerFeedByCell || {});
   state.actionLogByCell = clone(snapshot.actionLogByCell || {});
   state.boardingRequests = clone(snapshot.boardingRequests || []);
+  state.hailingRequests = clone(snapshot.hailingRequests || []);
   ensureSessionMaps();
   saveState();
   maybeSendRoutineStatusUpdates(previousLabel, state.scenario.timeLabel || previousLabel);
@@ -3844,6 +3961,7 @@ function renderAssetEditor() {
   if (assetLon) assetLon.value = asset?.lon ?? '';
   if (assetWaypoints) assetWaypoints.value = formatWaypointText(asset?.waypoints || []);
   updateWaypointUi();
+  populateLibrarySelect();
   renderModernAssetLibraryInfo();
   renderFacilitatorWeatherPanel();
 }
@@ -3854,6 +3972,8 @@ function facilitatorInjectSections() {
   const injectOptions = Array.isArray(injectLibrary) ? injectLibrary.slice(0, 12) : [];
   const pending = (state.boardingRequests || []).filter(r => r.status === 'pending');
   const resolved = (state.boardingRequests || []).filter(r => r.status !== 'pending');
+  const pendingHails = (state.hailingRequests || []).filter(r => r.status === 'pending');
+  const resolvedHails = (state.hailingRequests || []).filter(r => r.status !== 'pending');
   const playerInputHtml = allActions.length ? allActions.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong> · ${a.cell}<br>${a.text}</div>`).join('') : '<div class="small">No player input yet.</div>';
   const boardingHtml = pending.length ? pending.slice().reverse().map(r => {
     const inspector = state.assets.find(a => a.id === r.inspectorAssetId);
@@ -3861,12 +3981,19 @@ function facilitatorInjectSections() {
     return `<div class="timeline-item"><strong>${r.time}</strong> · ${(state.session.cells.find(c => c.id === r.cellId)?.name || r.cellId)}<br><strong>${inspector?.name || 'Missing inspector'}</strong> → <strong>${target?.name || 'Missing target'}</strong><br>${r.rationale || '<span class="small">No player rationale supplied.</span>'}<div class="grid2" style="margin-top:8px"><label>Environment<select id="boardingDiff-${r.id}"><option value="easy">Easy</option><option value="moderate" selected>Moderate</option><option value="hard">Hard</option><option value="severe">Severe</option></select></label><label>Facilitator modifier<select id="boardingFacMod-${r.id}">${[-3,-2,-1,0,1,2,3].map(v => `<option value="${v}" ${v===0?'selected':''}>${v>=0?'+':''}${v}</option>`).join('')}</select></label></div><textarea id="boardingFacNote-${r.id}" placeholder="Optional facilitator note / justification" style="margin-top:8px"></textarea><div class="row" style="margin-top:8px"><button onclick="adjudicateBoardingRequest('${r.id}')">Adjudicate Boarding</button></div></div>`;
   }).join('') : '<div class="small">No pending boarding requests.</div>';
   const resolvedHtml = resolved.length ? resolved.slice().reverse().slice(0,8).map(r => `<div class="timeline-item"><strong>${r.time || 'H+0'}</strong> · ${(state.session.cells.find(c => c.id === r.cellId)?.name || r.cellId)}<br>${r.adjudication?.execution || r.status}${r.adjudication?.outcome ? ` · ${r.adjudication.outcome}` : ''}</div>`).join('') : '<div class="small">No adjudicated boardings yet.</div>';
+  const hailingHtml = pendingHails.length ? pendingHails.slice().reverse().map(r => {
+    const inspector = state.assets.find(a => a.id === r.inspectorAssetId);
+    const target = state.assets.find(a => a.id === r.targetAssetId);
+    const distanceLabel = Number.isFinite(r.distanceNm) ? `${r.distanceNm.toFixed(2)} nm` : '--';
+    return `<div class="timeline-item"><strong>${r.time}</strong> · ${(state.session.cells.find(c => c.id === r.cellId)?.name || r.cellId)}<br><strong>${inspector?.name || 'Missing caller'}</strong> → <strong>${target?.name || 'Missing contact'}</strong><br><span class="tag">Range ${distanceLabel}</span><span class="tag">${r.requestedWithinVisualRange ? 'Within 8 nm: likely effective' : 'Beyond 8 nm: may be ignored'}</span><br>${r.rationale || '<span class="small">No player rationale supplied.</span>'}<div class="grid2" style="margin-top:8px"><label>Response<select id="hailResponse-${r.id}"><option value="no_response" ${r.requestedWithinVisualRange ? '' : 'selected'}>No response / ignores hail</option><option value="stop_comply">Complies, slows or stops</option><option value="answers_continue" ${r.requestedWithinVisualRange ? 'selected' : ''}>Answers basic questions and continues</option><option value="identify_ais">Identifies properly / activates AIS / confirmed unit</option><option value="deceptive">Evasive or deceptive response</option><option value="hostile">Hostile or escalatory response</option></select></label><label>Facilitator note<textarea id="hailFacNote-${r.id}" placeholder="Optional facilitator note / adjudication detail"></textarea></label></div><div class="row" style="margin-top:8px"><button onclick="adjudicateHailingRequest('${r.id}')">Adjudicate Hailing</button></div></div>`;
+  }).join('') : '<div class="small">No pending hailing requests.</div>';
+  const resolvedHailingHtml = resolvedHails.length ? resolvedHails.slice().reverse().slice(0,8).map(r => `<div class="timeline-item"><strong>${r.time || 'H+0'}</strong> · ${(state.session.cells.find(c => c.id === r.cellId)?.name || r.cellId)}<br>${r.adjudication?.response || r.status}${r.adjudication?.note ? ` · ${escapeHtml(r.adjudication.note)}` : ''}</div>`).join('') : '<div class="small">No adjudicated hailing yet.</div>';
   const injectReleaseHtml = `<div class="row" style="margin-top:8px"><select id="facInjectSelect"><option value="">Select inject</option>${injectOptions.map(i => `<option value="${i.id}">${i.id} · ${i.title}</option>`).join('')}</select><select id="facInjectCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button onclick="releaseSelectedInject()">Release Inject</button></div><textarea id="facCustomUpdate" placeholder="Custom facilitator update to a cell or to all cells" style="margin-top:10px"></textarea><div class="row" style="margin-top:8px"><select id="facCustomCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendFacilitatorUpdate()">Send Update</button></div>`;
   const statusControlsHtml = `<div class="small" style="margin-top:6px">Players receive an initial status update at H-0 when they lock a cell. Routine updates are sent every configured number of hours.</div><div class="row" style="margin-top:8px"><label style="max-width:160px">Routine interval (hours)<input id="statusUpdateIntervalInput" type="number" min="1" max="24" step="1" value="${Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6))}"></label><button class="secondary" onclick="saveStatusUpdateInterval()">Apply interval</button></div><div class="row" style="margin-top:8px"><select id="facStatusCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendManualStatusUpdate()">Send Status Update</button></div>`;
   const locksHtml = `<div class="small" style="margin-top:6px">Use this when a player locked the wrong cell or needs to reclaim a session from a fresh browser window.</div><div style="margin-top:8px">${state.session.cells.map(c => { const lock = cellLockFor(c.id); return `<div class="timeline-item"><strong>${c.name}</strong><br>${lock ? `Locked · ${lock.ownerId || 'unknown player'} · ${lock.claimedAt || ''}` : '<span class="small">Unlocked</span>'}<div class="row" style="margin-top:8px"><button class="secondary" ${lock ? '' : 'disabled'} onclick="facilitatorUnlockCellClaim('${c.id}')">Unlock cell</button></div></div>`; }).join('')}</div><div class="row" style="margin-top:8px"><button class="secondary" onclick="facilitatorUnlockAllCellClaims()">Unlock all cells</button></div>`;
   const recentInjectHtml = (state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>';
   const recentEventsHtml = facilitatorRecentEventsHtml();
-  return { playerInputHtml, boardingHtml, resolvedHtml, injectReleaseHtml, statusControlsHtml, locksHtml, recentInjectHtml, recentEventsHtml };
+  return { playerInputHtml, boardingHtml, resolvedHtml, hailingHtml, resolvedHailingHtml, injectReleaseHtml, statusControlsHtml, locksHtml, recentInjectHtml, recentEventsHtml };
 }
 
 function renderInjects() {
@@ -3876,6 +4003,8 @@ function renderInjects() {
     <div class="card"><strong>Player input to facilitator</strong>${sections.playerInputHtml}</div>
     <div class="card"><strong>Pending boarding requests</strong>${sections.boardingHtml}</div>
     <div class="card"><strong>Boarding outcomes</strong>${sections.resolvedHtml}</div>
+    <div class="card"><strong>Pending hailing requests</strong>${sections.hailingHtml}</div>
+    <div class="card"><strong>Hailing outcomes</strong>${sections.resolvedHailingHtml}</div>
     <div class="card"><strong>Facilitator inject release</strong>${sections.injectReleaseHtml}</div>
     <div class="card"><strong>Player status updates</strong>${sections.statusControlsHtml}</div>
     <div class="card"><strong>Player cell locks</strong>${sections.locksHtml}</div>
@@ -3883,7 +4012,7 @@ function renderInjects() {
   const inputPanel = document.getElementById('facilitatorPlayerInputPanel');
   if (inputPanel) inputPanel.innerHTML = sections.playerInputHtml;
   const boardingPanel = document.getElementById('facilitatorBoardingPanel');
-  if (boardingPanel) boardingPanel.innerHTML = `<div class="card"><strong>Pending boarding requests</strong>${sections.boardingHtml}</div><div class="card" style="margin-top:12px"><strong>Boarding outcomes</strong>${sections.resolvedHtml}</div>`;
+  if (boardingPanel) boardingPanel.innerHTML = `<div class="card"><strong>Pending boarding requests</strong>${sections.boardingHtml}</div><div class="card" style="margin-top:12px"><strong>Boarding outcomes</strong>${sections.resolvedHtml}</div><div class="card" style="margin-top:12px"><strong>Pending hailing requests</strong>${sections.hailingHtml}</div><div class="card" style="margin-top:12px"><strong>Hailing outcomes</strong>${sections.resolvedHailingHtml}</div>`;
   const injectPanel = document.getElementById('facilitatorInjectReleasePanel');
   if (injectPanel) injectPanel.innerHTML = `<div class="card"><strong>Facilitator inject release</strong>${sections.injectReleaseHtml}</div><div class="card" style="margin-top:12px"><strong>Recent inject/output</strong>${sections.recentInjectHtml}</div>`;
   const statusPanel = document.getElementById('facilitatorStatusControlPanel');
@@ -3947,6 +4076,7 @@ function facilitatorRecentEventsHtml() {
   (state.timeline || []).slice(-8).forEach(item => items.push({ time: item.time || 'H+0', text: item.text || '' }));
   (state.releasedInjects || []).slice(-6).forEach(item => items.push({ time: item.time || 'H+0', text: `Inject released: ${item.title || item.id}` }));
   (state.boardingRequests || []).filter(r => r.status !== 'pending').slice(-6).forEach(r => items.push({ time: r.time || 'H+0', text: `Boarding outcome: ${r.adjudication?.outcome || r.status}` }));
+  (state.hailingRequests || []).filter(r => r.status !== 'pending').slice(-6).forEach(r => items.push({ time: r.time || 'H+0', text: `Hailing outcome: ${r.adjudication?.response || r.status}` }));
   return items.length ? items.slice().reverse().map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small">No recent facilitator events.</div>';
 }
 
@@ -4066,6 +4196,7 @@ function renderAll() {
   bindAssetFilterControls();
   renderInjects();
   renderTimeline();
+  populateLibrarySelect();
   renderModernAssetLibraryInfo();
   renderFacilitatorWeatherPanel();
   const legendLabel = document.getElementById('legendStyleLabel');
@@ -4089,6 +4220,8 @@ window.releaseSelectedInject = releaseSelectedInject;
 window.sendFacilitatorUpdate = sendFacilitatorUpdate;
 window.requestPlayerBoarding = requestPlayerBoarding;
 window.adjudicateBoardingRequest = adjudicateBoardingRequest;
+window.requestPlayerHail = requestPlayerHail;
+window.adjudicateHailingRequest = adjudicateHailingRequest;
 window.queuePlayerActionTemplate = queuePlayerActionTemplate;
 window.resetAssetFilters = resetAssetFilters;
 
