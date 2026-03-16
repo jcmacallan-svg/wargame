@@ -863,6 +863,7 @@ function ensureSessionMaps(targetState = state) {
     if (!targetState.playerFeedByCell[c.id]) targetState.playerFeedByCell[c.id] = [];
     if (!targetState.actionLogByCell[c.id]) targetState.actionLogByCell[c.id] = [];
   });
+  ensureCellLocations();
 }
 function getPlayerInstanceId() {
   try {
@@ -912,6 +913,26 @@ function syncPlayerClaimFromUrl() {
   const requested = params.get('cell') || '';
   if (!getStoredPlayerClaim() && requested && canClaimCell(requested)) claimPlayerCell(requested);
 }
+function defaultCellPosition(idx) {
+  const anchor = state?.scenario?.pinnedMapView?.center || state?.scenario?.lastMapView?.center || [54.8, 7.2];
+  return [Number((anchor[0] + ((idx % 3) * 0.08)).toFixed(6)), Number((anchor[1] + ((Math.floor(idx / 3)) * 0.12)).toFixed(6))];
+}
+
+function ensureCellLocations() {
+  state.session = state.session || { cells: [] };
+  state.session.cells = Array.isArray(state.session.cells) ? state.session.cells : [];
+  state.session.cells.forEach((c, idx) => {
+    if (!Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) {
+      const pos = defaultCellPosition(idx);
+      c.lat = pos[0];
+      c.lon = pos[1];
+    } else {
+      c.lat = Number(Number(c.lat).toFixed(6));
+      c.lon = Number(Number(c.lon).toFixed(6));
+    }
+  });
+}
+
 function getPlayerCell() {
   const claimed = getStoredPlayerClaim();
   if (claimed) return claimed;
@@ -1959,11 +1980,15 @@ function addCellRow(cell) {
 
 function saveCells() {
   const rows = Array.from(document.querySelectorAll('.cell-row'));
+  const existingByName = Object.fromEntries((state.session.cells || []).map(c => [String(c.name || '').toLowerCase(), c]));
   const cells = rows.map((row, idx) => {
     const name = row.querySelector('.cell-name').value.trim() || ('Blue Cell ' + (idx + 1));
-    return { id: uniqueId(name, []), name, domain: row.querySelector('.cell-domain').value };
+    const existing = existingByName[String(name).toLowerCase()];
+    const fallback = defaultCellPosition(idx);
+    return { id: uniqueId(name, []), name, domain: row.querySelector('.cell-domain').value, lat: existing?.lat ?? fallback[0], lon: existing?.lon ?? fallback[1] };
   });
   state.session.cells = cells.length ? cells : clone(DEFAULT_STATE.session.cells);
+  ensureCellLocations();
   const oldAssets = clone(state.assets);
   state.playerFeedByCell = {};
   state.actionLogByCell = {};
@@ -2852,15 +2877,20 @@ function advanceSimulationTurn() {
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
   pushTurnSnapshot();
   const moved = [];
+  const updates = new Map();
   rows.forEach(r => {
-    r.asset.lat = Number(r.destination[0].toFixed(6));
-    r.asset.lon = Number(r.destination[1].toFixed(6));
-    r.asset.heading = normalizeHeading(r.movement.heading);
-    r.asset.waypoints = r.movement.remainingWaypoints;
-    r.asset.fuel = Number(r.fuelPlan.fuelRemaining.toFixed(1));
-    if (r.zone) r.asset.zone = r.zone;
-    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.holdActive ? ' · boarding hold / 0 kt' : ''}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(1)}% used / ${r.fuelPlan.fuelRemaining.toFixed(1)}% left${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
+    const updated = Object.assign({}, r.asset, {
+      lat: Number(r.destination[0].toFixed(6)),
+      lon: Number(r.destination[1].toFixed(6)),
+      heading: normalizeHeading(r.movement.heading),
+      waypoints: r.movement.remainingWaypoints,
+      fuel: Number(r.fuelPlan.fuelRemaining.toFixed(1))
+    });
+    if (r.zone) updated.zone = r.zone;
+    updates.set(updated.id, updated);
+    moved.push(`${updated.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.holdActive ? ' · boarding hold / 0 kt' : ''}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(1)}% used / ${r.fuelPlan.fuelRemaining.toFixed(1)}% left${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
   });
+  state.assets = state.assets.map(a => updates.get(a.id) || a);
   state.scenario.turn = Number(state.scenario.turn || 1) + 1;
   state.scenario.timeLabel = advanceTimeLabel(state.scenario.timeLabel, hours);
   const visualConfirms = runVisualConfirmation();
@@ -2873,6 +2903,7 @@ function advanceSimulationTurn() {
   renderAll();
   initMaps(true);
 }
+
 
 function trackQualityStyle(asset) {
   const q = normalizeTrackQuality(asset.trackQuality);
@@ -3094,6 +3125,21 @@ function renderFacilitatorMap() {
     zoneCenterLayers.push(center);
   });
 
+  (state.session.cells || []).forEach((cell, idx) => {
+    if (!Number.isFinite(Number(cell.lat)) || !Number.isFinite(Number(cell.lon))) return;
+    const badge = L.divIcon({ className: 'cell-div-icon', html: `<div class="cell-map-badge">${escapeHtml(cell.name || ('Cell ' + (idx + 1)))}</div>`, iconSize: [110, 24], iconAnchor: [55, 12] });
+    const marker = L.marker([cell.lat, cell.lon], { icon: badge, draggable: true, title: cell.name || 'Cell' }).addTo(map);
+    marker.on('dragend', e => {
+      const p = e.target.getLatLng();
+      cell.lat = Number(p.lat.toFixed(6));
+      cell.lon = Number(p.lng.toFixed(6));
+      saveState();
+      renderScenario();
+      renderFacilitatorMap();
+    });
+    assetLayers.push(marker);
+  });
+
   const selected = selectedAsset();
   if (selected) {
     const assetOrigin = assetLatLng(selected, state.assets.findIndex(a => a.id === selected.id));
@@ -3260,6 +3306,7 @@ function renderTemplates() {
 }
 
 function renderCells() {
+  ensureCellLocations();
   const container = document.getElementById('cellsEditor');
   if (!container) return;
   container.innerHTML = '';

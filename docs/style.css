@@ -169,3 +169,6 @@ header .row { padding-right:160px; }
 .map-toolbar-status { padding:8px 10px; border:1px dashed #475569; border-radius:10px; background:#0f172a; min-width:220px; }
 .active-tool-btn { border-color:#f59e0b !important; color:#fbbf24 !important; }
 .legend-row span.small { color: var(--muted); }
+
+.external-map-tools { position: static; margin: 8px 0 10px; }
+.cell-map-badge { background: rgba(15,23,42,.96); color:#e2e8f0; border:1px solid #60a5fa; border-radius:999px; padding:4px 8px; font-size:11px; font-weight:800; box-shadow:0 4px 12px rgba(2,6,23,.25); }
