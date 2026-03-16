@@ -1174,6 +1174,29 @@ function buildWeatherForecast(cellId) {
   }
   panel.innerHTML = `<div class="card"><strong>Weather forecast</strong><div class="small" style="margin-top:6px">Forecast is reliable for the next 3 hours. Anything beyond that is an informed but uncertain outlook. The forecast refreshes whenever scenario time advances.</div><div class="weather-grid" style="margin-top:12px">${rows.map(r => `<div class="card"><strong>${r.label}</strong><div class="row" style="margin-top:6px"><span class="tag ${r.reliability === 'Reliable' ? '' : 'tag-warn'}">${r.reliability}</span></div><div class="small" style="margin-top:8px">${escapeHtml(r.cond)}<br>Wind: ${bearingToCompass(r.dir)} ${r.wind} kt<br>Visibility: ${r.vis} nm<br>Sea state: ${r.sea}</div></div>`).join('')}</div></div>`;
 }
+function renderFacilitatorWeatherPanel() {
+  const panel = document.getElementById('facilitatorWeatherPanel');
+  if (!panel) return;
+  const hoursNow = timeLabelToHours(state.scenario.timeLabel || 'H+0');
+  const seed = weatherSeed(`${state.scenario.name}|facilitator|${Math.floor(hoursNow)}`);
+  const rand = mulberry32(seed);
+  const baseWind = 10 + Math.round(rand() * 20);
+  const baseDir = Math.round(rand() * 359);
+  const baseVis = 5 + Math.round(rand() * 10);
+  const baseSea = 2 + Math.round(rand() * 3);
+  const conditions = ['Broken cloud', 'Overcast', 'Light rain showers', 'Fair weather cumulus', 'Haze', 'Frontal drizzle', 'Passing squall line'];
+  const rows = [];
+  for (let i = 0; i < 12; i++) {
+    const wind = Math.max(4, Math.round(baseWind + Math.sin((hoursNow + i) / 3) * 4 + (rand() - 0.5) * 4));
+    const dir = Math.round((baseDir + i * 7 + (rand() - 0.5) * 20 + 360) % 360);
+    const vis = Math.max(2, Math.round(baseVis + Math.cos((hoursNow + i) / 2) * 2 + (rand() - 0.5) * 2));
+    const sea = Math.max(1, Math.min(6, Math.round(baseSea + Math.sin((hoursNow + i) / 4) + (rand() - 0.5) * 1.2)));
+    const cond = conditions[(Math.floor(rand() * conditions.length) + i) % conditions.length];
+    rows.push({ label: `+${i}h`, reliability: i <= 3 ? 'Reliable' : 'Uncertain', wind, dir, vis, sea, cond });
+  }
+  panel.innerHTML = `<div class="card"><strong>Exercise weather forecast</strong><div class="small" style="margin-top:6px">Reliable for the next 3 hours. Beyond that the outlook is plausible but uncertain. The forecast refreshes whenever scenario time advances.</div><div class="weather-grid" style="margin-top:12px">${rows.map(r => `<div class="card"><strong>${r.label}</strong><div class="row" style="margin-top:6px"><span class="tag ${r.reliability === 'Reliable' ? '' : 'tag-warn'}">${r.reliability}</span></div><div class="small" style="margin-top:8px">${escapeHtml(r.cond)}<br>Wind: ${bearingToCompass(r.dir)} ${r.wind} kt<br>Visibility: ${r.vis} nm<br>Sea state: ${r.sea}</div></div>`).join('')}</div></div>`;
+}
+
 function renderPlayerOpsActionPanel(cellId, controllableAssets, visibleContacts) {
   const panel = document.getElementById('playerOpsActionPanel');
   if (!panel) return;
@@ -2131,6 +2154,7 @@ function setMapMode(mode) {
   renderFacilitatorMap();
   updateWaypointUi();
   renderModernAssetLibraryInfo();
+  renderFacilitatorWeatherPanel();
 }
 
 
@@ -2487,6 +2511,7 @@ function onSelectedAssetTypeChanged() {
     asset.sensorProfile = Object.assign({}, preset?.sensorProfile || defaultSensorProfileForAssetType(type));
   }
   renderModernAssetLibraryInfo();
+  renderFacilitatorWeatherPanel();
 }
 
 function addAsset() {
@@ -3683,30 +3708,50 @@ function renderAssetEditor() {
   if (assetWaypoints) assetWaypoints.value = formatWaypointText(asset?.waypoints || []);
   updateWaypointUi();
   renderModernAssetLibraryInfo();
+  renderFacilitatorWeatherPanel();
 }
 
 
-function renderInjects() {
-  const el = document.getElementById('injectsPanel');
-  if (!el) return;
+function facilitatorInjectSections() {
   const allActions = state.session.cells.flatMap(c => (state.actionLogByCell[c.id] || []).map(item => Object.assign({ cell: c.name, cellId: c.id }, item)));
   const injectOptions = Array.isArray(injectLibrary) ? injectLibrary.slice(0, 12) : [];
   const pending = (state.boardingRequests || []).filter(r => r.status === 'pending');
   const resolved = (state.boardingRequests || []).filter(r => r.status !== 'pending');
+  const playerInputHtml = allActions.length ? allActions.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong> · ${a.cell}<br>${a.text}</div>`).join('') : '<div class="small">No player input yet.</div>';
   const boardingHtml = pending.length ? pending.slice().reverse().map(r => {
     const inspector = state.assets.find(a => a.id === r.inspectorAssetId);
     const target = state.assets.find(a => a.id === r.targetAssetId);
     return `<div class="timeline-item"><strong>${r.time}</strong> · ${(state.session.cells.find(c => c.id === r.cellId)?.name || r.cellId)}<br><strong>${inspector?.name || 'Missing inspector'}</strong> → <strong>${target?.name || 'Missing target'}</strong><br>${r.rationale || '<span class="small">No player rationale supplied.</span>'}<div class="grid2" style="margin-top:8px"><label>Environment<select id="boardingDiff-${r.id}"><option value="easy">Easy</option><option value="moderate" selected>Moderate</option><option value="hard">Hard</option><option value="severe">Severe</option></select></label><label>Facilitator modifier<select id="boardingFacMod-${r.id}">${[-3,-2,-1,0,1,2,3].map(v => `<option value="${v}" ${v===0?'selected':''}>${v>=0?'+':''}${v}</option>`).join('')}</select></label></div><textarea id="boardingFacNote-${r.id}" placeholder="Optional facilitator note / justification" style="margin-top:8px"></textarea><div class="row" style="margin-top:8px"><button onclick="adjudicateBoardingRequest('${r.id}')">Adjudicate Boarding</button></div></div>`;
   }).join('') : '<div class="small">No pending boarding requests.</div>';
   const resolvedHtml = resolved.length ? resolved.slice().reverse().slice(0,8).map(r => `<div class="timeline-item"><strong>${r.time || 'H+0'}</strong> · ${(state.session.cells.find(c => c.id === r.cellId)?.name || r.cellId)}<br>${r.adjudication?.execution || r.status}${r.adjudication?.outcome ? ` · ${r.adjudication.outcome}` : ''}</div>`).join('') : '<div class="small">No adjudicated boardings yet.</div>';
-  el.innerHTML = `
-    <div class="card"><strong>Player input to facilitator</strong>${allActions.length ? allActions.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong> · ${a.cell}<br>${a.text}</div>`).join('') : '<div class="small">No player input yet.</div>'}</div>
-    <div class="card"><strong>Pending boarding requests</strong>${boardingHtml}</div>
-    <div class="card"><strong>Boarding outcomes</strong>${resolvedHtml}</div>
-    <div class="card"><strong>Facilitator inject release</strong><div class="row" style="margin-top:8px"><select id="facInjectSelect"><option value="">Select inject</option>${injectOptions.map(i => `<option value="${i.id}">${i.id} · ${i.title}</option>`).join('')}</select><select id="facInjectCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button onclick="releaseSelectedInject()">Release Inject</button></div><textarea id="facCustomUpdate" placeholder="Custom facilitator update to a cell or to all cells" style="margin-top:10px"></textarea><div class="row" style="margin-top:8px"><select id="facCustomCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendFacilitatorUpdate()">Send Update</button></div></div>
-    <div class="card"><strong>Player status updates</strong><div class="small" style="margin-top:6px">Players receive an initial status update at H-0 when they lock a cell. Routine updates are sent every configured number of hours.</div><div class="row" style="margin-top:8px"><label style="max-width:160px">Routine interval (hours)<input id="statusUpdateIntervalInput" type="number" min="1" max="24" step="1" value="${Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6))}"></label><button class="secondary" onclick="saveStatusUpdateInterval()">Apply interval</button></div><div class="row" style="margin-top:8px"><select id="facStatusCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendManualStatusUpdate()">Send Status Update</button></div></div>
-    <div class="card"><strong>Player cell locks</strong><div class="small" style="margin-top:6px">Use this when a player locked the wrong cell or needs to reclaim a session from a fresh browser window.</div><div style="margin-top:8px">${state.session.cells.map(c => { const lock = cellLockFor(c.id); return `<div class="timeline-item"><strong>${c.name}</strong><br>${lock ? `Locked · ${lock.ownerId || 'unknown player'} · ${lock.claimedAt || ''}` : '<span class="small">Unlocked</span>'}<div class="row" style="margin-top:8px"><button class="secondary" ${lock ? '' : 'disabled'} onclick="facilitatorUnlockCellClaim('${c.id}')">Unlock cell</button></div></div>`; }).join('')}</div><div class="row" style="margin-top:8px"><button class="secondary" onclick="facilitatorUnlockAllCellClaims()">Unlock all cells</button></div></div>
-    <div class="card"><strong>Recent inject/output</strong>${(state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>'}</div>`;
+  const injectReleaseHtml = `<div class="row" style="margin-top:8px"><select id="facInjectSelect"><option value="">Select inject</option>${injectOptions.map(i => `<option value="${i.id}">${i.id} · ${i.title}</option>`).join('')}</select><select id="facInjectCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button onclick="releaseSelectedInject()">Release Inject</button></div><textarea id="facCustomUpdate" placeholder="Custom facilitator update to a cell or to all cells" style="margin-top:10px"></textarea><div class="row" style="margin-top:8px"><select id="facCustomCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendFacilitatorUpdate()">Send Update</button></div>`;
+  const statusControlsHtml = `<div class="small" style="margin-top:6px">Players receive an initial status update at H-0 when they lock a cell. Routine updates are sent every configured number of hours.</div><div class="row" style="margin-top:8px"><label style="max-width:160px">Routine interval (hours)<input id="statusUpdateIntervalInput" type="number" min="1" max="24" step="1" value="${Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6))}"></label><button class="secondary" onclick="saveStatusUpdateInterval()">Apply interval</button></div><div class="row" style="margin-top:8px"><select id="facStatusCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendManualStatusUpdate()">Send Status Update</button></div>`;
+  const locksHtml = `<div class="small" style="margin-top:6px">Use this when a player locked the wrong cell or needs to reclaim a session from a fresh browser window.</div><div style="margin-top:8px">${state.session.cells.map(c => { const lock = cellLockFor(c.id); return `<div class="timeline-item"><strong>${c.name}</strong><br>${lock ? `Locked · ${lock.ownerId || 'unknown player'} · ${lock.claimedAt || ''}` : '<span class="small">Unlocked</span>'}<div class="row" style="margin-top:8px"><button class="secondary" ${lock ? '' : 'disabled'} onclick="facilitatorUnlockCellClaim('${c.id}')">Unlock cell</button></div></div>`; }).join('')}</div><div class="row" style="margin-top:8px"><button class="secondary" onclick="facilitatorUnlockAllCellClaims()">Unlock all cells</button></div>`;
+  const recentInjectHtml = (state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>';
+  return { playerInputHtml, boardingHtml, resolvedHtml, injectReleaseHtml, statusControlsHtml, locksHtml, recentInjectHtml };
+}
+
+function renderInjects() {
+  const sections = facilitatorInjectSections();
+  const el = document.getElementById('injectsPanel');
+  if (el) el.innerHTML = `
+    <div class="card"><strong>Player input to facilitator</strong>${sections.playerInputHtml}</div>
+    <div class="card"><strong>Pending boarding requests</strong>${sections.boardingHtml}</div>
+    <div class="card"><strong>Boarding outcomes</strong>${sections.resolvedHtml}</div>
+    <div class="card"><strong>Facilitator inject release</strong>${sections.injectReleaseHtml}</div>
+    <div class="card"><strong>Player status updates</strong>${sections.statusControlsHtml}</div>
+    <div class="card"><strong>Player cell locks</strong>${sections.locksHtml}</div>
+    <div class="card"><strong>Recent inject/output</strong>${sections.recentInjectHtml}</div>`;
+  const inputPanel = document.getElementById('facilitatorPlayerInputPanel');
+  if (inputPanel) inputPanel.innerHTML = sections.playerInputHtml;
+  const boardingPanel = document.getElementById('facilitatorBoardingPanel');
+  if (boardingPanel) boardingPanel.innerHTML = `<div class="card"><strong>Pending boarding requests</strong>${sections.boardingHtml}</div><div class="card" style="margin-top:12px"><strong>Boarding outcomes</strong>${sections.resolvedHtml}</div>`;
+  const injectPanel = document.getElementById('facilitatorInjectReleasePanel');
+  if (injectPanel) injectPanel.innerHTML = `<div class="card"><strong>Facilitator inject release</strong>${sections.injectReleaseHtml}</div><div class="card" style="margin-top:12px"><strong>Recent inject/output</strong>${sections.recentInjectHtml}</div>`;
+  const statusPanel = document.getElementById('facilitatorStatusControlPanel');
+  if (statusPanel) statusPanel.innerHTML = `<div class="card"><strong>Player status updates</strong>${sections.statusControlsHtml}</div>`;
+  const locksPanel = document.getElementById('facilitatorLocksPanel');
+  if (locksPanel) locksPanel.innerHTML = `<div class="card"><strong>Player cell locks</strong>${sections.locksHtml}</div>`;
 }
 
 function releaseSelectedInject() {
@@ -3873,6 +3918,7 @@ function renderAll() {
   renderInjects();
   renderTimeline();
   renderModernAssetLibraryInfo();
+  renderFacilitatorWeatherPanel();
   const legendLabel = document.getElementById('legendStyleLabel');
   if (legendLabel) legendLabel.textContent = '(' + (state.scenario.symbolStyle || 'ntds').toUpperCase().replace('APP6','APP-6') + ')';
   updateMeasurementControl('facilitator');

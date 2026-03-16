@@ -1,28 +1,9 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Open War Game Engine v17 - Facilitator Ops</title>
-  <link rel="stylesheet" href="./style.css">
-</head>
-<body>
-<header>
-  <h1>Open War Game Engine v17</h1>
-  <div class="small">Facilitator operations page for inject release, facilitator updates, and boarding adjudication</div>
-  <div class="row" style="margin-top:10px"><a class="nav-btn" href="./facilitator-scenario.html">Scenario</a><a class="nav-btn" href="./facilitator-ops.html">Facilitator Ops / Injects</a><a class="nav-btn" href="./index.html">Map / Authoring</a></div>
-  <div id="turnCounterBadge" class="turn-badge" aria-label="Current turn status"></div>
-</header>
-<div class="ops-container facilitator-ops-layout">
-  <div class="panel">
-    <div id="turnStatusPanel" class="turn-status-panel"></div>
-    <h2 style="margin-top:18px">Injects & Facilitator Updates</h2>
-    <div id="injectsPanel"></div>
-  </div>
-  <div class="panel">
-    <h2>Timeline</h2>
-    <div id="timelinePanel"></div>
-  </div>
-</div>
-<script src="./app.js"></script>
-</body>
-</html>
+<html><head><meta charset="utf-8"><title>Open War Game Engine v17 - Facilitator Ops</title><link rel="stylesheet" href="./style.css"></head><body><header><h1>Open War Game Engine v17</h1><div class="small">Facilitator actions, inject release, boarding adjudication, and operational input review</div><div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
+    <a class="nav-btn" href="./facilitator-scenario.html">Scenario</a>
+    <a class="nav-btn" href="./facilitator-navigation.html">Navigation</a>
+    <a class="nav-btn" href="./facilitator-ops.html">Ops / Action</a>
+    <a class="nav-btn" href="./facilitator-status.html">Status Update</a>
+    <a class="nav-btn" href="./facilitator-weather.html">Weather Forecast</a>
+    <a class="nav-btn" href="./index.html">Full Map</a>
+  </div><div id="turnCounterBadge" class="turn-badge" aria-label="Current turn status"></div></header><div class="ops-container facilitator-ops-layout player-page-scroll"><div class="panel"><div id="turnStatusPanel" class="turn-status-panel"></div><h2 style="margin-top:18px">Ops / Action</h2><div id="facilitatorInjectReleasePanel"></div><h2 style="margin-top:18px">Boarding Adjudication</h2><div id="facilitatorBoardingPanel"></div></div><div class="panel"><h2>Player Input</h2><div id="facilitatorPlayerInputPanel"></div><h2 style="margin-top:18px">Timeline</h2><div id="timelinePanel"></div></div></div><script src="./app.js"></script></body></html>
