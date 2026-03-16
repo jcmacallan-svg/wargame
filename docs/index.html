@@ -88,6 +88,8 @@
       <summary>Asset list filters</summary>
       <div class="small" id="assetFilterSummary" style="margin-top:6px"></div>
       <div class="small" id="assetFilterCount" style="margin-top:4px"></div>
+      <label class="small" for="assetFilterSearch" style="margin-top:8px;display:block">Search</label>
+      <input id="assetFilterSearch" placeholder="Search by name, type, zone, or cell">
       <label class="small" for="assetScopeFilter" style="margin-top:8px;display:block">Scope</label>
       <select id="assetScopeFilter">
         <option value="all">All assets</option>
@@ -98,6 +100,7 @@
       <div id="assetAffiliationFilters" class="filter-grid"></div>
       <div class="small" style="margin-top:8px">Representation</div>
       <div id="assetRepresentationFilters" class="filter-grid"></div>
+      <div class="row" style="margin-top:10px"><button id="resetAssetFiltersBtn" class="secondary">Reset Filters</button></div>
     </details>
     <div id="assetsPanel"></div>
 

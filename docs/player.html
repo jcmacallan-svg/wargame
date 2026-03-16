@@ -2,43 +2,28 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v16 - Player</title>
+  <title>Open War Game Engine v16 - Player Map</title>
   <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
 <body>
 <header>
   <h1>Open War Game Engine v16</h1>
-  <div class="small">Player view with cell-specific feed, naval tactical tracks, and confirmed units</div>
-  <div class="row" style="margin-top:10px"><a class="nav-btn" href="./index.html">Facilitator Map</a><a class="nav-btn" href="./facilitator-ops.html">Facilitator Ops</a></div>
+  <div class="small">Player map view with shared chart picture and assigned-asset awareness</div>
+  <div class="row" style="margin-top:10px"><a id="playerMapNavLink" class="nav-btn" href="./player.html">Player Map</a><a id="playerOpsNavLink" class="nav-btn" href="./player-ops.html">Player Ops</a></div>
 </header>
 <div class="player-container">
   <div class="panel">
-    <h2>Cell Selection</h2>
+    <h2>Cell</h2>
     <select id="playerCellSelect"></select>
-    <h2 style="margin-top:18px">Scenario View</h2>
     <div id="playerScenarioPanel"></div>
-    <h2 style="margin-top:18px">My Assets</h2>
+    <h2 style="margin-top:18px">Assigned Assets</h2>
     <div id="playerAssetsPanel"></div>
-    <h2 style="margin-top:18px">Selected Asset Orders / Contact Classification</h2>
-    <div id="playerWaypointStatus" class="small" style="margin-bottom:8px"></div>
-    <div id="playerAssetEditor"></div>
-    <h2 style="margin-top:18px">Submit Action</h2>
-    <textarea id="playerAction" placeholder="Blue cell requests corridor escort reinforcement and port deconfliction."></textarea>
-    <button id="playerSubmitBtn">Send Action to Facilitator</button>
-    <h2 style="margin-top:18px">My Action Log</h2>
-    <div id="playerActionLog"></div>
   </div>
   <div class="panel">
     <h2>Player Map</h2>
     <div id="playerMap"></div>
-    <div class="legend-box">Player sees own assets plus facilitator-released situation updates.</div>
-    <h2 style="margin-top:18px">Facilitator Updates</h2>
-    <div id="playerFeedPanel"></div>
   </div>
 </div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://unpkg.com/milsymbol@3.0.4/dist/milsymbol.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>
