@@ -1,0 +1,74 @@
+[
+  {
+    "id": "OWGE-INJ-001",
+    "level": "strategic",
+    "conflict_mode": "grey_zone",
+    "phase": "Phase 1 - Competition",
+    "domain": "information",
+    "severity": "High",
+    "title": "Coordinated Deepfake Release",
+    "situation": "A falsified video of a senior political leader spreads online during coalition consultations.",
+    "decision_required": "Determine attribution posture, public messaging, and alliance coordination.",
+    "white_cell_notes": "Escalates to public protest pressure if delayed beyond one turn."
+  },
+  {
+    "id": "OWGE-INJ-002",
+    "level": "operational",
+    "conflict_mode": "hybrid",
+    "phase": "Phase 2 - Hybrid Pressure",
+    "domain": "maritime",
+    "severity": "Medium",
+    "title": "AIS Spoofing in Chokepoint",
+    "situation": "Multiple merchant tracks display conflicting AIS identifiers near a contested strait.",
+    "decision_required": "Re-task ISR, adjust traffic control, and determine escalation threshold.",
+    "white_cell_notes": "Use as precursor to logistics delay and shadow-fleet narrative pressure."
+  },
+  {
+    "id": "OWGE-INJ-003",
+    "level": "tactical",
+    "conflict_mode": "peer",
+    "phase": "Phase 3 - Limited Conflict",
+    "domain": "air",
+    "severity": "High",
+    "title": "IFF Failure on Friendly Track",
+    "situation": "A friendly aircraft fails IFF challenge while hostile activity is reported nearby.",
+    "decision_required": "Confirm identification, prevent fratricide, and maintain air picture discipline.",
+    "white_cell_notes": "Trigger command friction if units bypass reporting chain."
+  },
+  {
+    "id": "OWGE-INJ-004",
+    "level": "operational",
+    "conflict_mode": "peer",
+    "phase": "Phase 3 - Limited Conflict",
+    "domain": "cyber",
+    "severity": "High",
+    "title": "Joint Logistics Platform Latency Spike",
+    "situation": "Logistics scheduling tools slow dramatically during force movement planning.",
+    "decision_required": "Prioritize continuity measures and determine cyber defense response.",
+    "white_cell_notes": "Follow with fuel and maintenance disruptions if unresolved."
+  },
+  {
+    "id": "OWGE-INJ-005",
+    "level": "strategic",
+    "conflict_mode": "hybrid",
+    "phase": "Phase 4 - Major Escalation",
+    "domain": "space",
+    "severity": "Strategic",
+    "title": "ISR Coverage Degradation",
+    "situation": "Several ISR products arrive late or with reduced confidence during coalition crisis decisions.",
+    "decision_required": "Adjust decision tempo, re-prioritize sensors, and decide disclosure posture.",
+    "white_cell_notes": "Introduce alliance friction if one partner receives better visibility."
+  },
+  {
+    "id": "OWGE-INJ-006",
+    "level": "tactical",
+    "conflict_mode": "counterinsurgency",
+    "phase": "Phase 2 - Hybrid Pressure",
+    "domain": "land",
+    "severity": "Medium",
+    "title": "Crowd Movement Near Checkpoint",
+    "situation": "Local civilians gather unexpectedly near a checkpoint after hostile rumors spread online.",
+    "decision_required": "Balance force protection, de-escalation, and information control.",
+    "white_cell_notes": "Escalate to legitimacy challenge if kinetic posture is too aggressive."
+  }
+]
