@@ -990,6 +990,16 @@ function setStoredPlayerClaim(cellId) {
 function cellLockFor(cellId) {
   return state.session?.cellLocks?.[cellId] || null;
 }
+function normalizeStoredPlayerClaim() {
+  const stored = getStoredPlayerClaim();
+  if (!stored) return '';
+  const lock = cellLockFor(stored);
+  if (!lock || lock.ownerId !== getPlayerInstanceId()) {
+    setStoredPlayerClaim('');
+    return '';
+  }
+  return stored;
+}
 function isCellClaimedByCurrentPlayer(cellId) {
   const lock = cellLockFor(cellId);
   return !!lock && lock.ownerId === getPlayerInstanceId();
@@ -1001,7 +1011,7 @@ function canClaimCell(cellId) {
 function claimPlayerCell(cellId) {
   if (!cellId) return false;
   ensureSessionMaps();
-  const existing = getStoredPlayerClaim();
+  const existing = normalizeStoredPlayerClaim();
   if (existing && existing !== cellId) return false;
   if (!canClaimCell(cellId)) return false;
   state.session.cellLocks[cellId] = { ownerId: getPlayerInstanceId(), claimedAt: new Date().toISOString() };
@@ -1010,10 +1020,41 @@ function claimPlayerCell(cellId) {
   saveState();
   return true;
 }
+function releasePlayerCellClaim(cellId) {
+  if (!cellId) return false;
+  ensureSessionMaps();
+  const lock = cellLockFor(cellId);
+  if (!lock || lock.ownerId !== getPlayerInstanceId()) return false;
+  delete state.session.cellLocks[cellId];
+  if (getStoredPlayerClaim() === cellId) setStoredPlayerClaim('');
+  saveState();
+  return true;
+}
+function unlockCellClaim(cellId, options = {}) {
+  if (!cellId) return false;
+  ensureSessionMaps();
+  if (!state.session.cellLocks[cellId]) return false;
+  delete state.session.cellLocks[cellId];
+  if (!options.silent) {
+    const cellName = state.session.cells.find(c => c.id === cellId)?.name || cellId;
+    state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: `Facilitator unlocked player cell claim for ${cellName}.` });
+  }
+  saveState();
+  return true;
+}
+function unlockAllCellClaims() {
+  ensureSessionMaps();
+  const count = Object.keys(state.session.cellLocks || {}).length;
+  state.session.cellLocks = {};
+  state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: `Facilitator cleared ${count} player cell lock${count === 1 ? '' : 's'}.` });
+  saveState();
+  return count;
+}
 function syncPlayerClaimFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('cell') || '';
-  if (!getStoredPlayerClaim() && requested && canClaimCell(requested)) claimPlayerCell(requested);
+  const existing = normalizeStoredPlayerClaim();
+  if (!existing && requested && canClaimCell(requested)) claimPlayerCell(requested);
 }
 function defaultCellPosition(idx) {
   const anchor = state?.scenario?.pinnedMapView?.center || state?.scenario?.lastMapView?.center || [54.8, 7.2];
@@ -1036,7 +1077,7 @@ function ensureCellLocations() {
 }
 
 function getPlayerCell() {
-  const claimed = getStoredPlayerClaim();
+  const claimed = normalizeStoredPlayerClaim();
   if (claimed) return claimed;
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('cell') || '';
@@ -1151,7 +1192,7 @@ function renderPlayerOpsActionPanel(cellId, controllableAssets, visibleContacts)
 function renderPlayerCellSelector() {
   const sel = document.getElementById('playerCellSelect');
   if (!sel) return;
-  const claimed = getStoredPlayerClaim();
+  const claimed = normalizeStoredPlayerClaim();
   const requested = new URLSearchParams(window.location.search).get('cell') || '';
   const current = claimed || requested || '';
   const placeholder = `<option value="">Choose your cell…</option>`;
@@ -3664,6 +3705,7 @@ function renderInjects() {
     <div class="card"><strong>Boarding outcomes</strong>${resolvedHtml}</div>
     <div class="card"><strong>Facilitator inject release</strong><div class="row" style="margin-top:8px"><select id="facInjectSelect"><option value="">Select inject</option>${injectOptions.map(i => `<option value="${i.id}">${i.id} · ${i.title}</option>`).join('')}</select><select id="facInjectCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button onclick="releaseSelectedInject()">Release Inject</button></div><textarea id="facCustomUpdate" placeholder="Custom facilitator update to a cell or to all cells" style="margin-top:10px"></textarea><div class="row" style="margin-top:8px"><select id="facCustomCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendFacilitatorUpdate()">Send Update</button></div></div>
     <div class="card"><strong>Player status updates</strong><div class="small" style="margin-top:6px">Players receive an initial status update at H-0 when they lock a cell. Routine updates are sent every configured number of hours.</div><div class="row" style="margin-top:8px"><label style="max-width:160px">Routine interval (hours)<input id="statusUpdateIntervalInput" type="number" min="1" max="24" step="1" value="${Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6))}"></label><button class="secondary" onclick="saveStatusUpdateInterval()">Apply interval</button></div><div class="row" style="margin-top:8px"><select id="facStatusCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendManualStatusUpdate()">Send Status Update</button></div></div>
+    <div class="card"><strong>Player cell locks</strong><div class="small" style="margin-top:6px">Use this when a player locked the wrong cell or needs to reclaim a session from a fresh browser window.</div><div style="margin-top:8px">${state.session.cells.map(c => { const lock = cellLockFor(c.id); return `<div class="timeline-item"><strong>${c.name}</strong><br>${lock ? `Locked · ${lock.ownerId || 'unknown player'} · ${lock.claimedAt || ''}` : '<span class="small">Unlocked</span>'}<div class="row" style="margin-top:8px"><button class="secondary" ${lock ? '' : 'disabled'} onclick="facilitatorUnlockCellClaim('${c.id}')">Unlock cell</button></div></div>`; }).join('')}</div><div class="row" style="margin-top:8px"><button class="secondary" onclick="facilitatorUnlockAllCellClaims()">Unlock all cells</button></div></div>
     <div class="card"><strong>Recent inject/output</strong>${(state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>'}</div>`;
 }
 
@@ -3704,6 +3746,16 @@ function sendManualStatusUpdate() {
   renderAll();
 }
 
+function facilitatorUnlockCellClaim(cellId) {
+  if (!unlockCellClaim(cellId)) return;
+  renderAll();
+}
+
+function facilitatorUnlockAllCellClaims() {
+  unlockAllCellClaims();
+  renderAll();
+}
+
 function renderTimeline() {
   const el = document.getElementById('timelinePanel');
   if (!el) return;
@@ -3733,7 +3785,7 @@ function renderPlayerPage() {
   const cell = state.session.cells.find(c => c.id === cellId);
   if (!cellId || !cell) {
     const panel = document.getElementById('playerScenarioPanel');
-    if (panel) panel.innerHTML = `<div class="small">Choose your cell once to lock it for this player session. After locking, the choice cannot be switched from this browser tab.</div>`;
+    if (panel) panel.innerHTML = `<div class="small">Choose your cell once to lock it for this player session. If the wrong cell was locked earlier, the facilitator can unlock that claim so you can choose again.</div>`;
     const assetsPanel = document.getElementById('playerAssetsPanel');
     if (assetsPanel) assetsPanel.innerHTML = '<div class="small">No cell selected yet.</div>';
     const editor = document.getElementById('playerAssetEditor');

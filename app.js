@@ -1,6 +1,10 @@
 const STORAGE_KEY = 'owge_v17_northern_shield_default';
 const PLAYER_CLAIM_KEY = `${STORAGE_KEY}_playerClaim`;
 const PLAYER_INSTANCE_KEY = `${STORAGE_KEY}_playerInstance`;
+const STATE_CHANNEL_NAME = `${STORAGE_KEY}_state_channel`;
+let stateChannel = null;
+let syncPollTimer = null;
+let lastKnownSyncToken = null;
 
 const DEFAULT_TEMPLATE = {
   scenario: {
@@ -986,6 +990,16 @@ function setStoredPlayerClaim(cellId) {
 function cellLockFor(cellId) {
   return state.session?.cellLocks?.[cellId] || null;
 }
+function normalizeStoredPlayerClaim() {
+  const stored = getStoredPlayerClaim();
+  if (!stored) return '';
+  const lock = cellLockFor(stored);
+  if (!lock || lock.ownerId !== getPlayerInstanceId()) {
+    setStoredPlayerClaim('');
+    return '';
+  }
+  return stored;
+}
 function isCellClaimedByCurrentPlayer(cellId) {
   const lock = cellLockFor(cellId);
   return !!lock && lock.ownerId === getPlayerInstanceId();
@@ -997,7 +1011,7 @@ function canClaimCell(cellId) {
 function claimPlayerCell(cellId) {
   if (!cellId) return false;
   ensureSessionMaps();
-  const existing = getStoredPlayerClaim();
+  const existing = normalizeStoredPlayerClaim();
   if (existing && existing !== cellId) return false;
   if (!canClaimCell(cellId)) return false;
   state.session.cellLocks[cellId] = { ownerId: getPlayerInstanceId(), claimedAt: new Date().toISOString() };
@@ -1006,10 +1020,41 @@ function claimPlayerCell(cellId) {
   saveState();
   return true;
 }
+function releasePlayerCellClaim(cellId) {
+  if (!cellId) return false;
+  ensureSessionMaps();
+  const lock = cellLockFor(cellId);
+  if (!lock || lock.ownerId !== getPlayerInstanceId()) return false;
+  delete state.session.cellLocks[cellId];
+  if (getStoredPlayerClaim() === cellId) setStoredPlayerClaim('');
+  saveState();
+  return true;
+}
+function unlockCellClaim(cellId, options = {}) {
+  if (!cellId) return false;
+  ensureSessionMaps();
+  if (!state.session.cellLocks[cellId]) return false;
+  delete state.session.cellLocks[cellId];
+  if (!options.silent) {
+    const cellName = state.session.cells.find(c => c.id === cellId)?.name || cellId;
+    state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: `Facilitator unlocked player cell claim for ${cellName}.` });
+  }
+  saveState();
+  return true;
+}
+function unlockAllCellClaims() {
+  ensureSessionMaps();
+  const count = Object.keys(state.session.cellLocks || {}).length;
+  state.session.cellLocks = {};
+  state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: `Facilitator cleared ${count} player cell lock${count === 1 ? '' : 's'}.` });
+  saveState();
+  return count;
+}
 function syncPlayerClaimFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('cell') || '';
-  if (!getStoredPlayerClaim() && requested && canClaimCell(requested)) claimPlayerCell(requested);
+  const existing = normalizeStoredPlayerClaim();
+  if (!existing && requested && canClaimCell(requested)) claimPlayerCell(requested);
 }
 function defaultCellPosition(idx) {
   const anchor = state?.scenario?.pinnedMapView?.center || state?.scenario?.lastMapView?.center || [54.8, 7.2];
@@ -1032,7 +1077,7 @@ function ensureCellLocations() {
 }
 
 function getPlayerCell() {
-  const claimed = getStoredPlayerClaim();
+  const claimed = normalizeStoredPlayerClaim();
   if (claimed) return claimed;
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('cell') || '';
@@ -1042,17 +1087,112 @@ function getPlayerCell() {
 function updatePlayerNavLinks() {
   const cellId = getPlayerCell();
   const suffix = cellId ? `?cell=${encodeURIComponent(cellId)}` : '';
-  const scenarioLink = document.getElementById('playerScenarioNavLink');
-  const opsLink = document.getElementById('playerOpsNavLink');
-  const mapLink = document.getElementById('playerMapNavLink');
-  if (scenarioLink) scenarioLink.href = `./player-scenario.html${suffix}`;
-  if (opsLink) opsLink.href = `./player-ops.html${suffix}`;
-  if (mapLink) mapLink.href = `./player.html${suffix}`;
+  const links = {
+    playerScenarioNavLink: `./player-scenario.html${suffix}`,
+    playerNavigationNavLink: `./player-navigation.html${suffix}`,
+    playerOpsNavLink: `./player-ops.html${suffix}`,
+    playerStatusNavLink: `./player-status.html${suffix}`,
+    playerWeatherNavLink: `./player-weather.html${suffix}`,
+    playerMapNavLink: `./player.html${suffix}`
+  };
+  Object.entries(links).forEach(([id, href]) => {
+    const el = document.getElementById(id);
+    if (el) el.href = href;
+  });
+}
+
+function isPlayerReadOnlyMapPage() {
+  return document.body?.dataset?.playerMapMode === 'readonly';
+}
+function playerActionTargetSummary() {
+  const asset = selectedPlayerAsset();
+  const contact = selectedPlayerContact();
+  return {
+    assetName: asset?.name || 'selected asset',
+    contactName: contact?.name || 'selected contact'
+  };
+}
+function queuePlayerActionTemplate(kind) {
+  const { assetName, contactName } = playerActionTargetSummary();
+  let text = '';
+  if (kind === 'hail') text = `Radio hail requested from ${assetName} to ${contactName}. Intent: establish identity, intentions, and compliance.`;
+  else if (kind === 'resupply') text = `Request resupply for ${assetName}. State current fuel, stores, and desired replenishment window.`;
+  else if (kind === 'reinforcements') text = `Request reinforcements in support of ${assetName}. State threat, timing, and desired supporting unit.`;
+  else if (kind === 'status') text = `Request immediate status update for ${assetName}.`;
+  else text = `${kind} involving ${assetName}${contactName ? ` and ${contactName}` : ''}.`;
+  const actionEl = document.getElementById('playerAction') || document.getElementById('playerActionText');
+  if (actionEl) {
+    actionEl.value = text;
+    actionEl.focus();
+  }
+}
+function renderPlayerStatusPanel(cellId, assets) {
+  const panel = document.getElementById('playerStatusPanel');
+  if (!panel) return;
+  const feed = state.playerFeedByCell[cellId] || [];
+  const statusCards = assets.length ? assets.map(a => {
+    const systems = operationalSystemsSummary(a);
+    return `<div class="card"><strong>${escapeHtml(a.name)}</strong><div class="row"><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="${fuelTagClass(a)}">Fuel ${fuelPercentLabel(a)}</span><span class="${readinessTagClass(a)}">Ready ${readinessPercentLabel(a)}</span><span class="tag">${a.status || 'available'}</span></div><div class="small" style="margin-top:8px"><strong>Working</strong>: ${escapeHtml(systems.working.join(', ') || 'None')}<br><strong>Limited</strong>: ${escapeHtml(systems.limited.join(', ') || 'None')}<br><strong>Offline</strong>: ${escapeHtml(systems.offline.join(', ') || 'None')}</div></div>`;
+  }).join('') : '<div class="small">No assigned assets available.</div>';
+  const feedHtml = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No status updates yet.</div>';
+  panel.innerHTML = `<div class="card"><strong>Fleet status snapshot</strong><div class="small" style="margin-top:6px">Fuel below 20% and readiness below 50% are highlighted in red.</div>${statusCards}</div><div class="card" style="margin-top:12px"><strong>Status update feed</strong>${feedHtml}</div>`;
+}
+function weatherSeed(str) {
+  let h = 2166136261 >>> 0;
+  const s = String(str || 'owge');
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(a) { return function() { let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function bearingToCompass(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
+}
+function buildWeatherForecast(cellId) {
+  const panel = document.getElementById('playerWeatherPanel');
+  if (!panel) return;
+  const hoursNow = timeLabelToHours(state.scenario.timeLabel || 'H+0');
+  const seed = weatherSeed(`${state.scenario.name}|${cellId}|${Math.floor(hoursNow)}`);
+  const rand = mulberry32(seed);
+  const baseWind = 10 + Math.round(rand() * 18);
+  const baseDir = Math.round(rand() * 359);
+  const baseVis = 5 + Math.round(rand() * 12);
+  const baseSea = 2 + Math.round(rand() * 3);
+  const conditions = ['Broken cloud', 'Overcast', 'Light rain showers', 'Fair weather cumulus', 'Haze', 'Frontal drizzle'];
+  const rows = [];
+  for (let i = 0; i < 12; i++) {
+    const wind = Math.max(4, Math.round(baseWind + Math.sin((hoursNow + i) / 3) * 4 + (rand() - 0.5) * 4));
+    const dir = Math.round((baseDir + i * 7 + (rand() - 0.5) * 20 + 360) % 360);
+    const vis = Math.max(2, Math.round(baseVis + Math.cos((hoursNow + i) / 2) * 2 + (rand() - 0.5) * 2));
+    const sea = Math.max(1, Math.min(6, Math.round(baseSea + Math.sin((hoursNow + i) / 4) + (rand() - 0.5) * 1.2)));
+    const cond = conditions[(Math.floor(rand() * conditions.length) + i) % conditions.length];
+    rows.push({
+      label: `+${i}h`,
+      reliability: i <= 3 ? 'Reliable' : 'Uncertain',
+      wind, dir, vis, sea, cond
+    });
+  }
+  panel.innerHTML = `<div class="card"><strong>Weather forecast</strong><div class="small" style="margin-top:6px">Forecast is reliable for the next 3 hours. Anything beyond that is an informed but uncertain outlook. The forecast refreshes whenever scenario time advances.</div><div class="weather-grid" style="margin-top:12px">${rows.map(r => `<div class="card"><strong>${r.label}</strong><div class="row" style="margin-top:6px"><span class="tag ${r.reliability === 'Reliable' ? '' : 'tag-warn'}">${r.reliability}</span></div><div class="small" style="margin-top:8px">${escapeHtml(r.cond)}<br>Wind: ${bearingToCompass(r.dir)} ${r.wind} kt<br>Visibility: ${r.vis} nm<br>Sea state: ${r.sea}</div></div>`).join('')}</div></div>`;
+}
+function renderPlayerOpsActionPanel(cellId, controllableAssets, visibleContacts) {
+  const panel = document.getElementById('playerOpsActionPanel');
+  if (!panel) return;
+  const selected = selectedPlayerAsset();
+  const selectedContact = selectedPlayerContact();
+  const assetButtons = controllableAssets.length ? controllableAssets.map(a => `<button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">${escapeHtml(a.name)}</button>`).join('') : '<span class="small">No controllable assets.</span>';
+  const contactButtons = visibleContacts.length ? visibleContacts.map(a => `<button class="secondary player-select-btn" onclick="selectPlayerContact('${a.id}')">${escapeHtml(a.name)}</button>`).join('') : '<span class="small">No visible contacts.</span>';
+  const boardingDistance = selected && selectedContact ? boardingDistanceNm(selected, selectedContact) : Infinity;
+  panel.innerHTML = `
+    <div class="card"><strong>Selected asset / contact</strong><div class="small" style="margin-top:6px">Asset: <strong>${escapeHtml(selected?.name || 'None')}</strong> · Contact: <strong>${escapeHtml(selectedContact?.name || 'None')}</strong></div><div class="row" style="margin-top:10px">${assetButtons}</div><div class="row" style="margin-top:10px">${contactButtons}</div></div>
+    <div class="card" style="margin-top:12px"><strong>Quick actions</strong><div class="row" style="margin-top:10px"><button class="secondary" onclick="queuePlayerActionTemplate('hail')">Hail on radio</button><button class="secondary" onclick="queuePlayerActionTemplate('resupply')">Request resupply</button><button class="secondary" onclick="queuePlayerActionTemplate('reinforcements')">Request reinforcements</button><button class="secondary" onclick="queuePlayerActionTemplate('status')">Request status update</button></div><label style="display:block;margin-top:10px">Action text<textarea id="playerActionText" placeholder="Describe your intended action, intent, timing, and desired effect"></textarea></label><div class="row" style="margin-top:10px"><button id="playerSubmitBtn" class="good">Submit Action</button></div></div>
+    <div class="card" style="margin-top:12px"><strong>Boarding / contact actions</strong><div class="small" style="margin-top:6px">Boarding requires a selected own asset, a selected contact, and a range of 2.00 nm or less.</div><label style="display:block;margin-top:10px">Boarding rationale<textarea id="playerBoardingRationale" placeholder="Explain why the boarding should have a good chance of success."></textarea></label><div class="row" style="margin-top:10px"><button ${boardingDistance <= 2 ? '' : 'disabled'} onclick="requestPlayerBoarding()">Request Boarding</button><span class="tag">Distance: ${Number.isFinite(boardingDistance) ? boardingDistance.toFixed(2) : '--'} nm</span></div></div>`;
+  const submitBtn = document.getElementById('playerSubmitBtn');
+  if (submitBtn) submitBtn.onclick = submitPlayerAction;
 }
 function renderPlayerCellSelector() {
   const sel = document.getElementById('playerCellSelect');
   if (!sel) return;
-  const claimed = getStoredPlayerClaim();
+  const claimed = normalizeStoredPlayerClaim();
   const requested = new URLSearchParams(window.location.search).get('cell') || '';
   const current = claimed || requested || '';
   const placeholder = `<option value="">Choose your cell…</option>`;
@@ -3213,17 +3353,18 @@ function initMaps(force) {
   if (playEl) {
     const playerInitialView = getInitialMapView();
     playerMap = L.map('playerMap').setView(playerInitialView.center, playerInitialView.zoom);
+    const readOnlyMap = isPlayerReadOnlyMapPage();
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(playerMap);
     playerSeaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') playerSeaLayer.addTo(playerMap);
     playerMap.on('click', e => {
       if (handleMeasurementClick('player', e.latlng)) return;
-      if (playerMapMode === 'add-waypoint') appendWaypointToPlayerAsset(e.latlng);
+      if (!readOnlyMap && playerMapMode === 'add-waypoint') appendWaypointToPlayerAsset(e.latlng);
     });
     playerMap.on('mousemove', e => {
       playerLastHoveredLatLng = e.latlng;
       handleMeasurementMove('player', e.latlng);
-      if (playerMapMode === 'add-waypoint') updatePlayerWaypointUi();
+      if (!readOnlyMap && playerMapMode === 'add-waypoint') updatePlayerWaypointUi();
     });
     renderPlayerMap();
   }
@@ -3340,19 +3481,11 @@ function renderPlayerMap() {
     playerAssetLayers.push(vectorLine);
     const isOwn = a.assignedCell === cellId;
     const canControl = isOwn && !isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral';
-    const marker = L.marker(ll, { icon: assetIcon(a), title: a.name, draggable: canControl }).addTo(playerMap);
+    const readOnlyMap = isPlayerReadOnlyMapPage();
+    const marker = L.marker(ll, { icon: assetIcon(a), title: a.name, draggable: false }).addTo(playerMap);
     marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + fuelPercentLabel(a) + ' (' + fuelCapacityForAsset(a).toFixed(0) + 'u cap)<br>Readiness: ' + readinessPercentLabel(a) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
-    if (canControl) {
+    if (canControl && !readOnlyMap) {
       marker.on('click', () => selectPlayerAsset(a.id));
-      marker.on('dragend', e => {
-        const p = e.target.getLatLng();
-        a.lat = Number(p.lat.toFixed(6));
-        a.lon = Number(p.lng.toFixed(6));
-        if (hasZones()) a.zone = nearestZone(p.lat, p.lng);
-        saveState();
-        updatePlayerWaypointUi(`Moved ${a.name} to ${a.lat.toFixed(4)}, ${a.lon.toFixed(4)}.`);
-        renderPlayerPage();
-      });
     }
     playerAssetLayers.push(marker);
   });
@@ -3572,6 +3705,7 @@ function renderInjects() {
     <div class="card"><strong>Boarding outcomes</strong>${resolvedHtml}</div>
     <div class="card"><strong>Facilitator inject release</strong><div class="row" style="margin-top:8px"><select id="facInjectSelect"><option value="">Select inject</option>${injectOptions.map(i => `<option value="${i.id}">${i.id} · ${i.title}</option>`).join('')}</select><select id="facInjectCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button onclick="releaseSelectedInject()">Release Inject</button></div><textarea id="facCustomUpdate" placeholder="Custom facilitator update to a cell or to all cells" style="margin-top:10px"></textarea><div class="row" style="margin-top:8px"><select id="facCustomCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendFacilitatorUpdate()">Send Update</button></div></div>
     <div class="card"><strong>Player status updates</strong><div class="small" style="margin-top:6px">Players receive an initial status update at H-0 when they lock a cell. Routine updates are sent every configured number of hours.</div><div class="row" style="margin-top:8px"><label style="max-width:160px">Routine interval (hours)<input id="statusUpdateIntervalInput" type="number" min="1" max="24" step="1" value="${Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6))}"></label><button class="secondary" onclick="saveStatusUpdateInterval()">Apply interval</button></div><div class="row" style="margin-top:8px"><select id="facStatusCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendManualStatusUpdate()">Send Status Update</button></div></div>
+    <div class="card"><strong>Player cell locks</strong><div class="small" style="margin-top:6px">Use this when a player locked the wrong cell or needs to reclaim a session from a fresh browser window.</div><div style="margin-top:8px">${state.session.cells.map(c => { const lock = cellLockFor(c.id); return `<div class="timeline-item"><strong>${c.name}</strong><br>${lock ? `Locked · ${lock.ownerId || 'unknown player'} · ${lock.claimedAt || ''}` : '<span class="small">Unlocked</span>'}<div class="row" style="margin-top:8px"><button class="secondary" ${lock ? '' : 'disabled'} onclick="facilitatorUnlockCellClaim('${c.id}')">Unlock cell</button></div></div>`; }).join('')}</div><div class="row" style="margin-top:8px"><button class="secondary" onclick="facilitatorUnlockAllCellClaims()">Unlock all cells</button></div></div>
     <div class="card"><strong>Recent inject/output</strong>${(state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>'}</div>`;
 }
 
@@ -3612,6 +3746,16 @@ function sendManualStatusUpdate() {
   renderAll();
 }
 
+function facilitatorUnlockCellClaim(cellId) {
+  if (!unlockCellClaim(cellId)) return;
+  renderAll();
+}
+
+function facilitatorUnlockAllCellClaims() {
+  unlockAllCellClaims();
+  renderAll();
+}
+
 function renderTimeline() {
   const el = document.getElementById('timelinePanel');
   if (!el) return;
@@ -3641,11 +3785,17 @@ function renderPlayerPage() {
   const cell = state.session.cells.find(c => c.id === cellId);
   if (!cellId || !cell) {
     const panel = document.getElementById('playerScenarioPanel');
-    if (panel) panel.innerHTML = `<div class="small">Choose your cell once to lock it for this player session. After locking, the choice cannot be switched from this browser tab.</div>`;
+    if (panel) panel.innerHTML = `<div class="small">Choose your cell once to lock it for this player session. If the wrong cell was locked earlier, the facilitator can unlock that claim so you can choose again.</div>`;
     const assetsPanel = document.getElementById('playerAssetsPanel');
     if (assetsPanel) assetsPanel.innerHTML = '<div class="small">No cell selected yet.</div>';
     const editor = document.getElementById('playerAssetEditor');
     if (editor) editor.innerHTML = '<div class="small">Select and lock a cell first.</div>';
+    const statusPanel = document.getElementById('playerStatusPanel');
+    if (statusPanel) statusPanel.innerHTML = '<div class="small">Select and lock a cell first.</div>';
+    const weatherPanel = document.getElementById('playerWeatherPanel');
+    if (weatherPanel) weatherPanel.innerHTML = '<div class="small">Select and lock a cell first.</div>';
+    const opsPanel = document.getElementById('playerOpsActionPanel');
+    if (opsPanel) opsPanel.innerHTML = '<div class="small">Select and lock a cell first.</div>';
     const feed = document.getElementById('playerFeedPanel');
     if (feed) feed.innerHTML = '<div class="small">No cell selected yet.</div>';
     const log = document.getElementById('playerActionLog');
@@ -3661,11 +3811,16 @@ function renderPlayerPage() {
   const visualShips = visibleContacts.filter(a => ['container_ship','bulk_carrier','tanker','lng_carrier','ro_ro_ferry','passenger_ferry','fishing_vessel','tug_workboat','dredger','pilot_boat','research_survey_vessel'].includes(normalizeAssetType(a.type)) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
   const otherContacts = visibleContacts.filter(a => !visualShips.includes(a));
   const playerScenarioPanel = document.getElementById('playerScenarioPanel');
-  if (playerScenarioPanel) playerScenarioPanel.innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assigned: ${myAssets.length}</span><span class="tag">Controllable: ${controllableAssets.length}</span><span class="tag">Visual ships: ${visualShips.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Player view</strong><br>You can issue heading, speed, waypoint, and boarding/classification actions for your own controllable assets. Commercial traffic remains facilitator-controlled.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
+  const feed = state.playerFeedByCell[cellId] || [];
+  if (playerScenarioPanel) {
+    const recent = feed.slice(-3).reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') || '<div class="small">No facilitator updates yet.</div>';
+    playerScenarioPanel.innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assigned: ${myAssets.length}</span><span class="tag">Controllable: ${controllableAssets.length}</span><span class="tag">Visual ships: ${visualShips.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Introduction</strong><br>${state.scenario.overview || 'No scenario overview yet.'}</p><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Player view</strong><br>You can issue heading, speed, and waypoint orders for your own controllable assets. Boarding, hailing, resupply, and reinforcement requests are submitted from the Ops page. Commercial traffic remains facilitator-controlled.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p><div class="card" style="margin-top:12px"><strong>Recent scenario / inject effects</strong>${recent}</div>`;
+  }
   if (!controllableAssets.find(a => a.id === playerSelectedAssetId)) playerSelectedAssetId = controllableAssets[0]?.id || '';
   if (!visibleContacts.find(a => a.id === playerSelectedContactId)) playerSelectedContactId = visibleContacts[0]?.id || '';
   const selected = selectedPlayerAsset();
-  document.getElementById('playerAssetsPanel').innerHTML = `
+  const assetsPanel = document.getElementById('playerAssetsPanel');
+  if (assetsPanel) assetsPanel.innerHTML = `
     <div class="asset-section">
       <div class="section-title">Assigned Assets</div>
       ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="${fuelTagClass(a)}">Fuel ${fuelPercentLabel(a)}</span><span class="${readinessTagClass(a)}">Ready ${readinessPercentLabel(a)}</span></div>${(!isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral') ? `<button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button>` : `<div class="small" style="margin-top:8px">Facilitator-controlled contact. Visible, but not movable from player view.</div>`}</div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
@@ -3694,12 +3849,15 @@ function renderPlayerPage() {
   updatePlayerWaypointUi();
   updatePlayerNavLinks();
   renderGlobalStatusBadge();
-  const feed = state.playerFeedByCell[cellId] || [];
+  const feedEntries = state.playerFeedByCell[cellId] || [];
   const feedPanel = document.getElementById('playerFeedPanel');
-  if (feedPanel) feedPanel.innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
+  if (feedPanel) feedPanel.innerHTML = feedEntries.length ? feedEntries.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
   const logPanel = document.getElementById('playerActionLog');
   if (logPanel) logPanel.innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
+  renderPlayerStatusPanel(cellId, myAssets);
+  buildWeatherForecast(cellId);
+  renderPlayerOpsActionPanel(cellId, controllableAssets, visibleContacts);
   initMaps(true);
 }
 
@@ -3736,6 +3894,7 @@ window.releaseSelectedInject = releaseSelectedInject;
 window.sendFacilitatorUpdate = sendFacilitatorUpdate;
 window.requestPlayerBoarding = requestPlayerBoarding;
 window.adjudicateBoardingRequest = adjudicateBoardingRequest;
+window.queuePlayerActionTemplate = queuePlayerActionTemplate;
 window.resetAssetFilters = resetAssetFilters;
 
 init();
