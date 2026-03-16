@@ -62,3 +62,6 @@
 - Modern naval class library now shows faction, role tags, default affiliation, sensor profile, and class notes.
 - Added per-class fuel capacity baseline so fuel is edited/displayed as percent while movement still burns against a class capacity.
 - Readiness moved from legacy 1–5 style to 0–100% for clearer operational interpretation.
+
+
+- Added generic asset classes with editable class/variant, role profile, role tags, and facilitator Recent Events panels.

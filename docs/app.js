@@ -562,21 +562,6 @@ const ASSET_TYPE_OPTIONS = [
   { value: 'boarding_team', label: 'Boarding Team' },
   { value: 'port_support_unit', label: 'Port Support Unit' },
   { value: 'command_element', label: 'Command Element' },
-  { value: 'arleigh_burke_ddg', label: 'Arleigh Burke-class DDG (NATO)' },
-  { value: 'type_45_ddg', label: 'Type 45 Destroyer (NATO)' },
-  { value: 'de_zeven_provincien_lcf', label: 'De Zeven Provinciën-class LCF (NATO)' },
-  { value: 'fremm_frigate', label: 'FREMM Frigate (NATO)' },
-  { value: 'holland_opv', label: 'Holland-class OPV (NATO)' },
-  { value: 'queen_elizabeth_carrier', label: 'Queen Elizabeth-class Carrier (NATO)' },
-  { value: 'admiral_gorshkov_frigate', label: 'Admiral Gorshkov-class Frigate (Russia)' },
-  { value: 'admiral_grigorovich_frigate', label: 'Admiral Grigorovich-class Frigate (Russia)' },
-  { value: 'project_636_submarine', label: 'Project 636.3 Kilo SS (Russia)' },
-  { value: 'slava_cruiser', label: 'Slava-class Cruiser (Russia)' },
-  { value: 'type_052d_destroyer', label: 'Type 052D Destroyer (China)' },
-  { value: 'type_055_destroyer', label: 'Type 055 Large Destroyer (China)' },
-  { value: 'type_054a_frigate', label: 'Type 054A Frigate (China)' },
-  { value: 'type_071_amphib', label: 'Type 071 Amphibious Transport Dock (China)' },
-  { value: 'type_075_lhd', label: 'Type 075 LHD (China)' },
   { value: 'container_ship', label: 'Container Ship' },
   { value: 'bulk_carrier', label: 'Bulk Carrier' },
   { value: 'tanker', label: 'Tanker' },
@@ -696,6 +681,40 @@ const NAVAL_CLASS_LIBRARY = [
 
 const NAVAL_CLASS_LIBRARY_BY_KEY = Object.fromEntries(NAVAL_CLASS_LIBRARY.map(item => [item.value, item]));
 
+const MODERN_CLASS_TYPE_TO_BASE = Object.fromEntries(NAVAL_CLASS_LIBRARY.map(item => [item.value, item.baseType || item.value]));
+const ASSET_ROLE_PROFILES = {
+  frigate: [
+    { value: 'general_purpose', label: 'General Purpose', roleTags: ['General Purpose', 'Escort'], sensorProfile: { radar: 17, visual: 10, inspection: 0.7, ew: 11 }, notes: 'Balanced escort frigate.', readiness: 88 },
+    { value: 'asw', label: 'ASW Frigate', roleTags: ['ASW', 'Escort'], sensorProfile: { radar: 17, visual: 10, inspection: 0.7, ew: 11 }, notes: 'Frigate optimized for anti-submarine escort work.', readiness: 90 },
+    { value: 'aaw', label: 'AAW Frigate', roleTags: ['AAW', 'Escort'], sensorProfile: { radar: 20, visual: 10, inspection: 0.7, ew: 13 }, notes: 'Frigate oriented toward air-defence escort tasks.', readiness: 90 },
+    { value: 'strike', label: 'Strike Frigate', roleTags: ['Strike', 'Escort', 'ASuW'], sensorProfile: { radar: 18, visual: 10, inspection: 0.6, ew: 12 }, notes: 'Frigate optimized for surface strike missions.', readiness: 87 }
+  ],
+  destroyer: [
+    { value: 'general_destroyer', label: 'General Destroyer', roleTags: ['Escort', 'Surface Action'], sensorProfile: { radar: 21, visual: 10, inspection: 0.7, ew: 14 }, notes: 'General-purpose destroyer.', readiness: 90 },
+    { value: 'aaw_destroyer', label: 'AAW Destroyer', roleTags: ['AAW', 'Area Air Defence', 'Escort'], sensorProfile: { radar: 24, visual: 10, inspection: 0.7, ew: 16 }, notes: 'Destroyer with strong air-defence focus.', readiness: 92 },
+    { value: 'strike_destroyer', label: 'Strike Destroyer', roleTags: ['Strike', 'ASuW', 'Escort'], sensorProfile: { radar: 22, visual: 10, inspection: 0.6, ew: 14 }, notes: 'Destroyer optimized for long-range strike and surface warfare.', readiness: 89 }
+  ],
+  corvette: [
+    { value: 'patrol_corvette', label: 'Patrol Corvette', roleTags: ['Patrol', 'Escort'], sensorProfile: { radar: 15, visual: 10, inspection: 0.8, ew: 9 }, notes: 'Small surface escort / patrol combatant.', readiness: 86 },
+    { value: 'asw_corvette', label: 'ASW Corvette', roleTags: ['ASW', 'Escort'], sensorProfile: { radar: 15, visual: 10, inspection: 0.8, ew: 10 }, notes: 'Corvette tuned for littoral ASW work.', readiness: 87 }
+  ],
+  patrol_vessel: [
+    { value: 'offshore_patrol', label: 'Offshore Patrol', roleTags: ['Patrol', 'Maritime Security', 'Presence'], sensorProfile: { radar: 14, visual: 11, inspection: 0.9, ew: 7 }, notes: 'Patrol vessel for constabulary and security tasks.', readiness: 85 }
+  ],
+  cruiser: [
+    { value: 'command_cruiser', label: 'Command Cruiser', roleTags: ['Command', 'Area Air Defence', 'Strike'], sensorProfile: { radar: 24, visual: 10, inspection: 0.6, ew: 16 }, notes: 'Large command combatant.', readiness: 88 }
+  ],
+  amphibious_ship: [
+    { value: 'lift_amphib', label: 'Lift / Sealift Amphib', roleTags: ['Amphibious', 'Sealift', 'Command Support'], sensorProfile: { radar: 14, visual: 10, inspection: 0.8, ew: 9 }, notes: 'Amphibious transport and command support.', readiness: 84 }
+  ],
+  amphibious_assault_ship: [
+    { value: 'aviation_amphib', label: 'Aviation Amphib', roleTags: ['Amphibious Assault', 'Aviation', 'Command'], sensorProfile: { radar: 18, visual: 10, inspection: 0.8, ew: 11 }, notes: 'Amphibious assault ship with aviation focus.', readiness: 88 }
+  ],
+  attack_submarine: [
+    { value: 'hunter_killer', label: 'Hunter-Killer', roleTags: ['Subsurface', 'ASuW', 'Ambush'], sensorProfile: { radar: 6, visual: 5, inspection: 0.2, ew: 6 }, notes: 'Attack submarine for denial and ambush.', readiness: 84 }
+  ]
+};
+
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function escapeHtml(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function randomWithin(min, max) {
@@ -713,13 +732,22 @@ function clampPercent(value, fallback = 100) {
   return Math.max(0, Math.min(100, Number(n.toFixed(1))));
 }
 function modernPresetForType(type) {
-  return NAVAL_CLASS_LIBRARY_BY_KEY[normalizeAssetType(type)] || null;
+  return NAVAL_CLASS_LIBRARY_BY_KEY[type] || null;
+}
+function presetForAsset(asset) {
+  return NAVAL_CLASS_LIBRARY_BY_KEY[asset?.classKey] || null;
+}
+function roleProfileOptionsForType(type) {
+  return ASSET_ROLE_PROFILES[normalizeAssetType(type)] || [];
+}
+function roleProfileByValue(type, value) {
+  return roleProfileOptionsForType(type).find(item => item.value === value) || null;
 }
 function roleTagsForAsset(asset) {
-  return Array.isArray(asset?.roleTags) && asset.roleTags.length ? asset.roleTags : (modernPresetForType(asset?.type)?.roleTags || []);
+  return Array.isArray(asset?.roleTags) && asset.roleTags.length ? asset.roleTags : (presetForAsset(asset)?.roleTags || []);
 }
 function fuelCapacityForAsset(asset) {
-  const preset = modernPresetForType(asset?.type);
+  const preset = presetForAsset(asset) || modernPresetForType(asset?.type);
   const own = Number(asset?.fuelCapacity);
   if (Number.isFinite(own) && own > 0) return own;
   if (preset?.fuelCapacity) return preset.fuelCapacity;
@@ -736,6 +764,23 @@ function fuelTagClass(asset) {
 }
 function readinessTagClass(asset) {
   return clampPercent(asset?.readiness, 100) < 50 ? 'tag tag-critical' : 'tag';
+}
+
+function assetClassLabel(asset) {
+  return asset?.className || (presetForAsset(asset)?.label || '');
+}
+function parseRoleTagsText(value) {
+  return String(value || '').split(',').map(v => v.trim()).filter(Boolean);
+}
+function applyRoleProfileToAsset(asset, roleValue) {
+  const profile = roleProfileByValue(asset?.type, roleValue);
+  if (!asset) return;
+  asset.roleProfile = roleValue || '';
+  if (!profile) return;
+  asset.roleTags = clone(profile.roleTags || []);
+  asset.sensorProfile = Object.assign({}, defaultSensorProfileForAssetType(asset.type), profile.sensorProfile || {});
+  if (!asset.classNotes || asset.classNotes === (presetForAsset(asset)?.notes || '')) asset.classNotes = profile.notes || asset.classNotes || '';
+  if (!(Number(asset.readiness) > 0)) asset.readiness = profile.readiness || defaultReadinessForAssetType(asset.type);
 }
 function operationalSystemsSummary(asset) {
   const readiness = clampPercent(asset?.readiness, 100);
@@ -859,14 +904,14 @@ function renderModernAssetLibraryInfo() {
       <strong>${preset.label}</strong>
       <div class="row" style="margin-top:6px">
         <span class="tag">${preset.faction}</span>
-        <span class="tag">${assetTypeLabel(preset.baseType)}</span>
+        <span class="tag">Base class: ${assetTypeLabel(preset.baseType)}</span>
         <span class="tag">Default affiliation: ${assetAffiliationLabel(preset.affiliation)}</span>
         <span class="tag">Fuel 100% = ${preset.fuelCapacity} endurance units</span>
         <span class="tag">Readiness ${preset.readiness}%</span>
       </div>
       <div class="row" style="margin-top:6px">${tags}</div>
       <div class="small" style="margin-top:8px">Sensors: radar ${preset.sensorProfile.radar} nm · visual ${preset.sensorProfile.visual} nm · EW ${preset.sensorProfile.ew} · boarding / inspection ${preset.sensorProfile.inspection}</div>
-      <div class="small" style="margin-top:6px">${preset.notes}</div>
+      <div class="small" style="margin-top:6px"><strong>Variant / class:</strong> ${preset.label}<br>${preset.notes}</div>
     </div>`;
 }
 function loadState() {
@@ -906,14 +951,18 @@ function migrateState(pkg) {
     merged.zones[id] = Object.assign({ name: id, center: [54.8, 7.55], radius: 12000, kind: 'sea' }, z);
   });
   merged.assets = merged.assets.map(a => {
-    const normalizedType = normalizeAssetType(a?.type);
-    const preset = modernPresetForType(normalizedType);
-    const capacity = Number(a?.fuelCapacity) > 0 ? Number(a.fuelCapacity) : (preset?.fuelCapacity || defaultFuelCapacityForAssetType(normalizedType));
-    const roleTags = Array.isArray(a?.roleTags) && a.roleTags.length ? a.roleTags : (preset?.roleTags || []);
+    const originalType = a?.type;
+    const classPreset = NAVAL_CLASS_LIBRARY_BY_KEY[originalType] || NAVAL_CLASS_LIBRARY_BY_KEY[a?.classKey] || null;
+    const normalizedType = normalizeAssetType(originalType);
+    const capacity = Number(a?.fuelCapacity) > 0 ? Number(a.fuelCapacity) : (classPreset?.fuelCapacity || defaultFuelCapacityForAssetType(normalizedType));
+    const roleTags = Array.isArray(a?.roleTags) && a.roleTags.length ? a.roleTags : (classPreset?.roleTags || []);
     return Object.assign({
       id: `asset-${Math.random().toString(36).slice(2, 8)}`,
       name: 'New Asset',
       type: 'patrol_vessel',
+      classKey: '',
+      className: '',
+      roleProfile: '',
       affiliation: 'friend',
       representation: 'unit',
       status: 'available',
@@ -928,11 +977,14 @@ function migrateState(pkg) {
       speed: 12,
       trackQuality: 'q2',
       roleTags,
-      faction: preset?.faction || '',
-      classNotes: preset?.notes || '',
-      sensorProfile: clone(preset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType))
+      faction: classPreset?.faction || '',
+      classNotes: classPreset?.notes || '',
+      sensorProfile: clone(classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType))
     }, a, {
       type: normalizedType,
+      classKey: a?.classKey || classPreset?.value || '',
+      className: a?.className || classPreset?.label || '',
+      roleProfile: a?.roleProfile || '',
       affiliation: normalizeAssetAffiliation(a?.affiliation),
       representation: normalizeAssetRepresentation(a?.representation || a?.classification),
       trackQuality: normalizeTrackQuality(a?.trackQuality),
@@ -944,9 +996,9 @@ function migrateState(pkg) {
       fuel: normalizeLegacyFuelToPercent(a?.fuel, normalizedType, capacity),
       readiness: normalizeLegacyReadinessToPercent(a?.readiness),
       roleTags,
-      faction: a?.faction || preset?.faction || '',
-      classNotes: a?.classNotes || preset?.notes || '',
-      sensorProfile: Object.assign({}, preset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), a?.sensorProfile || {})
+      faction: a?.faction || classPreset?.faction || '',
+      classNotes: a?.classNotes || classPreset?.notes || '',
+      sensorProfile: Object.assign({}, classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), a?.sensorProfile || {})
     });
   });
   merged.boardingRequests = Array.isArray(pkg?.boardingRequests) ? pkg.boardingRequests.map(r => Object.assign({ status: 'pending', facilitatorModifier: 0, envDifficulty: 'moderate', rationale: '', adjudication: null }, r || {})) : [];
@@ -1243,7 +1295,8 @@ function normalizeAssetType(type) {
     isr: 'isr_drone',
     port_cell: 'port_support_unit'
   };
-  return legacy[type] || (ASSET_TYPE_OPTIONS.some(o => o.value === type) ? type : 'patrol_vessel');
+  const remapped = MODERN_CLASS_TYPE_TO_BASE[type] || legacy[type] || type;
+  return ASSET_TYPE_OPTIONS.some(o => o.value === remapped) ? remapped : 'patrol_vessel';
 }
 
 function assetRepresentationLabel(value) { return ASSET_REPRESENTATION_OPTIONS.find(o => o.value === value)?.label || 'Confirmed Unit'; }
@@ -2094,6 +2147,8 @@ function bindEvents() {
   bindClick('saveAssetPropsBtn', saveSelectedAssetProps);
   bindClick('deleteAssetBtn', deleteSelectedAsset);
   bindClick('clearAssetsBtn', clearAssets);
+  bindChange('assetType', () => { onSelectedAssetTypeChanged(); renderAssetEditor(); saveState(); });
+  bindChange('assetRoleProfile', (e) => { const asset = state.assets.find(a => a.id === state.selectedAssetId); if (!asset) return; applyRoleProfileToAsset(asset, e.target.value); renderAssetEditor(); saveState(); });
 
   if (document.getElementById('playerCellSelect')) {
     document.getElementById('playerCellSelect').onchange = (e) => {
@@ -2374,16 +2429,20 @@ function createAssetBase(type, overrides = {}) {
     ? [Number(overrides.lat), Number(overrides.lon)]
     : (zone && state.zones[zone] ? state.zones[zone].center : (map ? [map.getCenter().lat, map.getCenter().lng] : [54.8, 7.55]));
   const normalizedType = normalizeAssetType(type || overrides.type || 'patrol_vessel');
+  const classPreset = NAVAL_CLASS_LIBRARY_BY_KEY[overrides.classKey] || NAVAL_CLASS_LIBRARY_BY_KEY[type] || null;
   return {
     id: uniqueId(`asset-${state.assets.length + 1}`, existingIds),
     name: autoNameForAssetType(normalizedType, existingNames),
     type: normalizedType,
+    classKey: overrides.classKey != null ? overrides.classKey : (classPreset?.value || ''),
+    className: overrides.className != null ? overrides.className : (classPreset?.label || ''),
+    roleProfile: overrides.roleProfile != null ? overrides.roleProfile : '',
     affiliation: normalizeAssetAffiliation(overrides.affiliation || (isCommercialAssetType(normalizedType) ? 'neutral' : 'friend')),
     representation: normalizeAssetRepresentation(overrides.representation || (isCommercialAssetType(normalizedType) ? 'track' : 'unit')),
     status: overrides.status || 'available',
     zone,
     fuel: overrides.fuel != null ? clampPercent(overrides.fuel, 100) : defaultFuelForAssetType(normalizedType),
-    fuelCapacity: overrides.fuelCapacity != null ? Math.max(1, Number(overrides.fuelCapacity)) : defaultFuelCapacityForAssetType(normalizedType),
+    fuelCapacity: overrides.fuelCapacity != null ? Math.max(1, Number(overrides.fuelCapacity)) : (classPreset?.fuelCapacity || defaultFuelCapacityForAssetType(normalizedType)),
     readiness: overrides.readiness != null ? clampPercent(overrides.readiness, defaultReadinessForAssetType(normalizedType)) : defaultReadinessForAssetType(normalizedType),
     assignedCell: overrides.assignedCell != null ? overrides.assignedCell : (isCommercialAssetType(normalizedType) ? '' : (state.session.cells[0]?.id || '')),
     lat: Number(Number(center[0]).toFixed(6)),
@@ -2391,10 +2450,10 @@ function createAssetBase(type, overrides = {}) {
     heading: normalizeHeading(overrides.heading ?? (Math.random() * 360)),
     speed: normalizeSpeed(overrides.speed ?? (isCommercialAssetType(normalizedType) ? randomWithin(8, 18) : 12)),
     trackQuality: normalizeTrackQuality(overrides.trackQuality || (isCommercialAssetType(normalizedType) ? 'q3' : 'q2')),
-    roleTags: Array.isArray(overrides.roleTags) ? clone(overrides.roleTags) : clone(modernPresetForType(normalizedType)?.roleTags || []),
-    faction: overrides.faction != null ? overrides.faction : (modernPresetForType(normalizedType)?.faction || ''),
-    classNotes: overrides.classNotes != null ? overrides.classNotes : (modernPresetForType(normalizedType)?.notes || ''),
-    sensorProfile: Object.assign({}, modernPresetForType(normalizedType)?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), overrides.sensorProfile || {}),
+    roleTags: Array.isArray(overrides.roleTags) ? clone(overrides.roleTags) : clone(classPreset?.roleTags || []),
+    faction: overrides.faction != null ? overrides.faction : (classPreset?.faction || ''),
+    classNotes: overrides.classNotes != null ? overrides.classNotes : (classPreset?.notes || ''),
+    sensorProfile: Object.assign({}, classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), overrides.sensorProfile || {}),
     waypoints: Array.isArray(overrides.waypoints) ? clone(overrides.waypoints) : []
   };
 }
@@ -2465,6 +2524,8 @@ function addModernAssetFromLibrary() {
   const preset = NAVAL_CLASS_LIBRARY.find(item => item.value === select.value);
   if (!preset) return;
   const asset = createAssetBase(preset.baseType || preset.value, {
+    classKey: preset.value,
+    className: preset.label,
     affiliation: preset.affiliation,
     assignedCell: preset.assignedCell || '',
     speed: preset.speed,
@@ -2478,7 +2539,7 @@ function addModernAssetFromLibrary() {
     classNotes: preset.notes || ''
   });
   asset.name = preset.label;
-  asset.type = preset.value;
+  asset.type = preset.baseType || normalizeAssetType(preset.value);
   asset.representation = isCommercialAssetType(asset.type) ? 'track' : 'unit';
   state.assets.push(asset);
   state.selectedAssetId = asset.id;
@@ -2503,12 +2564,23 @@ function onSelectedAssetTypeChanged() {
   if (fuelEl && !String(fuelEl.value || '').trim()) fuelEl.value = defaultFuelForAssetType(type);
   if (readinessEl && !String(readinessEl.value || '').trim()) readinessEl.value = defaultReadinessForAssetType(type);
   if (asset) {
-    const preset = modernPresetForType(type);
+    asset.type = type;
+    if (asset.classKey && normalizeAssetType(asset.classKey) !== type) {
+      asset.classKey = '';
+      asset.className = asset.className || '';
+    }
+    const preset = presetForAsset(asset);
     asset.fuelCapacity = preset?.fuelCapacity || defaultFuelCapacityForAssetType(type);
-    asset.roleTags = clone(preset?.roleTags || []);
-    asset.faction = preset?.faction || asset.faction || '';
-    asset.classNotes = preset?.notes || asset.classNotes || '';
-    asset.sensorProfile = Object.assign({}, preset?.sensorProfile || defaultSensorProfileForAssetType(type));
+    if (preset) {
+      asset.roleTags = clone(preset.roleTags || []);
+      asset.faction = preset.faction || asset.faction || '';
+      asset.classNotes = preset.notes || asset.classNotes || '';
+      asset.sensorProfile = Object.assign({}, preset.sensorProfile || defaultSensorProfileForAssetType(type));
+    } else {
+      asset.sensorProfile = Object.assign({}, defaultSensorProfileForAssetType(type), asset.sensorProfile || {});
+    }
+    const roleSelect = document.getElementById('assetRoleProfile');
+    if (roleSelect && roleSelect.value) applyRoleProfileToAsset(asset, roleSelect.value);
   }
   renderModernAssetLibraryInfo();
   renderFacilitatorWeatherPanel();
@@ -2548,6 +2620,11 @@ function saveSelectedAssetProps() {
   asset.id = requestedId;
   asset.name = document.getElementById('assetName').value.trim() || asset.name;
   asset.type = normalizeAssetType(document.getElementById('assetType').value);
+  asset.className = String(document.getElementById('assetClassName')?.value || '').trim();
+  asset.roleProfile = String(document.getElementById('assetRoleProfile')?.value || '').trim();
+  asset.roleTags = parseRoleTagsText(document.getElementById('assetRoleTags')?.value || '');
+  asset.faction = String(document.getElementById('assetFaction')?.value || '').trim();
+  asset.classNotes = String(document.getElementById('assetClassNotes')?.value || '').trim();
   asset.affiliation = normalizeAssetAffiliation(document.getElementById('assetAffiliation').value);
   asset.representation = normalizeAssetRepresentation(document.getElementById('assetRepresentation').value);
   asset.status = document.getElementById('assetStatus').value;
@@ -2556,6 +2633,7 @@ function saveSelectedAssetProps() {
   asset.readiness = clampPercent(document.getElementById('assetReadiness').value, defaultReadinessForAssetType(asset.type));
   asset.fuelCapacity = fuelCapacityForAsset(asset);
   asset.sensorProfile = Object.assign({}, defaultSensorProfileForAssetType(asset.type), asset.sensorProfile || {});
+  if (asset.roleProfile) applyRoleProfileToAsset(asset, asset.roleProfile);
   asset.assignedCell = document.getElementById('assetAssignedCell').value;
   asset.trackQuality = normalizeTrackQuality(document.getElementById('assetTrackQuality').value);
   asset.heading = normalizeHeading(document.getElementById('assetHeading').value);
@@ -3647,7 +3725,7 @@ function renderAssets() {
           <strong>${a.name}</strong>
           <div class="row" style="margin-top:6px">
             <span class="tag">${assetRepresentationLabel(a.representation)}</span>
-            <span class="tag">${assetTypeLabel(a.type)}</span>
+            <span class="tag">${assetTypeLabel(a.type)}</span>${assetClassLabel(a) ? `<span class="tag">${escapeHtml(assetClassLabel(a))}</span>` : ''}
             <span class="tag">${assetAffiliationLabel(a.affiliation)}</span>
             <span class="tag">${trackQualityShort(a.trackQuality)}</span>
             <span class="tag">${a.status}</span>
@@ -3670,6 +3748,11 @@ function renderAssetEditor() {
   const assetId = document.getElementById('assetId');
   const assetName = document.getElementById('assetName');
   const assetType = document.getElementById('assetType');
+  const assetClassName = document.getElementById('assetClassName');
+  const assetRoleProfile = document.getElementById('assetRoleProfile');
+  const assetRoleTags = document.getElementById('assetRoleTags');
+  const assetFaction = document.getElementById('assetFaction');
+  const assetClassNotes = document.getElementById('assetClassNotes');
   const assetAffiliation = document.getElementById('assetAffiliation');
   const assetRepresentation = document.getElementById('assetRepresentation');
   const assetStatus = document.getElementById('assetStatus');
@@ -3687,12 +3770,18 @@ function renderAssetEditor() {
   assetZone.innerHTML = ['<option value="">Unplaced</option>'].concat(zoneIds().map(id => `<option value="${id}">${state.zones[id].name}</option>`)).join('');
   assetAssignedCell.innerHTML = ['<option value="">Unassigned / Commercial</option>'].concat(state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`)).join('');
   if (assetType) assetType.innerHTML = ASSET_TYPE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  if (assetRoleProfile) { const opts = roleProfileOptionsForType(asset?.type || assetType?.value || ''); assetRoleProfile.innerHTML = ['<option value="">No preset role profile</option>'].concat(opts.map(o => `<option value="${o.value}">${o.label}</option>`)).join(''); }
   if (assetAffiliation) assetAffiliation.innerHTML = ASSET_AFFILIATION_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetRepresentation) assetRepresentation.innerHTML = ASSET_REPRESENTATION_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetTrackQuality) assetTrackQuality.innerHTML = TRACK_QUALITY_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
   if (assetId) assetId.value = asset?.id || '';
   if (assetName) assetName.value = asset?.name || '';
   if (assetType) assetType.value = normalizeAssetType(asset?.type || 'patrol_vessel');
+  if (assetClassName) assetClassName.value = assetClassLabel(asset);
+  if (assetRoleProfile) assetRoleProfile.value = asset?.roleProfile || '';
+  if (assetRoleTags) assetRoleTags.value = (roleTagsForAsset(asset) || []).join(', ');
+  if (assetFaction) assetFaction.value = asset?.faction || presetForAsset(asset)?.faction || '';
+  if (assetClassNotes) assetClassNotes.value = asset?.classNotes || presetForAsset(asset)?.notes || '';
   if (assetAffiliation) assetAffiliation.value = normalizeAssetAffiliation(asset?.affiliation || 'friend');
   if (assetRepresentation) assetRepresentation.value = normalizeAssetRepresentation(asset?.representation || 'unit');
   if (assetStatus) assetStatus.value = asset?.status || 'available';
@@ -3728,7 +3817,8 @@ function facilitatorInjectSections() {
   const statusControlsHtml = `<div class="small" style="margin-top:6px">Players receive an initial status update at H-0 when they lock a cell. Routine updates are sent every configured number of hours.</div><div class="row" style="margin-top:8px"><label style="max-width:160px">Routine interval (hours)<input id="statusUpdateIntervalInput" type="number" min="1" max="24" step="1" value="${Math.max(1, Math.min(24, Number(state.scenario.statusUpdateIntervalHours || 6) || 6))}"></label><button class="secondary" onclick="saveStatusUpdateInterval()">Apply interval</button></div><div class="row" style="margin-top:8px"><select id="facStatusCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendManualStatusUpdate()">Send Status Update</button></div>`;
   const locksHtml = `<div class="small" style="margin-top:6px">Use this when a player locked the wrong cell or needs to reclaim a session from a fresh browser window.</div><div style="margin-top:8px">${state.session.cells.map(c => { const lock = cellLockFor(c.id); return `<div class="timeline-item"><strong>${c.name}</strong><br>${lock ? `Locked · ${lock.ownerId || 'unknown player'} · ${lock.claimedAt || ''}` : '<span class="small">Unlocked</span>'}<div class="row" style="margin-top:8px"><button class="secondary" ${lock ? '' : 'disabled'} onclick="facilitatorUnlockCellClaim('${c.id}')">Unlock cell</button></div></div>`; }).join('')}</div><div class="row" style="margin-top:8px"><button class="secondary" onclick="facilitatorUnlockAllCellClaims()">Unlock all cells</button></div>`;
   const recentInjectHtml = (state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>';
-  return { playerInputHtml, boardingHtml, resolvedHtml, injectReleaseHtml, statusControlsHtml, locksHtml, recentInjectHtml };
+  const recentEventsHtml = facilitatorRecentEventsHtml();
+  return { playerInputHtml, boardingHtml, resolvedHtml, injectReleaseHtml, statusControlsHtml, locksHtml, recentInjectHtml, recentEventsHtml };
 }
 
 function renderInjects() {
@@ -3752,6 +3842,8 @@ function renderInjects() {
   if (statusPanel) statusPanel.innerHTML = `<div class="card"><strong>Player status updates</strong>${sections.statusControlsHtml}</div>`;
   const locksPanel = document.getElementById('facilitatorLocksPanel');
   if (locksPanel) locksPanel.innerHTML = `<div class="card"><strong>Player cell locks</strong>${sections.locksHtml}</div>`;
+  const recentEventsPanel = document.getElementById('facilitatorRecentEventsPanel');
+  if (recentEventsPanel) recentEventsPanel.innerHTML = `<div class="card"><strong>Recent Events</strong>${sections.recentEventsHtml}</div>`;
 }
 
 function releaseSelectedInject() {
@@ -3799,6 +3891,15 @@ function facilitatorUnlockCellClaim(cellId) {
 function facilitatorUnlockAllCellClaims() {
   unlockAllCellClaims();
   renderAll();
+}
+
+
+function facilitatorRecentEventsHtml() {
+  const items = [];
+  (state.timeline || []).slice(-8).forEach(item => items.push({ time: item.time || 'H+0', text: item.text || '' }));
+  (state.releasedInjects || []).slice(-6).forEach(item => items.push({ time: item.time || 'H+0', text: `Inject released: ${item.title || item.id}` }));
+  (state.boardingRequests || []).filter(r => r.status !== 'pending').slice(-6).forEach(r => items.push({ time: r.time || 'H+0', text: `Boarding outcome: ${r.adjudication?.outcome || r.status}` }));
+  return items.length ? items.slice().reverse().map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small">No recent facilitator events.</div>';
 }
 
 function renderTimeline() {
