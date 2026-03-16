@@ -1493,7 +1493,8 @@ function bindEvents() {
       }
       renderPlayerPage(); initMaps(true);
     };
-    document.getElementById('playerSubmitBtn').onclick = submitPlayerAction;
+    const playerSubmitBtn = document.getElementById('playerSubmitBtn');
+    if (playerSubmitBtn) playerSubmitBtn.onclick = submitPlayerAction;
   }
   window.addEventListener('storage', (e) => {
     if (e.key !== STORAGE_KEY || !e.newValue) return;
