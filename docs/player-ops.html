@@ -24,6 +24,10 @@
     <h2 style="margin-top:18px">Submit Action</h2>
     <textarea id="playerActionText" placeholder="Describe your intended action, intent, timing, and desired effect"></textarea>
     <button id="playerSubmitBtn" class="good">Submit Action</button>
+    <h2 style="margin-top:18px">Cross-device Sync</h2>
+    <div class="small">If the player view is open on another computer, the facilitator will not see those changes automatically without a backend. Use this package to copy the player's latest assigned-asset orders and action log into Facilitator Ops.</div>
+    <textarea id="playerSyncExportText" readonly placeholder="Player sync package will appear here" style="margin-top:10px;min-height:140px"></textarea>
+    <button class="secondary" style="margin-top:8px" onclick="exportPlayerSyncPackage()">Copy Player Sync Package</button>
     <h2 style="margin-top:18px">Action Log</h2>
     <div id="playerActionLog"></div>
   </div>

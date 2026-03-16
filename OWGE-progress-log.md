@@ -57,3 +57,6 @@
 - Player header now keeps the locked cell selector visible across player pages.
 - Player Scenario now includes a live scenario summary of turn resolutions, facilitator injects, and player actions.
 - Measurement tool changed to a visible magnifier-style map control with click-start / click-end behavior.
+
+- Cross-device note: localStorage still does not provide true live multi-computer sync; added manual Player Ops -> Facilitator Ops sync package for remote player orders/actions.
+- Measurement tool updated to explicit magnifier -> click start point -> click end point flow before distance is shown.
