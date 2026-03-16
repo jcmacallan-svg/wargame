@@ -941,8 +941,21 @@ function defaultReadinessForAssetType(type) {
   return 5;
 }
 
-function playerVisibleContacts(cellId = getPlayerCell()) {
-  return state.assets.filter(a => a.assignedCell !== cellId);
+function playerControllableAssets(cellId = getPlayerCell()) {
+  return state.assets.filter(a => a.assignedCell === cellId && !isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral');
+}
+
+function playerVisibleContacts(cellId = getPlayerCell(), maxRangeNm = 8) {
+  const own = playerControllableAssets(cellId);
+  if (!own.length) return [];
+  return state.assets.filter(a => {
+    if (a.assignedCell === cellId) return false;
+    const target = assetLatLng(a, state.assets.findIndex(x => x.id === a.id));
+    return own.some(src => {
+      const origin = assetLatLng(src, state.assets.findIndex(x => x.id === src.id));
+      return distanceNmBetween(origin[0], origin[1], target[0], target[1]) <= maxRangeNm;
+    });
+  });
 }
 
 function selectedPlayerContact() {
@@ -1247,7 +1260,7 @@ function selectedAsset() {
 
 function selectedPlayerAsset() {
   const cellId = getPlayerCell();
-  const myAssets = state.assets.filter(a => a.assignedCell === cellId);
+  const myAssets = playerControllableAssets(cellId);
   if (!myAssets.length) return null;
   const found = myAssets.find(a => a.id === playerSelectedAssetId);
   if (found) return found;
@@ -1258,7 +1271,7 @@ function selectedPlayerAsset() {
 function appendWaypointToPlayerAsset(latlng) {
   const asset = selectedPlayerAsset();
   if (!asset) {
-    updatePlayerWaypointUi('Select one of your assigned assets first.');
+    updatePlayerWaypointUi('Select one of your controllable assigned assets first.');
     return;
   }
   const wp = appendWaypoint(asset, latlng);
@@ -2519,9 +2532,10 @@ function renderPlayerMap() {
     }).addTo(playerMap);
     playerAssetLayers.push(vectorLine);
     const isOwn = a.assignedCell === cellId;
-    const marker = L.marker(ll, { icon: assetIcon(a), title: a.name, draggable: isOwn }).addTo(playerMap);
+    const canControl = isOwn && !isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral';
+    const marker = L.marker(ll, { icon: assetIcon(a), title: a.name, draggable: canControl }).addTo(playerMap);
     marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
-    if (isOwn) {
+    if (canControl) {
       marker.on('click', () => selectPlayerAsset(a.id));
       marker.on('dragend', e => {
         const p = e.target.getLatLng();
@@ -2795,37 +2809,44 @@ function renderPlayerPage() {
     return;
   }
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
-  const sharedCommercial = state.assets.filter(a => isCommercialAssetType(a.type) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
-  const sharedContacts = playerVisibleContacts(cellId);
-  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">My assets: ${myAssets.length}</span><span class="tag">Shared map assets: ${state.assets.length}</span><span class="tag">Commercial: ${sharedCommercial.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Shared map mode</strong><br>The player map mirrors the facilitator battlespace, including commercial vessels and shared contacts, so everyone validates against the same chart picture.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
-  if (!myAssets.find(a => a.id === playerSelectedAssetId)) playerSelectedAssetId = myAssets[0]?.id || '';
+  const controllableAssets = playerControllableAssets(cellId);
+  const visibleContacts = playerVisibleContacts(cellId, 8);
+  const visualShips = visibleContacts.filter(a => ['container_ship','bulk_carrier','tanker','lng_carrier','ro_ro_ferry','passenger_ferry','fishing_vessel','tug_workboat','dredger','pilot_boat','research_survey_vessel'].includes(normalizeAssetType(a.type)) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
+  const otherContacts = visibleContacts.filter(a => !visualShips.includes(a));
+  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assigned: ${myAssets.length}</span><span class="tag">Controllable: ${controllableAssets.length}</span><span class="tag">Visual ships: ${visualShips.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Player view</strong><br>You can issue heading, speed, waypoint, and boarding/classification actions for your own controllable assets. Commercial traffic remains facilitator-controlled.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
+  if (!controllableAssets.find(a => a.id === playerSelectedAssetId)) playerSelectedAssetId = controllableAssets[0]?.id || '';
+  if (!visibleContacts.find(a => a.id === playerSelectedContactId)) playerSelectedContactId = visibleContacts[0]?.id || '';
   const selected = selectedPlayerAsset();
   document.getElementById('playerAssetsPanel').innerHTML = `
     <div class="asset-section">
-      <div class="section-title">Assigned to ${cell?.name || 'current cell'}</div>
-      ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div><button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
+      <div class="section-title">Assigned Assets</div>
+      ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div>${(!isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral') ? `<button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button>` : `<div class="small" style="margin-top:8px">Facilitator-controlled contact. Visible, but not movable from player view.</div>`}</div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
+    </div>`;
+  const visualPanel = document.getElementById('playerVisualContactsPanel');
+  if (visualPanel) visualPanel.innerHTML = `
+    <div class="asset-section">
+      <div class="section-title">Ships within visual range (8 nm)</div>
+      ${(visualShips.length ? visualShips.map(a => `<div class="card ${a.id === playerSelectedContactId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span></div><button class="secondary player-select-btn" onclick="selectPlayerContact('${a.id}')">Select Contact</button></div>`).join('') : '<div class="small">No ships within visual range right now.</div>')}
     </div>
     <div class="asset-section" style="margin-top:10px">
-      <div class="section-title">Commercial Vessels / Shared Contacts</div>
-      ${(sharedCommercial.map(a => `<div class="card"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span></div></div>`).join('') || '<div class="small">No shared commercial vessels visible.</div>')}
-    </div>
-    <div class="asset-section" style="margin-top:10px">
-      <div class="section-title">Other Contacts</div>
-      ${(sharedContacts.length ? sharedContacts.map(a => `<div class="card ${a.id === playerSelectedContactId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${prettyZone(a.zone)}</span></div><button class="secondary player-select-btn" onclick="selectPlayerContact('${a.id}')">Classify</button></div>`).join('') : '<div class="small">No non-commercial contacts visible.</div>')}
+      <div class="section-title">Other visual contacts</div>
+      ${(otherContacts.length ? otherContacts.map(a => `<div class="card ${a.id === playerSelectedContactId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${prettyZone(a.zone)}</span></div><button class="secondary player-select-btn" onclick="selectPlayerContact('${a.id}')">Classify</button></div>`).join('') : '<div class="small">No additional visual contacts.</div>')}
     </div>`;
   const editor = document.getElementById('playerAssetEditor');
   const selectedContact = selectedPlayerContact();
   if (editor) {
-    const ownEditor = selected ? `<div class="card"><strong>${selected.name}</strong><div class="grid2" style="margin-top:8px"><label>Heading<input id="playerAssetHeading" type="number" min="0" max="359" step="1" value="${normalizeHeading(selected.heading)}"></label><label>Speed (kt)<input id="playerAssetSpeed" type="number" min="0" max="60" step="0.1" value="${normalizeSpeed(selected.speed)}"></label></div><label style="display:block;margin-top:10px">Waypoints<textarea id="playerAssetWaypoints" placeholder="Click Add Waypoint Mode and then click the map, or type one waypoint per line as lat,lon,label">${formatWaypointText(selected.waypoints || [])}</textarea></label><div class="row" style="margin-top:10px"><button onclick="savePlayerAssetOrders()">Save Orders</button><button class="secondary" onclick="playerMapMode = (playerMapMode === 'add-waypoint' ? 'select' : 'add-waypoint'); updatePlayerWaypointUi(); renderPlayerPage();">${playerMapMode === 'add-waypoint' ? 'Exit Waypoint Mode' : 'Add Waypoint Mode'}</button><button class="secondary" onclick="undoLastPlayerWaypoint()">Undo Last Waypoint</button><button class="secondary" onclick="clearPlayerSelectedWaypoints()">Clear Waypoints</button></div><div class="small" style="margin-top:8px">Only your own assigned assets can be moved or receive heading, speed, and waypoint orders from this player view.</div></div>` : '<div class="small">Select one of your assigned assets to set heading, speed, and waypoints.</div>';
+    const ownEditor = selected ? `<div class="card"><strong>${selected.name}</strong><div class="grid2" style="margin-top:8px"><label>Heading<input id="playerAssetHeading" type="number" min="0" max="359" step="1" value="${normalizeHeading(selected.heading)}"></label><label>Speed (kt)<input id="playerAssetSpeed" type="number" min="0" max="60" step="0.1" value="${normalizeSpeed(selected.speed)}"></label></div><label style="display:block;margin-top:10px">Waypoints<textarea id="playerAssetWaypoints" placeholder="Click Add Waypoint Mode and then click the map, or type one waypoint per line as lat,lon,label">${formatWaypointText(selected.waypoints || [])}</textarea></label><div class="row" style="margin-top:10px"><button onclick="savePlayerAssetOrders()">Save Orders</button><button class="secondary" onclick="playerMapMode = (playerMapMode === 'add-waypoint' ? 'select' : 'add-waypoint'); updatePlayerWaypointUi(); renderPlayerPage();">${playerMapMode === 'add-waypoint' ? 'Exit Waypoint Mode' : 'Add Waypoint Mode'}</button><button class="secondary" onclick="undoLastPlayerWaypoint()">Undo Last Waypoint</button><button class="secondary" onclick="clearPlayerSelectedWaypoints()">Clear Waypoints</button></div><div class="small" style="margin-top:8px">Only your own non-commercial assigned assets can receive heading, speed, and waypoint orders from this player view.</div></div>` : '<div class="small">Select one of your controllable assigned assets to set heading, speed, and waypoints.</div>';
     const contactEditor = selectedContact ? `<div class="card" style="margin-top:10px"><strong>Contact classification: ${selectedContact.name}</strong><div class="grid2" style="margin-top:8px"><label>Affiliation<select id="playerContactAffiliation">${ASSET_AFFILIATION_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeAssetAffiliation(selectedContact.affiliation) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Representation<select id="playerContactRepresentation">${ASSET_REPRESENTATION_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeAssetRepresentation(selectedContact.representation) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Track quality<select id="playerContactTrackQuality">${TRACK_QUALITY_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeTrackQuality(selectedContact.trackQuality) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Name<input disabled value="${selectedContact.name}"></label></div><div class="row" style="margin-top:10px"><button onclick="savePlayerContactClassification()">Save Classification</button></div><label style="display:block;margin-top:10px">Boarding rationale<textarea id="playerBoardingRationale" placeholder="Why should this boarding have a better chance of success? Explain timing, support, geometry, behavior, or other justification."></textarea></label><div class="row" style="margin-top:10px"><button onclick="requestPlayerBoarding()">Request Boarding</button></div><div class="small" style="margin-top:8px">Players may reclassify contacts and submit boarding requests. Commercial vessels remain facilitator-controlled for heading, speed, and waypoint orders.</div></div>` : '<div class="small" style="margin-top:10px">Select a contact from Other Contacts to adjust affiliation/classification or request a boarding.</div>';
     editor.innerHTML = ownEditor + contactEditor;
   }
   updatePlayerWaypointUi();
   updatePlayerNavLinks();
   const feed = state.playerFeedByCell[cellId] || [];
-  document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
+  const feedPanel = document.getElementById('playerFeedPanel');
+  if (feedPanel) feedPanel.innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
-  document.getElementById('playerActionLog').innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
+  const logPanel = document.getElementById('playerActionLog');
+  if (logPanel) logPanel.innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
   initMaps(true);
 }
 
