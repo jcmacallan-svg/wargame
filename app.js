@@ -691,6 +691,50 @@ const NAVAL_CLASS_LIBRARY = [
   {
     value: 'type_075_lhd', label: 'Type 075 LHD', baseType: 'amphibious_assault_ship', faction: 'China', roleTags: ['Amphibious Assault', 'Aviation', 'Command'], affiliation: 'hostile', assignedCell: '', speed: 14, readiness: 89, fuel: 100, fuelCapacity: 16, heading: 110,
     sensorProfile: { radar: 18, visual: 10, inspection: 0.7, ew: 12 }, notes: 'Aviation-capable amphibious assault ship.'
+  },
+  {
+    value: 'feeder_container', label: 'Feeder Container Ship', baseType: 'container_ship', faction: 'Commercial', roleTags: ['Commercial', 'Container', 'Merchant'], affiliation: 'neutral', assignedCell: '', speed: 13, readiness: 84, fuel: 100, fuelCapacity: 10, heading: 90,
+    sensorProfile: { radar: 12, visual: 8, inspection: 0.5, ew: 3 }, notes: 'Routine regional container traffic.'
+  },
+  {
+    value: 'panamax_container', label: 'Panamax Container Ship', baseType: 'container_ship', faction: 'Commercial', roleTags: ['Commercial', 'Container', 'Merchant'], affiliation: 'neutral', assignedCell: '', speed: 15, readiness: 86, fuel: 100, fuelCapacity: 12, heading: 90,
+    sensorProfile: { radar: 13, visual: 8, inspection: 0.5, ew: 3 }, notes: 'Large inter-theater container traffic.'
+  },
+  {
+    value: 'aframax_tanker', label: 'Aframax Tanker', baseType: 'tanker', faction: 'Commercial', roleTags: ['Commercial', 'Tanker', 'Energy'], affiliation: 'neutral', assignedCell: '', speed: 13, readiness: 82, fuel: 100, fuelCapacity: 12, heading: 90,
+    sensorProfile: { radar: 12, visual: 8, inspection: 0.4, ew: 2 }, notes: 'Crude or product tanker on routine energy route.'
+  },
+  {
+    value: 'lng_carrier_qflex', label: 'Q-Flex LNG Carrier', baseType: 'lng_carrier', faction: 'Commercial', roleTags: ['Commercial', 'LNG', 'Energy'], affiliation: 'neutral', assignedCell: '', speed: 14, readiness: 84, fuel: 100, fuelCapacity: 13, heading: 90,
+    sensorProfile: { radar: 12, visual: 8, inspection: 0.4, ew: 2 }, notes: 'High-value LNG carrier with predictable routing.'
+  },
+  {
+    value: 'capesize_bulk', label: 'Capesize Bulk Carrier', baseType: 'bulk_carrier', faction: 'Commercial', roleTags: ['Commercial', 'Bulk Carrier', 'Merchant'], affiliation: 'neutral', assignedCell: '', speed: 12, readiness: 80, fuel: 100, fuelCapacity: 11, heading: 90,
+    sensorProfile: { radar: 12, visual: 8, inspection: 0.4, ew: 2 }, notes: 'Heavy bulk trade traffic such as ore or coal.'
+  },
+  {
+    value: 'ro_ro_liner', label: 'Ro-Ro Liner', baseType: 'ro_ro_ferry', faction: 'Commercial', roleTags: ['Commercial', 'Ro-Ro', 'Lift'], affiliation: 'neutral', assignedCell: '', speed: 16, readiness: 88, fuel: 100, fuelCapacity: 10, heading: 90,
+    sensorProfile: { radar: 12, visual: 9, inspection: 0.5, ew: 3 }, notes: 'Roll-on / roll-off ferry or liner with vehicle deck cargo.'
+  },
+  {
+    value: 'passenger_fast_ferry', label: 'Fast Passenger Ferry', baseType: 'passenger_ferry', faction: 'Commercial', roleTags: ['Commercial', 'Passenger', 'Ferry'], affiliation: 'neutral', assignedCell: '', speed: 18, readiness: 90, fuel: 100, fuelCapacity: 9, heading: 90,
+    sensorProfile: { radar: 11, visual: 9, inspection: 0.6, ew: 2 }, notes: 'Civil passenger ferry with regular coastal service pattern.'
+  },
+  {
+    value: 'trawler_oceanic', label: 'Ocean Trawler', baseType: 'fishing_vessel', faction: 'Commercial', roleTags: ['Commercial', 'Fishing', 'Small Craft'], affiliation: 'neutral', assignedCell: '', speed: 9, readiness: 76, fuel: 100, fuelCapacity: 8, heading: 90,
+    sensorProfile: { radar: 9, visual: 8, inspection: 0.5, ew: 1 }, notes: 'Routine fishing traffic, low endurance and lower readiness.'
+  },
+  {
+    value: 'harbor_tug', label: 'Harbor Tug / Workboat', baseType: 'tug_workboat', faction: 'Commercial', roleTags: ['Commercial', 'Harbor Support', 'Small Craft'], affiliation: 'neutral', assignedCell: '', speed: 7, readiness: 85, fuel: 100, fuelCapacity: 7, heading: 90,
+    sensorProfile: { radar: 8, visual: 8, inspection: 0.7, ew: 1 }, notes: 'Port and anchorage support craft.'
+  },
+  {
+    value: 'survey_vessel_modern', label: 'Modern Survey Vessel', baseType: 'research_survey_vessel', faction: 'Commercial', roleTags: ['Commercial', 'Survey', 'Research'], affiliation: 'neutral', assignedCell: '', speed: 10, readiness: 83, fuel: 100, fuelCapacity: 9, heading: 90,
+    sensorProfile: { radar: 10, visual: 8, inspection: 0.6, ew: 2 }, notes: 'Hydrographic or seabed survey vessel.'
+  },
+  {
+    value: 'channel_dredger', label: 'Channel Dredger', baseType: 'dredger', faction: 'Commercial', roleTags: ['Commercial', 'Dredger', 'Harbor Support'], affiliation: 'neutral', assignedCell: '', speed: 6, readiness: 81, fuel: 100, fuelCapacity: 8, heading: 90,
+    sensorProfile: { radar: 9, visual: 8, inspection: 0.6, ew: 1 }, notes: 'Dredging vessel with constrained movement profile.'
   }
 ];
 
@@ -871,7 +915,7 @@ function renderModernAssetLibraryInfo() {
 }
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return clone(DEFAULT_STATE);
+  if (!raw) return migrateState(clone(DEFAULT_STATE));
   try {
     return migrateState(JSON.parse(raw));
   } catch (e) {
@@ -2435,7 +2479,7 @@ function autoPopulateCommercialTraffic() {
 function addModernAssetFromLibrary() {
   const select = document.getElementById('modernAssetLibrarySelect');
   if (!select?.value) {
-    alert('Choose a modern naval class to add first.');
+    alert('Choose a library asset to add first.');
     return;
   }
   const preset = NAVAL_CLASS_LIBRARY.find(item => item.value === select.value);
@@ -2468,6 +2512,7 @@ function onSelectedAssetTypeChanged() {
   const typeEl = document.getElementById('assetType');
   const nameEl = document.getElementById('assetName');
   const fuelEl = document.getElementById('assetFuel');
+  const fuelCapEl = document.getElementById('assetFuelCapacity');
   const readinessEl = document.getElementById('assetReadiness');
   if (!typeEl || !nameEl) return;
   const type = normalizeAssetType(typeEl.value);
@@ -2477,6 +2522,7 @@ function onSelectedAssetTypeChanged() {
     nameEl.value = autoNameForAssetType(type, taken);
   }
   if (fuelEl && !String(fuelEl.value || '').trim()) fuelEl.value = defaultFuelForAssetType(type);
+  if (fuelCapEl && !String(fuelCapEl.value || '').trim()) fuelCapEl.value = preset?.fuelCapacity || defaultFuelCapacityForAssetType(type);
   if (readinessEl && !String(readinessEl.value || '').trim()) readinessEl.value = defaultReadinessForAssetType(type);
   if (asset) {
     const preset = modernPresetForType(type);
@@ -2528,8 +2574,8 @@ function saveSelectedAssetProps() {
   asset.status = document.getElementById('assetStatus').value;
   asset.zone = document.getElementById('assetZone').value;
   asset.fuel = clampPercent(document.getElementById('assetFuel').value, defaultFuelForAssetType(asset.type));
+  asset.fuelCapacity = Math.max(1, Number(document.getElementById('assetFuelCapacity')?.value) || fuelCapacityForAsset(asset));
   asset.readiness = clampPercent(document.getElementById('assetReadiness').value, defaultReadinessForAssetType(asset.type));
-  asset.fuelCapacity = fuelCapacityForAsset(asset);
   asset.sensorProfile = Object.assign({}, defaultSensorProfileForAssetType(asset.type), asset.sensorProfile || {});
   asset.assignedCell = document.getElementById('assetAssignedCell').value;
   asset.trackQuality = normalizeTrackQuality(document.getElementById('assetTrackQuality').value);
@@ -3650,6 +3696,7 @@ function renderAssetEditor() {
   const assetStatus = document.getElementById('assetStatus');
   const assetZone = document.getElementById('assetZone');
   const assetFuel = document.getElementById('assetFuel');
+  const assetFuelCapacity = document.getElementById('assetFuelCapacity');
   const assetReadiness = document.getElementById('assetReadiness');
   const assetAssignedCell = document.getElementById('assetAssignedCell');
   const assetTrackQuality = document.getElementById('assetTrackQuality');
@@ -3673,6 +3720,7 @@ function renderAssetEditor() {
   if (assetStatus) assetStatus.value = asset?.status || 'available';
   if (assetZone) assetZone.value = asset?.zone || '';
   if (assetFuel) { assetFuel.value = clampPercent(asset?.fuel, defaultFuelForAssetType(asset?.type)); assetFuel.placeholder = 'Fuel (%)'; assetFuel.title = `Fuel remaining in percent; 100% equals ${fuelCapacityForAsset(asset || { type: assetType?.value })} endurance units for this class`; }
+  if (assetFuelCapacity) { assetFuelCapacity.value = fuelCapacityForAsset(asset || { type: assetType?.value }); assetFuelCapacity.placeholder = 'Fuel cap (units @ 100%)'; assetFuelCapacity.title = 'Class endurance / fuel-capacity baseline. 100% fuel equals this many endurance units.'; }
   if (assetReadiness) { assetReadiness.value = clampPercent(asset?.readiness, defaultReadinessForAssetType(asset?.type)); assetReadiness.placeholder = 'Readiness (%)'; assetReadiness.title = 'Operational readiness percentage'; }
   if (assetAssignedCell) assetAssignedCell.value = asset?.assignedCell || state.session.cells[0]?.id || '';
   if (assetTrackQuality) assetTrackQuality.value = normalizeTrackQuality(asset?.trackQuality || 'q2');
