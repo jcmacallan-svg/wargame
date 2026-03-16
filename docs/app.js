@@ -2120,18 +2120,35 @@ function buildMinimalSvg(asset, selected) {
     </svg>`;
 }
 
+function commercialTypePalette(asset) {
+  const type = normalizeAssetType(asset?.type);
+  if (type === 'container_ship' || type === 'bulk_carrier') return { hull: '#22c55e', accent: '#dcfce7', wake: '#86efac' };
+  if (type === 'tanker') return { hull: '#ef4444', accent: '#fee2e2', wake: '#fca5a5' };
+  if (type === 'ferry') return { hull: '#3b82f6', accent: '#dbeafe', wake: '#93c5fd' };
+  if (type === 'fishing_vessel') return { hull: '#f97316', accent: '#ffedd5', wake: '#fdba74' };
+  if (type === 'tug_workboat' || type === 'survey_vessel') return { hull: '#14b8a6', accent: '#ccfbf1', wake: '#5eead4' };
+  return { hull: '#94a3b8', accent: '#f8fafc', wake: '#cbd5e1' };
+}
+
 function buildCommercialSvg(asset, selected) {
-  const palette = assetNtdsPalette(asset);
   const representation = normalizeAssetRepresentation(asset.representation);
-  const stroke = selected ? '#f59e0b' : palette.stroke;
-  const fill = representation === 'track' ? 'rgba(2,6,23,.08)' : '#0f172a';
-  const dash = representation === 'track' ? '4 3' : '0';
-  const label = isCommercialAsset(asset) ? 'AIS' : assetDoctrineProfile(asset).short;
+  const colors = commercialTypePalette(asset);
+  const outline = selected ? '#f59e0b' : colors.hull;
+  const hullFill = representation === 'track' ? 'none' : colors.hull;
+  const bridgeFill = representation === 'track' ? 'none' : colors.accent;
+  const dash = representation === 'track' ? '5 4' : '0';
+  const wakeOpacity = representation === 'track' ? '.42' : '.75';
+  const role = assetDoctrineProfile(asset).short;
   return `
-    <svg width="66" height="48" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M7 25 L18 14 H50 L61 25 L50 34 H18 Z" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="${dash}" />
-      <path d="M18 14 L18 8 H30 V14" fill="none" stroke="${stroke}" stroke-width="2" opacity=".9" />
-      <text x="34" y="28" text-anchor="middle" dominant-baseline="middle" font-size="8.5" font-weight="800" fill="#f8fafc">${label}</text>
+    <svg width="72" height="50" viewBox="0 0 72 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M11 30 L22 17 H48 L61 30 L48 37 H20 Z" fill="${hullFill}" stroke="${outline}" stroke-width="2.6" stroke-dasharray="${dash}" />
+        <path d="M24 17 L24 10 H37 L37 17" fill="${bridgeFill}" stroke="${outline}" stroke-width="2.2" stroke-dasharray="${dash}" />
+        <path d="M39 17 L39 13 H46 L46 17" fill="${bridgeFill}" stroke="${outline}" stroke-width="2.2" stroke-dasharray="${dash}" />
+        <path d="M15 33 H58" stroke="${selected ? '#fbbf24' : colors.accent}" stroke-width="1.4" opacity=".95" stroke-dasharray="${dash}" />
+        <path d="M24 41 L36 45 L48 41" stroke="${colors.wake}" stroke-width="1.8" opacity="${wakeOpacity}" />
+      </g>
+      <text x="36" y="29.4" text-anchor="middle" dominant-baseline="middle" font-size="7.8" font-weight="800" fill="${representation === 'track' ? colors.accent : '#082032'}">${role}</text>
     </svg>`;
 }
 
