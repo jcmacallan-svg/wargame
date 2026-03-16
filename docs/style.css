@@ -105,3 +105,26 @@ header { position: sticky; top: 0; z-index: 20; }
 .panel select, .panel input, .panel textarea { width:100%; max-width:100%; }
 .player-container .panel:first-child .tag { max-width:100%; }
 .player-container .panel:first-child .card, .ops-container .panel .card { overflow:hidden; }
+
+
+header { display:flex; flex-direction:column; gap:6px; position:sticky; top:0; z-index:20; }
+.turn-badge {
+  position:absolute;
+  right:20px;
+  top:16px;
+  min-width:132px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid #60a5fa;
+  background:rgba(15,23,42,.94);
+  box-shadow:0 8px 24px rgba(2,6,23,.35);
+  text-align:right;
+}
+.turn-badge-turn { font-size:12px; font-weight:800; color:#93c5fd; text-transform:uppercase; letter-spacing:.04em; }
+.turn-badge-time { font-size:22px; font-weight:800; color:#eff6ff; line-height:1.05; }
+.turn-badge-meta { font-size:11px; color:#cbd5e1; margin-top:3px; }
+header .row { padding-right:160px; }
+@media (max-width: 900px) {
+  .turn-badge { position:static; align-self:flex-start; text-align:left; min-width:0; }
+  header .row { padding-right:0; }
+}

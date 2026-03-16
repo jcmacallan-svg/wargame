@@ -1352,6 +1352,18 @@ function updatePlayerWaypointUi(msg) {
   el.textContent = msg || (modeText + assetText + cursorText);
 }
 
+function waypointOrderSummary(waypoints) {
+  const queue = Array.isArray(waypoints) ? waypoints : [];
+  if (!queue.length) return 'no waypoints';
+  const preview = queue.slice(0, 3).map((wp, idx) => {
+    const label = wp.label || `WP${idx + 1}`;
+    const lat = Number(wp.lat).toFixed(3);
+    const lon = Number(wp.lon).toFixed(3);
+    return `${label} ${lat}, ${lon}`;
+  }).join(' · ');
+  return `${queue.length} waypoint${queue.length === 1 ? '' : 's'}: ${preview}${queue.length > 3 ? ' · …' : ''}`;
+}
+
 function savePlayerAssetOrders() {
   const asset = selectedPlayerAsset();
   if (!asset) return;
@@ -1361,6 +1373,9 @@ function savePlayerAssetOrders() {
   asset.heading = normalizeHeading(headingEl?.value || asset.heading);
   asset.speed = normalizeSpeed(speedEl?.value || asset.speed);
   asset.waypoints = parseWaypointText(waypointsEl?.value || '');
+  const summary = `${getPlayerCell()} saved orders for ${asset.name}: heading ${normalizeHeading(asset.heading)}°, speed ${normalizeSpeed(asset.speed)} kt, ${waypointOrderSummary(asset.waypoints)}.`;
+  state.actionLogByCell[getPlayerCell()].push({ time: state.scenario.timeLabel || 'H+0', text: summary });
+  state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: summary });
   saveState();
   updatePlayerWaypointUi(`Saved orders for ${asset.name}.`);
   renderPlayerPage();
@@ -2701,6 +2716,17 @@ function renderPlayerMap() {
   });
 }
 
+function renderGlobalStatusBadge() {
+  const nodes = Array.from(document.querySelectorAll('#turnCounterBadge'));
+  if (!nodes.length) return;
+  const turn = Number(state?.scenario?.turn || 1);
+  const timeLabel = state?.scenario?.timeLabel || 'H+0';
+  const duration = Number(state?.scenario?.turnDurationHours || 1);
+  nodes.forEach(node => {
+    node.innerHTML = `<div class="turn-badge-turn">Turn ${turn}</div><div class="turn-badge-time">${timeLabel}</div><div class="turn-badge-meta">${duration}h / turn</div>`;
+  });
+}
+
 function renderScenario() {
   const el = document.getElementById('scenarioPanel');
   if (!el) return;
@@ -2723,6 +2749,7 @@ function renderScenario() {
     <p class="small"><strong>Turn clock</strong><br>${state.scenario.timeLabel || 'H+0'} · each turn advances assets by heading/speed for ${Number(state.scenario.turnDurationHours || 1)} hour(s). Fuel burn is speed-based, with 18 kt as the most efficient cruise band.</p>
     <p class="small"><strong>Map start view</strong><br>${pinned ? `Pinned at ${pinned.center[0].toFixed(2)}, ${pinned.center[1].toFixed(2)} / zoom ${pinned.zoom}` : 'No pinned view saved.'}${remembered ? `<br>Last remembered view ${remembered.center[0].toFixed(2)}, ${remembered.center[1].toFixed(2)} / zoom ${remembered.zoom}` : ''}</p>
   `;
+  renderGlobalStatusBadge();
   const title = document.querySelector('header h1');
   if (title) title.textContent = 'Open War Game Engine v16';
   const addZoneModeBtn = document.getElementById('addZoneModeBtn');
@@ -2996,6 +3023,7 @@ function renderPlayerPage() {
   }
   updatePlayerWaypointUi();
   updatePlayerNavLinks();
+  renderGlobalStatusBadge();
   const feed = state.playerFeedByCell[cellId] || [];
   const feedPanel = document.getElementById('playerFeedPanel');
   if (feedPanel) feedPanel.innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';

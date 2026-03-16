@@ -33,3 +33,9 @@
 - Player Map left pane no longer shows cell/scenario; it starts with Assigned Assets and Orders.
 - Player heading/speed controls are now dropdowns; waypoint text is hidden but waypoint buttons remain.
 - Contact classification panel now explains affiliation / representation / track quality and is constrained to the pane width.
+
+
+## Update — Facilitator visibility and turn badge
+- Fixed: player order saves now write a clear facilitator-facing log entry with heading, speed, and waypoint summary.
+- Fixed: global turn/time badge now renders in the header at top right across facilitator and player pages.
+- Note: facilitator map still only shows waypoint lines for the currently selected asset on the map itself; the new log makes Blue cell orders visible even when that asset is not selected.
