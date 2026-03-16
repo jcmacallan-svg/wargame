@@ -1,9 +1,6 @@
 const STORAGE_KEY = 'owge_v17_northern_shield_default';
 const PLAYER_CLAIM_KEY = `${STORAGE_KEY}_playerClaim`;
 const PLAYER_INSTANCE_KEY = `${STORAGE_KEY}_playerInstance`;
-const STATE_SYNC_CHANNEL = 'owge_state_sync_v17';
-let syncChannel = null;
-try { if (typeof BroadcastChannel !== 'undefined') syncChannel = new BroadcastChannel(STATE_SYNC_CHANNEL); } catch (_) { syncChannel = null; }
 
 const DEFAULT_TEMPLATE = {
   scenario: {
@@ -86,7 +83,7 @@ const DEFAULT_STATE = {
   "assets": [
     {
       "id": "asset-1",
-      "name": "Container Ship",
+      "name": "MV Mercury",
       "type": "container_ship",
       "affiliation": "unknown",
       "representation": "unit",
@@ -115,7 +112,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-2",
-      "name": "Bulk Carrier",
+      "name": "MV Iron Crest",
       "type": "bulk_carrier",
       "affiliation": "neutral",
       "representation": "unit",
@@ -144,7 +141,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-3",
-      "name": "Tanker",
+      "name": "MT Sea Spirit",
       "type": "tanker",
       "affiliation": "neutral",
       "representation": "unit",
@@ -173,7 +170,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-4",
-      "name": "LNG Carrier",
+      "name": "LNG Arctic Flow",
       "type": "lng_carrier",
       "affiliation": "neutral",
       "representation": "unit",
@@ -202,7 +199,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-5",
-      "name": "Ro-Ro Ferry",
+      "name": "MV Channel Runner",
       "type": "ro_ro_ferry",
       "affiliation": "suspect",
       "representation": "unit",
@@ -231,7 +228,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-6",
-      "name": "Passenger Ferry",
+      "name": "MV Island Star",
       "type": "passenger_ferry",
       "affiliation": "suspect",
       "representation": "track",
@@ -270,7 +267,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-7",
-      "name": "Fishing Vessel",
+      "name": "FV North Net",
       "type": "fishing_vessel",
       "affiliation": "neutral",
       "representation": "track",
@@ -299,7 +296,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-8",
-      "name": "Tug / Workboat",
+      "name": "TB Harbor Hand",
       "type": "tug_workboat",
       "affiliation": "neutral",
       "representation": "unit",
@@ -328,7 +325,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-9",
-      "name": "Dredger",
+      "name": "DV Channel Maker",
       "type": "dredger",
       "affiliation": "suspect",
       "representation": "track",
@@ -351,7 +348,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-10",
-      "name": "Pilot Boat",
+      "name": "PB Pilot One",
       "type": "pilot_boat",
       "affiliation": "unknown",
       "representation": "unit",
@@ -380,7 +377,7 @@ const DEFAULT_STATE = {
     },
     {
       "id": "asset-11",
-      "name": "Research / Survey Vessel",
+      "name": "RV Ocean Quest",
       "type": "research_survey_vessel",
       "affiliation": "neutral",
       "representation": "unit",
@@ -790,7 +787,7 @@ function loadState() {
     return clone(DEFAULT_STATE);
   }
 }
-function saveState() { const payload = JSON.stringify(state); localStorage.setItem(STORAGE_KEY, payload); try { syncChannel?.postMessage({ type: 'state-updated', at: Date.now() }); } catch (_) {} }
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function migrateState(pkg) {
   const merged = Object.assign(clone(DEFAULT_STATE), pkg || {});
   merged.version = 17;
@@ -1109,6 +1106,16 @@ function shouldAutoRenameAsset(name) {
 function autoNameForAssetType(type, existingNames = []) {
   const normalized = normalizeAssetType(type);
   const existing = new Set((existingNames || []).map(v => String(v || '').trim()).filter(Boolean));
+  if (COMMERCIAL_NAME_PARTS[normalized]) {
+    const part = COMMERCIAL_NAME_PARTS[normalized];
+    for (const noun of part.nouns) {
+      const candidate = `${part.prefix} ${noun}`;
+      if (!existing.has(candidate)) return candidate;
+    }
+    let i = 2;
+    while (existing.has(`${part.prefix} ${assetTypeLabel(normalized)} ${i}`)) i += 1;
+    return `${part.prefix} ${assetTypeLabel(normalized)} ${i}`;
+  }
   const label = assetTypeLabel(normalized);
   if (!existing.has(label)) return label;
   let i = 2;
@@ -1808,19 +1815,6 @@ function bindEvents() {
       initMaps(true);
     } catch (_) {}
   });
-  if (syncChannel) {
-    try {
-      syncChannel.onmessage = () => {
-        try {
-          state = loadState();
-          ensureSessionMaps();
-          syncPlayerClaimFromUrl();
-          renderAll();
-          initMaps(true);
-        } catch (_) {}
-      };
-    } catch (_) {}
-  }
   window.addEventListener('focus', () => {
     try {
       state = loadState();
