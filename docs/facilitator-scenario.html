@@ -27,6 +27,20 @@
       <button id="newBlankScenarioBtn" class="secondary">New Blank Scenario</button>
     </div>
 
+    <h2 style="margin-top:18px">Turn Controls</h2>
+    <div class="row" style="margin-top:10px">
+      <button id="scenarioPreviousTurnBtn" class="secondary">Previous Turn</button>
+      <button id="scenarioNextTurnBtn" class="secondary">Next / Resolve Turn</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="small" for="turnDurationHoursInput">Timescale</label>
+      <input id="turnDurationHoursInput" type="number" min="15" max="1440" step="15" value="60" placeholder="Turn duration">
+      <select id="turnDurationUnitSelect">
+        <option value="minutes">Minutes</option>
+        <option value="hours">Hours</option>
+      </select>
+    </div>
+
     <h2 style="margin-top:18px">Scenario Templates</h2>
     <select id="templateSelect"></select>
 
@@ -41,6 +55,11 @@
       <button id="addAssetBtn">Add Asset</button>
       <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
     </div>
+    <div class="row" style="margin-top:10px">
+      <select id="modernAssetLibrarySelect"></select>
+      <button id="addModernAssetBtn" class="secondary">Add Modern Navy Asset</button>
+    </div>
+    <div class="small" style="margin-top:8px">Quick-add modern NATO, Russian, and Chinese surface combatants, carriers, amphibs, and submarines to seed the force package.</div>
     <details class="asset-filter-box" open>
       <summary>Asset list filters</summary>
       <div class="small" id="assetFilterSummary" style="margin-top:6px"></div>

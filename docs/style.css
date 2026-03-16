@@ -164,3 +164,8 @@ header .row { padding-right:160px; }
 .turn-status-tags .tag { margin:0; }
 .facilitator-scenario-layout { grid-template-columns:minmax(420px, 1fr) minmax(420px, 1fr); }
 .facilitator-ops-layout { grid-template-columns:minmax(520px, 1fr) minmax(320px, 420px); }
+
+.map-toolbar { display:flex; gap:8px; align-items:center; margin:10px 0 12px; flex-wrap:wrap; }
+.map-toolbar-status { padding:8px 10px; border:1px dashed #475569; border-radius:10px; background:#0f172a; min-width:220px; }
+.active-tool-btn { border-color:#f59e0b !important; color:#fbbf24 !important; }
+.legend-row span.small { color: var(--muted); }

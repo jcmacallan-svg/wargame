@@ -29,7 +29,11 @@
         <option value="minimal">Minimal</option>
         <option value="commercial">Vessel Icons</option>
       </select>
-      <input id="turnDurationHoursInput" type="number" min="0.25" max="24" step="0.25" value="1" placeholder="Turn hours">
+      <input id="turnDurationHoursInput" type="number" min="15" max="1440" step="15" value="60" placeholder="Turn duration">
+      <select id="turnDurationUnitSelect" title="Turn duration unit">
+        <option value="minutes">Minutes</option>
+        <option value="hours">Hours</option>
+      </select>
     </div>
     <div class="row" style="margin-top:10px">
       <label><input type="checkbox" id="rememberLastMapView" checked> Remember last map view</label>
@@ -117,20 +121,25 @@
 
   <div class="panel">
     <h2>Battlespace Map</h2>
+    <div class="map-toolbar">
+      <button id="measureFacBtn" class="secondary">Measure</button>
+      <button id="clearMeasureFacBtn" class="secondary">Clear Measure</button>
+      <div id="measureFacStatus" class="small map-toolbar-status">Off</div>
+    </div>
     <div id="map"></div>
     <div class="legend-box">
       <div>This build starts empty by design. Facilitator-defined zones are the operational overlay. Save the authored package when the battlespace and assets are in place.</div>
       <div class="small" style="margin-top:8px">Double-click a waypoint marker to drag it. Leg labels show nautical miles between each leg.</div>
       <div class="map-legend" style="margin-top:10px">
         <div class="small"><strong>Map legend</strong></div>
-        <div class="legend-row"><span class="legend-symbol legend-unit"></span> Confirmed unit</div>
-        <div class="legend-row"><span class="legend-symbol legend-track"></span> Track</div>
-        <div class="legend-row"><span class="legend-chip aff-friend">F</span> Friendly</div>
-        <div class="legend-row"><span class="legend-chip aff-assumed_friend">AF</span> Assumed Friendly</div>
-        <div class="legend-row"><span class="legend-chip aff-neutral">N</span> Neutral</div>
-        <div class="legend-row"><span class="legend-chip aff-hostile">H</span> Hostile</div>
-        <div class="legend-row"><span class="legend-chip aff-suspect">S</span> Suspect</div>
-        <div class="legend-row"><span class="legend-chip aff-unknown">U</span> Unknown</div>
+        <div class="legend-row"><span class="legend-symbol legend-unit"></span> <span><strong>Confirmed unit</strong><br><span class="small">Solid framed icon for a positively identified platform.</span></span></div>
+        <div class="legend-row"><span class="legend-symbol legend-track"></span> <span><strong>Track</strong><br><span class="small">Dashed / less certain contact that still needs confirmation.</span></span></div>
+        <div class="legend-row"><span class="legend-chip aff-friend">F</span> <span><strong>Friendly</strong><br><span class="small">Blue / cyan cues for confirmed own or allied forces.</span></span></div>
+        <div class="legend-row"><span class="legend-chip aff-assumed_friend">AF</span> <span><strong>Assumed Friendly</strong><br><span class="small">Light blue cue for probably friendly but not fully confirmed.</span></span></div>
+        <div class="legend-row"><span class="legend-chip aff-neutral">N</span> <span><strong>Neutral</strong><br><span class="small">Green cue for non-belligerent or routine commercial traffic.</span></span></div>
+        <div class="legend-row"><span class="legend-chip aff-hostile">H</span> <span><strong>Hostile</strong><br><span class="small">Red cue for positively identified hostile contacts.</span></span></div>
+        <div class="legend-row"><span class="legend-chip aff-suspect">S</span> <span><strong>Suspect</strong><br><span class="small">Amber cue for behaviour or reporting that suggests concern.</span></span></div>
+        <div class="legend-row"><span class="legend-chip aff-unknown">U</span> <span><strong>Unknown</strong><br><span class="small">Gold / amber cue for contacts with insufficient attribution.</span></span></div>
       </div>
     </div>
   </div>
