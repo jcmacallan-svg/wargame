@@ -9,13 +9,14 @@
 <body>
 <header>
   <h1>Open War Game Engine v16</h1>
-  <div class="small">Blank-map facilitator authoring: manually place zones and assets, including commercial traffic and tracks, then save the setup as a scenario package</div>
+  <div class="small">Facilitator map authoring: control chart view, shape zones, place assets, and manage the selected asset directly from the battlespace.</div>
   <div class="row" style="margin-top:10px"><a class="nav-btn" href="./facilitator-scenario.html">Scenario</a><a class="nav-btn" href="./facilitator-ops.html">Facilitator Ops / Injects</a><a class="nav-btn" href="./index.html">Map / Authoring</a></div>
   <div id="turnCounterBadge" class="turn-badge" aria-label="Current turn status"></div>
 </header>
 <div class="container">
   <div class="panel">
-    <h2>Chart Controls</h2>
+    <div id="turnStatusPanel" class="turn-status-panel"></div>
+    <h2 style="margin-top:18px">Chart Controls</h2>
     <div class="row" style="margin-top:12px">
       <label class="small" for="overlaySelect">Chart overlay</label>
       <select id="overlaySelect">
@@ -64,8 +65,8 @@
     <button id="deleteZoneBtn" class="warn">Delete Selected Zone</button>
     <div id="zoneList"></div>
 
-    <h2 style="margin-top:18px">Blue Assets</h2>
-    <div class="small">Build the force package manually. Use confirmed units or tracks, set affiliation, track quality, heading and speed, and drag markers to set their precise chart position. Assets can also follow waypoints to visit specific locations before resuming free movement. When you click <strong>Resolve Turn</strong>, each asset advances automatically for the configured turn duration.</div>
+    <h2 style="margin-top:18px">Asset Map Controls</h2>
+    <div class="small">Use the map to select the asset you want to work on. This tab focuses on the selected asset, route editing, duplication, and commercial traffic placement.</div>
     <div class="row" style="margin-top:10px">
       <button id="addAssetBtn">Add Asset</button>
       <button id="duplicateAssetBtn" class="secondary">Duplicate Selected Asset</button>
@@ -73,28 +74,8 @@
       <button id="addWaypointModeBtn" class="secondary">Add Waypoint Mode</button>
       <button id="undoWaypointBtn" class="secondary">Undo Last Waypoint</button>
       <button id="clearWaypointsBtn" class="secondary">Clear Selected Waypoints</button>
-      <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
     </div>
-    <div id="waypointStatus" class="small" style="margin-top:8px;padding:8px 10px;border:1px dashed #4b5563;border-radius:10px;background:#0f172a">Select an asset, click Add Waypoint Mode, then click on the chart to drop waypoints.</div>
-    <details class="asset-filter-box" open>
-      <summary>Asset list filters</summary>
-      <div class="small" id="assetFilterSummary" style="margin-top:6px"></div>
-      <div class="small" id="assetFilterCount" style="margin-top:4px"></div>
-      <label class="small" for="assetFilterSearch" style="margin-top:8px;display:block">Search</label>
-      <input id="assetFilterSearch" placeholder="Search by name, type, zone, or cell">
-      <label class="small" for="assetScopeFilter" style="margin-top:8px;display:block">Scope</label>
-      <select id="assetScopeFilter">
-        <option value="all">All assets</option>
-        <option value="commercial">Commercial only</option>
-        <option value="military">Non-commercial only</option>
-      </select>
-      <div class="small" style="margin-top:8px">Affiliation</div>
-      <div id="assetAffiliationFilters" class="filter-grid"></div>
-      <div class="small" style="margin-top:8px">Representation</div>
-      <div id="assetRepresentationFilters" class="filter-grid"></div>
-      <div class="row" style="margin-top:10px"><button id="resetAssetFiltersBtn" class="secondary">Reset Filters</button></div>
-    </details>
-    <div id="assetsPanel"></div>
+    <div id="waypointStatus" class="small" style="margin-top:8px;padding:8px 10px;border:1px dashed #4b5563;border-radius:10px;background:#0f172a">Select an asset on the chart, click Add Waypoint Mode, then click on the chart to drop waypoints.</div>
 
     <h3 style="margin-top:18px">Selected Asset</h3>
     <input id="assetId" placeholder="asset-id">
@@ -121,11 +102,14 @@
     </div>
     <div class="small" style="margin-top:6px">Fuel = remaining endurance resource. Readiness = operational availability.</div>
     <textarea id="assetWaypoints" placeholder="Waypoints: one per line as lat,lon,label"></textarea>
-    <div class="small" style="margin-top:6px">Tip: select an asset, switch on <strong>Add Waypoint Mode</strong>, then click directly on the map. OWGE fills in the lat/lon for you and shows the waypoint on the chart.</div>
-    <button id="saveAssetPropsBtn" class="good">Save Asset Properties</button>
-    <button id="deleteAssetBtn" class="warn">Delete Selected Asset</button>
+    <div class="small" style="margin-top:6px">Waypoints stay editable here, but the full roster lives on the Scenario tab.</div>
+    <div class="row" style="margin-top:10px">
+      <button id="saveAssetPropsBtn" class="good">Save Asset Properties</button>
+      <button id="deleteAssetBtn" class="warn">Delete Selected Asset</button>
+      <button id="clearAssetsBtn" class="secondary">Clear All Assets</button>
+    </div>
 
-    <h2 style="margin-top:18px">Non-focus Buttons</h2>
+    <h2 style="margin-top:18px">Turn Controls</h2>
     <button id="generatePressureBtn">Preview Movement</button>
     <button id="nextTurnBtn" class="secondary">Resolve Turn</button>
     <button id="resetBtn" class="secondary">Reset to Blank</button>
@@ -152,9 +136,8 @@
   </div>
 
   <div class="panel">
-    <h2>Authoring Notes</h2>
-    <div id="injectsPanel"></div>
-    <h2 style="margin-top:18px">Scenario Save Goal</h2>
+    <h2>Map Notes & Timeline</h2>
+    <div class="small">This side panel is now only for map-side context. Scenario build controls live under Scenario, and inject release lives under Facilitator Ops / Injects.</div>
     <div id="timelinePanel"></div>
   </div>
 </div>

@@ -51,12 +51,8 @@
 - Open: verify whether Blue Cells should later also move to Scenario tab or remain on Map.
 
 
-## Update: player IA + measurement tool polish
-- Player Map restored as the place for assigned assets, orders, and visual contacts.
-- Player Ops trimmed to facilitator updates/injects and player action submission.
-- Player header now keeps the locked cell selector visible across player pages.
-- Player Scenario now includes a live scenario summary of turn resolutions, facilitator injects, and player actions.
-- Measurement tool changed to a visible magnifier-style map control with click-start / click-end behavior.
-
-- Cross-device note: localStorage still does not provide true live multi-computer sync; added manual Player Ops -> Facilitator Ops sync package for remote player orders/actions.
-- Measurement tool updated to explicit magnifier -> click start point -> click end point flow before distance is shown.
+## Latest facilitator IA pass
+- Moved scenario-building controls, templates, packages, and full asset roster management to the Scenario tab.
+- Reduced Facilitator Ops / Injects to turn status, inject handling, facilitator updates, and timeline.
+- Reduced Map / Authoring to chart controls, blue cells, zone editing, selected-asset editing, duplication, commercial traffic, and turn controls.
+- Added a clearer inline turn status panel on Scenario, Ops, and Map so Turn 1 / current turn is always obvious.

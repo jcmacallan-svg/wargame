@@ -741,7 +741,7 @@ function updatePlayerNavLinks() {
   if (mapLink) mapLink.href = `./player.html${suffix}`;
 }
 function renderPlayerCellSelector() {
-  const sel = document.querySelector('#playerCellSelect');
+  const sel = document.getElementById('playerCellSelect');
   if (!sel) return;
   const claimed = getStoredPlayerClaim();
   const requested = new URLSearchParams(window.location.search).get('cell') || '';
@@ -1568,18 +1568,15 @@ function bindEvents() {
   bindClick('deleteAssetBtn', deleteSelectedAsset);
   bindClick('clearAssetsBtn', clearAssets);
 
-  const playerCellSelectors = Array.from(document.querySelectorAll('#playerCellSelect'));
-  if (playerCellSelectors.length) {
-    playerCellSelectors.forEach(sel => {
-      sel.onchange = (e) => {
-        const cellId = e.target.value;
-        if (!cellId) return;
-        if (!claimPlayerCell(cellId)) {
-          alert('This cell is already locked, or this browser tab has already claimed a different cell.');
-        }
-        renderPlayerPage(); initMaps(true);
-      };
-    });
+  if (document.getElementById('playerCellSelect')) {
+    document.getElementById('playerCellSelect').onchange = (e) => {
+      const cellId = e.target.value;
+      if (!cellId) return;
+      if (!claimPlayerCell(cellId)) {
+        alert('This cell is already locked, or this browser tab has already claimed a different cell.');
+      }
+      renderPlayerPage(); initMaps(true);
+    };
     const playerSubmitBtn = document.getElementById('playerSubmitBtn');
     if (playerSubmitBtn) playerSubmitBtn.onclick = submitPlayerAction;
   }
@@ -2604,13 +2601,14 @@ function updateMeasurementOverlay(target) {
 function updateMeasurementControl(target) {
   const st = measurementStateFor(target);
   if (!st.controlNode) return;
-  const status = st.start && st.end ? `Distance: ${measurementLabel(st.start, st.end)}` : st.start ? 'Click an end point on the chart' : st.active ? 'Click a start point on the chart' : 'Click the magnifier, then click a start point';
+  const status = st.start && st.end ? measurementLabel(st.start, st.end) : st.start ? 'Select end point' : st.active ? 'Select start point' : 'Off';
   st.controlNode.innerHTML = `
-    <div class="measure-toolbar">
-      <button type="button" class="measure-icon-btn ${st.active ? 'active' : ''}" data-action="toggle" aria-label="Measure distance" title="Measure distance">&#128269;</button>
-      <button type="button" class="measure-icon-btn secondary" data-action="clear" aria-label="Clear measurement" title="Clear measurement">&#10005;</button>
-    </div>
+    <div class="measure-title">Measure</div>
     <div class="measure-status">${status}</div>
+    <div class="measure-actions">
+      <button type="button" class="measure-btn ${st.active ? 'active' : ''}" data-action="toggle">${st.active ? 'Cancel' : 'Start'}</button>
+      <button type="button" class="measure-btn secondary" data-action="clear">Clear</button>
+    </div>
   `;
   st.controlNode.querySelector('[data-action="toggle"]').onclick = () => {
     if (st.active) {
@@ -2658,7 +2656,9 @@ function handleMeasurementClick(target, latlng) {
 function handleMeasurementMove(target, latlng) {
   const st = measurementStateFor(target);
   if (!st.active || !st.start) return;
-  // Deliberately wait for the second click before calculating and displaying a distance.
+  st.end = latlng;
+  updateMeasurementOverlay(target);
+  updateMeasurementControl(target);
 }
 
 function clearLayers(arr, target) {
@@ -3034,83 +3034,6 @@ function renderAssetEditor() {
   updateWaypointUi();
 }
 
-
-function buildPlayerSyncPackage(cellId) {
-  const cid = cellId || getPlayerCell();
-  if (!cid) return null;
-  return clone({
-    type: 'owge-player-sync',
-    version: 16,
-    exportedAt: new Date().toISOString(),
-    scenario: { name: state.scenario?.name || '', timeLabel: state.scenario?.timeLabel || 'H+0', turn: Number(state.scenario?.turn || 1) },
-    cellId: cid,
-    cellName: state.session.cells.find(c => c.id === cid)?.name || cid,
-    assets: state.assets.filter(a => a.assignedCell === cid).map(a => clone(a)),
-    actionLog: clone(state.actionLogByCell[cid] || [])
-  });
-}
-
-async function exportPlayerSyncPackage() {
-  const pkg = buildPlayerSyncPackage();
-  if (!pkg) {
-    alert('Choose and lock a cell first.');
-    return;
-  }
-  const text = JSON.stringify(pkg, null, 2);
-  const box = document.getElementById('playerSyncExportText');
-  if (box) box.value = text;
-  try {
-    await navigator.clipboard.writeText(text);
-    alert('Player sync package copied to clipboard. Paste it into Facilitator Ops on the facilitator machine.');
-  } catch (_) {
-    alert('Player sync package generated. Copy it from the sync box and paste it into Facilitator Ops on the facilitator machine.');
-  }
-}
-
-function mergeUniqueLogItems(existing, incoming) {
-  const seen = new Set((existing || []).map(item => `${item.time}__${item.text}`));
-  const merged = clone(existing || []);
-  (incoming || []).forEach(item => {
-    const key = `${item.time}__${item.text}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    merged.push(item);
-  });
-  return merged;
-}
-
-function importPlayerSyncPackage() {
-  const box = document.getElementById('facSyncImportText');
-  const raw = (box?.value || '').trim();
-  if (!raw) {
-    alert('Paste a player sync package first.');
-    return;
-  }
-  try {
-    const pkg = JSON.parse(raw);
-    if (pkg?.type !== 'owge-player-sync' || !pkg?.cellId) throw new Error('not-a-player-sync-package');
-    const cellId = pkg.cellId;
-    const incomingAssets = Array.isArray(pkg.assets) ? pkg.assets.map(a => normalizeAsset(a)) : [];
-    incomingAssets.forEach(asset => {
-      const idx = state.assets.findIndex(a => a.id === asset.id);
-      if (idx >= 0) state.assets[idx] = asset;
-      else state.assets.push(asset);
-    });
-    state.actionLogByCell[cellId] = mergeUniqueLogItems(state.actionLogByCell[cellId] || [], Array.isArray(pkg.actionLog) ? pkg.actionLog : []);
-    state.timeline.push({
-      time: state.scenario.timeLabel || 'H+0',
-      text: `Imported remote player sync for ${pkg.cellName || cellId} (${incomingAssets.length} asset update(s), ${(pkg.actionLog || []).length} action item(s)).`
-    });
-    saveState();
-    renderAll();
-    initMaps(true);
-    if (box) box.value = '';
-    alert('Remote player sync imported into facilitator state.');
-  } catch (err) {
-    alert('Could not read that player sync package. Paste the full JSON package from Player Ops.');
-  }
-}
-
 function renderInjects() {
   const el = document.getElementById('injectsPanel');
   if (!el) return;
@@ -3129,7 +3052,6 @@ function renderInjects() {
     <div class="card"><strong>Pending boarding requests</strong>${boardingHtml}</div>
     <div class="card"><strong>Boarding outcomes</strong>${resolvedHtml}</div>
     <div class="card"><strong>Facilitator inject release</strong><div class="row" style="margin-top:8px"><select id="facInjectSelect"><option value="">Select inject</option>${injectOptions.map(i => `<option value="${i.id}">${i.id} · ${i.title}</option>`).join('')}</select><select id="facInjectCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button onclick="releaseSelectedInject()">Release Inject</button></div><textarea id="facCustomUpdate" placeholder="Custom facilitator update to a cell or to all cells" style="margin-top:10px"></textarea><div class="row" style="margin-top:8px"><select id="facCustomCell"><option value="all">All cells</option>${state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><button class="secondary" onclick="sendFacilitatorUpdate()">Send Update</button></div></div>
-    <div class="card"><strong>Cross-device player sync</strong><div class="small" style="margin-top:8px">Without a backend, a player on another computer does not live-sync into facilitator state automatically. Paste the Player Ops sync package here to merge that cell's latest orders and action log into the facilitator session.</div><textarea id="facSyncImportText" placeholder="Paste player sync package JSON from Player Ops" style="margin-top:10px;min-height:140px"></textarea><div class="row" style="margin-top:8px"><button class="secondary" onclick="importPlayerSyncPackage()">Import Player Sync</button></div></div>
     <div class="card"><strong>Recent inject/output</strong>${(state.releasedInjects || []).length ? state.releasedInjects.slice().reverse().map(i => `<div class="timeline-item"><strong>${i.title || i.id}</strong><br>${i.situation || i.text || ''}</div>`).join('') : '<div class="small">No released injects yet.</div>'}</div>`;
 }
 
@@ -3177,7 +3099,7 @@ function submitPlayerAction() {
 }
 
 function renderPlayerPage() {
-  const sel = document.querySelector('#playerCellSelect');
+  const sel = document.getElementById('playerCellSelect');
   if (!sel) return;
   renderPlayerCellSelector();
   const cellId = getPlayerCell();
@@ -3243,18 +3165,6 @@ function renderPlayerPage() {
   const log = state.actionLogByCell[cellId] || [];
   const logPanel = document.getElementById('playerActionLog');
   if (logPanel) logPanel.innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
-  const scenarioSummaryPanel = document.getElementById('playerScenarioSummaryPanel');
-  if (scenarioSummaryPanel) {
-    const scenarioSummary = [];
-    const recentTimeline = state.timeline.slice(-5).reverse();
-    const recentFeed = feed.slice(-4).reverse();
-    const recentActions = log.slice(-4).reverse();
-    scenarioSummary.push(`<div class="card"><strong>Scenario summary</strong><div class="small" style="margin-top:8px">This page rolls up the latest turn resolutions, facilitator injects, and your own submitted actions for <strong>${cell?.name || cellId}</strong>.</div><div class="row" style="margin-top:10px"><span class="tag">${state.scenario.name}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span><span class="tag">Turn ${Number(state.scenario.turn || 1)}</span><span class="tag">Assigned ${myAssets.length}</span><span class="tag">Visible contacts ${visibleContacts.length}</span></div></div>`);
-    scenarioSummary.push(`<div class="card"><strong>Latest turn resolutions</strong>${recentTimeline.length ? recentTimeline.map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small" style="margin-top:8px">No resolved-turn updates yet.</div>'}</div>`);
-    scenarioSummary.push(`<div class="card"><strong>Facilitator updates / injects</strong>${recentFeed.length ? recentFeed.map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small" style="margin-top:8px">No facilitator updates yet for this cell.</div>'}</div>`);
-    scenarioSummary.push(`<div class="card"><strong>Your latest actions</strong>${recentActions.length ? recentActions.map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small" style="margin-top:8px">No player actions submitted yet.</div>'}</div>`);
-    scenarioSummaryPanel.innerHTML = scenarioSummary.join('');
-  }
   initMaps(true);
 }
 
@@ -3279,8 +3189,6 @@ window.selectAsset = selectAsset;
 window.selectPlayerAsset = selectPlayerAsset;
 window.selectPlayerContact = selectPlayerContact;
 window.savePlayerAssetOrders = savePlayerAssetOrders;
-window.exportPlayerSyncPackage = exportPlayerSyncPackage;
-window.importPlayerSyncPackage = importPlayerSyncPackage;
 window.savePlayerContactClassification = savePlayerContactClassification;
 window.clearPlayerSelectedWaypoints = clearPlayerSelectedWaypoints;
 window.undoLastPlayerWaypoint = undoLastPlayerWaypoint;
