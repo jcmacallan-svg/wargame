@@ -597,6 +597,7 @@ const COMMERCIAL_NAME_PARTS = {
 };
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function escapeHtml(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function randomWithin(min, max) {
   const a = Number(min);
   const b = Number(max);
@@ -730,10 +731,12 @@ function getPlayerCell() {
 function updatePlayerNavLinks() {
   const cellId = getPlayerCell();
   const suffix = cellId ? `?cell=${encodeURIComponent(cellId)}` : '';
-  const mapLink = document.getElementById('playerMapNavLink');
+  const scenarioLink = document.getElementById('playerScenarioNavLink');
   const opsLink = document.getElementById('playerOpsNavLink');
-  if (mapLink) mapLink.href = `./player.html${suffix}`;
+  const mapLink = document.getElementById('playerMapNavLink');
+  if (scenarioLink) scenarioLink.href = `./player-scenario.html${suffix}`;
   if (opsLink) opsLink.href = `./player-ops.html${suffix}`;
+  if (mapLink) mapLink.href = `./player.html${suffix}`;
 }
 function renderPlayerCellSelector() {
   const sel = document.getElementById('playerCellSelect');
@@ -1094,11 +1097,50 @@ function applyBoardingOutcome(target, outcome) {
   }
 }
 
+function boardingDistanceNm(inspector, target) {
+  if (!inspector || !target) return Infinity;
+  const iIdx = state.assets.findIndex(a => a.id === inspector.id);
+  const tIdx = state.assets.findIndex(a => a.id === target.id);
+  const [ilat, ilon] = assetLatLng(inspector, iIdx);
+  const [tlat, tlon] = assetLatLng(target, tIdx);
+  return distanceNmBetween(ilat, ilon, tlat, tlon);
+}
+
+function applyBoardingMovementHold(inspector, target) {
+  [inspector, target].forEach(asset => {
+    if (!asset) return;
+    asset.speed = 0;
+    asset.boardingHoldUntilTurn = Math.max(Number(asset.boardingHoldUntilTurn || 0), Number(state.scenario.turn || 1));
+  });
+}
+
+function releaseExpiredBoardingHolds() {
+  const currentTurn = Number(state.scenario.turn || 1);
+  state.assets.forEach(asset => {
+    if (Number(asset.boardingHoldUntilTurn || 0) < currentTurn) asset.boardingHoldUntilTurn = 0;
+  });
+}
+
 function requestPlayerBoarding() {
   const inspector = selectedPlayerAsset();
   const target = selectedPlayerContact();
   if (!inspector || !target) return;
+  if (inspector.id === target.id) {
+    alert('Select another vessel as the boarding target.');
+    return;
+  }
+  const distanceNm = boardingDistanceNm(inspector, target);
+  if (distanceNm > 2) {
+    alert(`Boarding is only available within 2.0 nm. Current distance: ${distanceNm.toFixed(2)} nm.`);
+    return;
+  }
+  const duplicatePending = (state.boardingRequests || []).some(r => r.status === 'pending' && r.inspectorAssetId === inspector.id && r.targetAssetId === target.id);
+  if (duplicatePending) {
+    alert('A boarding request for this pair is already pending.');
+    return;
+  }
   const rationale = String(document.getElementById('playerBoardingRationale')?.value || '').trim();
+  applyBoardingMovementHold(inspector, target);
   const req = {
     id: `BRD-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,5)}`,
     time: state.scenario.timeLabel || 'H+0',
@@ -1107,13 +1149,15 @@ function requestPlayerBoarding() {
     inspectorAssetId: inspector.id,
     targetAssetId: target.id,
     rationale,
+    distanceNm: Number(distanceNm.toFixed(2)),
+    holdUntilTurn: Number(state.scenario.turn || 1),
     status: 'pending',
     envDifficulty: 'moderate',
     facilitatorModifier: 0,
     adjudication: null
   };
   state.boardingRequests.push(req);
-  const msg = `${getPlayerCell()} requested boarding: ${inspector.name} -> ${target.name}${rationale ? ` | rationale: ${rationale}` : ''}`;
+  const msg = `${getPlayerCell()} requested boarding: ${inspector.name} -> ${target.name} at ${distanceNm.toFixed(2)} nm. Both vessels set to 0 kt for next turn.${rationale ? ` | rationale: ${rationale}` : ''}`;
   state.actionLogByCell[getPlayerCell()].push({ time: req.time, text: msg });
   state.timeline.push({ time: req.time, text: msg });
   saveState();
@@ -1983,6 +2027,7 @@ function assetDoctrineProfile(asset) {
   return map[type] || { short: 'UNIT', code: 'GEN', role: 'General' };
 }
 
+
 function assetDoctrineAffiliationCode(asset) {
   const aff = normalizeAssetAffiliation(asset.affiliation);
   if (aff === 'hostile') return 'H';
@@ -1991,6 +2036,61 @@ function assetDoctrineAffiliationCode(asset) {
   if (aff === 'suspect') return 'S';
   if (aff === 'assumed_friend') return 'A';
   return 'F';
+}
+
+function assetDoctrineAffiliationMeta(asset) {
+  const aff = normalizeAssetAffiliation(asset.affiliation);
+  const map = {
+    friend: {
+      code: 'F',
+      frame: '#60a5fa',
+      fill: 'rgba(96,165,250,.08)',
+      text: '#dbeafe',
+      accent: '#bfdbfe',
+      dash: '0'
+    },
+    assumed_friend: {
+      code: 'A',
+      frame: '#38bdf8',
+      fill: 'rgba(56,189,248,.06)',
+      text: '#e0f2fe',
+      accent: '#7dd3fc',
+      dash: '3 2'
+    },
+    neutral: {
+      code: 'N',
+      frame: '#34d399',
+      fill: 'rgba(52,211,153,.07)',
+      text: '#dcfce7',
+      accent: '#86efac',
+      dash: '0'
+    },
+    hostile: {
+      code: 'H',
+      frame: '#f87171',
+      fill: 'rgba(248,113,113,.07)',
+      text: '#fee2e2',
+      accent: '#fca5a5',
+      dash: '0'
+    },
+    suspect: {
+      code: 'S',
+      frame: '#fb923c',
+      fill: 'rgba(251,146,60,.06)',
+      text: '#ffedd5',
+      accent: '#fdba74',
+      dash: '2 2'
+    },
+    unknown: {
+      code: 'U',
+      frame: '#fbbf24',
+      fill: 'rgba(251,191,36,.07)',
+      text: '#fef3c7',
+      accent: '#fde68a',
+      dash: '5 3'
+    }
+  };
+  return map[aff] || map.friend;
 }
 
 function assetDoctrineDomain(asset) {
@@ -2004,26 +2104,19 @@ function assetDoctrineDomain(asset) {
 function assetDoctrineSidc(asset) {
   const domain = assetDoctrineDomain(asset);
   const aff = assetDoctrineAffiliationCode(asset);
-  if (domain === 'subsurface') return `S${aff}UP------`;
-  if (domain === 'air') return `S${aff}AP------`;
-  if (domain === 'ground') return `S${aff}GP------`;
-  return `S${aff}SP------`;
+  if (domain === 'subsurface') return `S${aff}U-------`;
+  if (domain === 'air') return `S${aff}A-------`;
+  if (domain === 'ground') return `S${aff}G-------`;
+  return `S${aff}S-------`;
 }
 
 function assetDoctrineFrame(asset) {
   const domain = assetDoctrineDomain(asset);
-  const aff = normalizeAssetAffiliation(asset.affiliation);
-  const colorMap = {
-    friend: '#60a5fa',
-    hostile: '#f87171',
-    neutral: '#34d399',
-    unknown: '#fbbf24'
-  };
-  const color = colorMap[aff] || '#60a5fa';
-  if (domain === 'subsurface') return { color, path: 'M6 16 Q22 4 38 16 Q22 28 6 16 Z' };
-  if (domain === 'air') return { color, path: 'M22 5 L39 16 L22 27 L5 16 Z' };
-  if (domain === 'ground') return { color, path: 'M5 7 H39 V25 H5 Z' };
-  return { color, path: 'M5 16 Q5 5 22 5 H39 Q39 16 39 16 Q39 27 22 27 H5 Q5 16 5 16 Z' };
+  const meta = assetDoctrineAffiliationMeta(asset);
+  if (domain === 'subsurface') return { color: meta.frame, fill: meta.fill, dash: meta.dash, path: 'M6 17 Q22 4 38 17 Q22 30 6 17 Z' };
+  if (domain === 'air') return { color: meta.frame, fill: meta.fill, dash: meta.dash, path: 'M22 5 L39 17 L22 29 L5 17 Z' };
+  if (domain === 'ground') return { color: meta.frame, fill: meta.fill, dash: meta.dash, path: 'M5 7 H39 V27 H5 Z' };
+  return { color: meta.frame, fill: meta.fill, dash: meta.dash, path: 'M5 17 Q5 5 22 5 H39 Q39 17 39 17 Q39 29 22 29 H5 Q5 17 5 17 Z' };
 }
 
 function assetNtdsPalette(asset) {
@@ -2109,9 +2202,9 @@ function buildMinimalSvg(asset, selected) {
   const palette = assetNtdsPalette(asset);
   const representation = normalizeAssetRepresentation(asset.representation);
   const stroke = selected ? '#f59e0b' : palette.stroke;
-  const fill = representation === 'track' ? 'rgba(15,23,42,.12)' : palette.fill;
-  const dash = representation === 'track' ? '5 3' : '0';
-  const label = assetDoctrineProfile(asset).short;
+  const fill = representation === 'track' ? 'rgba(15,23,42,.04)' : palette.fill;
+  const dash = representation === 'track' ? '5 3' : assetDoctrineAffiliationMeta(asset).dash;
+  const label = representation === 'track' ? 'TRK' : assetDoctrineProfile(asset).short;
   const path = assetMinimalShape(asset);
   return `
     <svg width="64" height="48" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -2121,61 +2214,98 @@ function buildMinimalSvg(asset, selected) {
 }
 
 function commercialTypePalette(asset) {
-  const type = normalizeAssetType(asset?.type);
-  if (type === 'container_ship' || type === 'bulk_carrier') return { hull: '#22c55e', accent: '#dcfce7', wake: '#86efac' };
-  if (type === 'tanker') return { hull: '#ef4444', accent: '#fee2e2', wake: '#fca5a5' };
-  if (type === 'ferry') return { hull: '#3b82f6', accent: '#dbeafe', wake: '#93c5fd' };
-  if (type === 'fishing_vessel') return { hull: '#f97316', accent: '#ffedd5', wake: '#fdba74' };
-  if (type === 'tug_workboat' || type === 'survey_vessel') return { hull: '#14b8a6', accent: '#ccfbf1', wake: '#5eead4' };
-  return { hull: '#94a3b8', accent: '#f8fafc', wake: '#cbd5e1' };
+  const type = normalizeAssetType(asset.type);
+  const palettes = {
+    container_ship: { stroke: '#22c55e', fill: '#052e16', accent: '#4ade80', label: 'CONT' },
+    bulk_carrier: { stroke: '#84cc16', fill: '#1a2e05', accent: '#bef264', label: 'BULK' },
+    tanker: { stroke: '#ef4444', fill: '#3b0a0a', accent: '#f87171', label: 'TNKR' },
+    lng_carrier: { stroke: '#f97316', fill: '#3a1406', accent: '#fb923c', label: 'LNG' },
+    ro_ro_ferry: { stroke: '#38bdf8', fill: '#082f49', accent: '#7dd3fc', label: 'RORO' },
+    passenger_ferry: { stroke: '#3b82f6', fill: '#172554', accent: '#93c5fd', label: 'FERY' },
+    fishing_vessel: { stroke: '#f59e0b', fill: '#3b2405', accent: '#fbbf24', label: 'FISH' },
+    tug_workboat: { stroke: '#14b8a6', fill: '#042f2e', accent: '#5eead4', label: 'TUG' },
+    dredger: { stroke: '#a78bfa', fill: '#2e1065', accent: '#c4b5fd', label: 'DRDG' },
+    pilot_boat: { stroke: '#eab308', fill: '#3f2b05', accent: '#fde047', label: 'PLT' },
+    research_survey_vessel: { stroke: '#06b6d4', fill: '#083344', accent: '#67e8f9', label: 'SURV' }
+  };
+  return palettes[type] || { stroke: '#64748b', fill: '#0f172a', accent: '#cbd5e1', label: 'SHIP' };
+}
+
+function commercialHullPath(type) {
+  if (type === 'tug_workboat' || type === 'pilot_boat') return 'M10 27 L18 18 H36 L46 22 L58 22 L58 28 L12 32 Z';
+  if (type === 'fishing_vessel') return 'M9 28 L18 18 H32 L42 21 L57 21 L57 29 L12 33 Z';
+  if (type === 'passenger_ferry' || type === 'ro_ro_ferry') return 'M8 28 L16 16 H50 L60 21 L60 29 L12 33 Z';
+  if (type === 'tanker' || type === 'lng_carrier') return 'M7 28 L15 19 H52 L61 23 L61 29 L11 33 Z';
+  return 'M7 28 L17 18 H49 L61 24 L61 29 L11 33 Z';
+}
+
+function commercialBridgePath(type) {
+  if (type === 'tanker' || type === 'lng_carrier') return 'M42 15 H52 V22 H42 Z';
+  if (type === 'passenger_ferry' || type === 'ro_ro_ferry') return 'M20 13 H42 V20 H20 Z';
+  if (type === 'tug_workboat' || type === 'pilot_boat') return 'M25 15 H37 V22 H25 Z';
+  if (type === 'fishing_vessel') return 'M19 15 H30 V21 H19 Z';
+  return 'M34 15 H48 V22 H34 Z';
+}
+
+function commercialDeckMarks(type) {
+  if (type === 'container_ship') return '<path d="M22 20 H48 M22 24 H48" fill="none" stroke-width="1.5" stroke-linecap="round" opacity=".9" />';
+  if (type === 'bulk_carrier') return '<path d="M20 22 H50" fill="none" stroke-width="1.7" stroke-linecap="round" opacity=".9" />';
+  if (type === 'tanker' || type === 'lng_carrier') return '<path d="M18 23 H52" fill="none" stroke-width="1.5" stroke-linecap="round" opacity=".9" /><circle cx="24" cy="23" r="1.3" /><circle cx="32" cy="23" r="1.3" /><circle cx="40" cy="23" r="1.3" /><circle cx="48" cy="23" r="1.3" />';
+  if (type === 'passenger_ferry' || type === 'ro_ro_ferry') return '<path d="M18 20 H48 M18 24 H48" fill="none" stroke-width="1.3" stroke-linecap="round" opacity=".9" />';
+  if (type === 'fishing_vessel') return '<path d="M27 12 L35 22" fill="none" stroke-width="1.5" stroke-linecap="round" opacity=".9" /><path d="M35 22 L43 13" fill="none" stroke-width="1.5" stroke-linecap="round" opacity=".9" />';
+  if (type === 'research_survey_vessel') return '<circle cx="23" cy="23" r="2.2" /><path d="M31 23 H46" fill="none" stroke-width="1.5" stroke-linecap="round" opacity=".9" />';
+  if (type === 'dredger') return '<path d="M22 18 L16 26" fill="none" stroke-width="1.6" stroke-linecap="round" opacity=".9" /><path d="M45 18 L51 26" fill="none" stroke-width="1.6" stroke-linecap="round" opacity=".9" />';
+  return '<path d="M20 23 H48" fill="none" stroke-width="1.5" stroke-linecap="round" opacity=".9" />';
 }
 
 function buildCommercialSvg(asset, selected) {
   const representation = normalizeAssetRepresentation(asset.representation);
-  const colors = commercialTypePalette(asset);
-  const outline = selected ? '#f59e0b' : colors.hull;
-  const hullFill = representation === 'track' ? 'none' : colors.hull;
-  const bridgeFill = representation === 'track' ? 'none' : colors.accent;
-  const dash = representation === 'track' ? '5 4' : '0';
-  const wakeOpacity = representation === 'track' ? '.42' : '.75';
-  const role = assetDoctrineProfile(asset).short;
+  const type = normalizeAssetType(asset.type);
+  const palette = commercialTypePalette(asset);
+  const stroke = selected ? '#f59e0b' : palette.stroke;
+  const fill = representation === 'track' ? 'rgba(15,23,42,.04)' : palette.fill;
+  const dash = representation === 'track' ? '4 3' : '0';
+  const label = representation === 'track' ? 'TRK' : palette.label;
   return `
-    <svg width="72" height="50" viewBox="0 0 72 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <g fill="none" stroke-linejoin="round" stroke-linecap="round">
-        <path d="M11 30 L22 17 H48 L61 30 L48 37 H20 Z" fill="${hullFill}" stroke="${outline}" stroke-width="2.6" stroke-dasharray="${dash}" />
-        <path d="M24 17 L24 10 H37 L37 17" fill="${bridgeFill}" stroke="${outline}" stroke-width="2.2" stroke-dasharray="${dash}" />
-        <path d="M39 17 L39 13 H46 L46 17" fill="${bridgeFill}" stroke="${outline}" stroke-width="2.2" stroke-dasharray="${dash}" />
-        <path d="M15 33 H58" stroke="${selected ? '#fbbf24' : colors.accent}" stroke-width="1.4" opacity=".95" stroke-dasharray="${dash}" />
-        <path d="M24 41 L36 45 L48 41" stroke="${colors.wake}" stroke-width="1.8" opacity="${wakeOpacity}" />
-      </g>
-      <text x="36" y="29.4" text-anchor="middle" dominant-baseline="middle" font-size="7.8" font-weight="800" fill="${representation === 'track' ? colors.accent : '#082032'}">${role}</text>
+    <svg width="72" height="50" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="${commercialHullPath(type)}" fill="${fill}" stroke="${stroke}" stroke-width="2.3" stroke-linejoin="round" stroke-dasharray="${dash}" />
+      <path d="${commercialBridgePath(type)}" fill="${representation === 'track' ? 'rgba(15,23,42,.02)' : fill}" stroke="${stroke}" stroke-width="1.8" stroke-linejoin="round" stroke-dasharray="${dash}" />
+      <g stroke="${selected ? '#fef3c7' : palette.accent}" fill="${selected ? '#fef3c7' : palette.accent}">${commercialDeckMarks(type)}</g>
+      <text x="34" y="39.5" text-anchor="middle" font-size="7.2" font-weight="800" fill="${selected ? '#fef3c7' : palette.accent}" letter-spacing=".5">${label}</text>
     </svg>`;
 }
 
+function app6Glyph(asset) {
+  const type = normalizeAssetType(asset.type);
+  const profile = assetDoctrineProfile(asset);
+  if (type === 'submarine') return '<path d="M14 18 C18 14, 26 13, 30 18 C26 23, 18 22, 14 18 Z" fill="none" stroke-width="1.8" stroke-linejoin="round" />';
+  if (type === 'maritime_helicopter') return '<circle cx="22" cy="18" r="4.8" fill="none" stroke-width="1.7" /><path d="M14 18 H30 M22 10 V26" fill="none" stroke-width="1.5" stroke-linecap="round" />';
+  if (type === 'isr_drone') return '<path d="M10 18 H34 M22 12 V24" fill="none" stroke-width="1.5" stroke-linecap="round" /><path d="M14 15 L18 18 L14 21 M30 15 L26 18 L30 21" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />';
+  if (type === 'boarding_team') return '<path d="M12 12 L32 24 M32 12 L12 24" fill="none" stroke-width="1.8" stroke-linecap="round" />';
+  if (type === 'command_element') return '<path d="M22 11 V25 M15 18 H29" fill="none" stroke-width="1.8" stroke-linecap="round" />';
+  if (isCommercialAssetType(type)) return '<path d="M8 20 L13 14 H28 L35 19 L35 21 L10 24 Z" fill="none" stroke-width="1.7" stroke-linejoin="round" /><path d="M22 14 V10" fill="none" stroke-width="1.5" stroke-linecap="round" />';
+  return `<text x="22" y="20.5" text-anchor="middle" dominant-baseline="middle" font-size="8.5" font-weight="800" letter-spacing=".3">${profile.short.slice(0, 3)}</text>`;
+}
+
 function buildApp6Svg(asset, selected) {
-  if (typeof ms !== 'undefined' && ms.Symbol) {
-    try {
-      const representation = normalizeAssetRepresentation(asset.representation);
-      const sym = new ms.Symbol(assetDoctrineSidc(asset), {
-        size: 42,
-        uniqueDesignation: representation === 'track' ? 'TRK' : assetDoctrineProfile(asset).short,
-        type: 'friendly',
-        monoColor: selected ? '#f59e0b' : undefined,
-        fill: true,
-        infoFields: false,
-        strokeWidth: 5,
-      });
-      return sym.asSVG();
-    } catch (e) {}
-  }
   const frame = assetDoctrineFrame(asset);
+  const meta = assetDoctrineAffiliationMeta(asset);
   const representation = normalizeAssetRepresentation(asset.representation);
-  const dash = representation === 'track' ? '5 3' : '0';
+  const dash = representation === 'track' ? '5 3' : frame.dash;
+  const glyphStroke = selected ? '#f59e0b' : meta.frame;
+  const interiorFill = representation === 'track' ? 'rgba(15,23,42,.02)' : frame.fill;
   const label = representation === 'track' ? 'TRK' : assetDoctrineProfile(asset).short;
+  const qualityText = trackQualityShort(asset.trackQuality);
+  const statusBand = representation === 'track' ? `<path d="M8 29 H36" fill="none" stroke="${glyphStroke}" stroke-width="1.4" stroke-dasharray="3 2" stroke-linecap="round" opacity=".85" />` : '';
   return `
-    <svg width="68" height="52" viewBox="0 0 44 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="${frame.path}" fill="rgba(15,23,42,.18)" stroke="${selected ? '#f59e0b' : frame.color}" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="${dash}" />
-      <text x="22" y="19" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="800" fill="#f8fafc">${label}</text>
+    <svg width="70" height="54" viewBox="0 0 44 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="${frame.path}" fill="${interiorFill}" stroke="${selected ? '#f59e0b' : frame.color}" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="${dash}" />
+      <g transform="translate(0 0)" stroke="${glyphStroke}" fill="${glyphStroke}">${app6Glyph(asset)}</g>
+      ${statusBand}
+      <rect x="31" y="1.5" rx="4" ry="4" width="10" height="8" fill="#020617" opacity=".88" stroke="${selected ? '#f59e0b' : meta.frame}" stroke-width=".9"></rect>
+      <text x="36" y="7.2" text-anchor="middle" font-size="5.6" font-weight="800" fill="${selected ? '#fef3c7' : meta.text}">${meta.code}</text>
+      <text x="22" y="31.2" text-anchor="middle" font-size="6.2" font-weight="800" fill="${selected ? '#f59e0b' : meta.frame}" letter-spacing=".25">${label}</text>
+      <text x="4.5" y="7.5" text-anchor="start" font-size="4.8" font-weight="800" fill="${selected ? '#f59e0b' : meta.frame}">${qualityText}</text>
     </svg>`;
 }
 
@@ -2323,11 +2453,13 @@ function movementPreviewRows() {
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
   return state.assets.map((asset, idx) => {
     const origin = assetLatLng(asset, idx);
-    const fuelPlan = fuelPlanForTurn(asset, hours);
-    const distanceNm = movementDistanceNm(asset, fuelPlan.effectiveHours);
-    const movement = distanceNm > 0 ? projectMovement(asset, origin, distanceNm) : { destination: origin, heading: normalizeHeading(asset.heading), remainingWaypoints: Array.isArray(asset.waypoints) ? clone(asset.waypoints) : [], consumedWaypoints: 0 };
+    const holdActive = Number(asset.boardingHoldUntilTurn || 0) >= Number(state.scenario.turn || 1);
+    const simAsset = holdActive ? Object.assign({}, asset, { speed: 0 }) : asset;
+    const fuelPlan = fuelPlanForTurn(simAsset, hours);
+    const distanceNm = movementDistanceNm(simAsset, fuelPlan.effectiveHours);
+    const movement = distanceNm > 0 ? projectMovement(simAsset, origin, distanceNm) : { destination: origin, heading: normalizeHeading(asset.heading), remainingWaypoints: Array.isArray(asset.waypoints) ? clone(asset.waypoints) : [], consumedWaypoints: 0 };
     const destination = movement.destination;
-    return { asset, origin, destination, distanceNm, zone: hasZones() ? nearestZone(destination[0], destination[1]) : asset.zone || '', movement, fuelPlan };
+    return { asset, origin, destination, distanceNm, zone: hasZones() ? nearestZone(destination[0], destination[1]) : asset.zone || '', movement, fuelPlan, holdActive };
   });
 }
 
@@ -2343,6 +2475,7 @@ function previewNextTurnMovement() {
 }
 
 function advanceSimulationTurn() {
+  releaseExpiredBoardingHolds();
   const rows = movementPreviewRows();
   if (!rows.length) {
     alert('No assets available to move. Add one or more assets first.');
@@ -2357,7 +2490,7 @@ function advanceSimulationTurn() {
     r.asset.waypoints = r.movement.remainingWaypoints;
     r.asset.fuel = Number(r.fuelPlan.fuelRemaining.toFixed(2));
     if (r.zone) r.asset.zone = r.zone;
-    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(2)} used / ${r.fuelPlan.fuelRemaining.toFixed(2)} left${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
+    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.holdActive ? ' · boarding hold / 0 kt' : ''}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(2)} used / ${r.fuelPlan.fuelRemaining.toFixed(2)} left${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
   });
   state.scenario.turn = Number(state.scenario.turn || 1) + 1;
   state.scenario.timeLabel = advanceTimeLabel(state.scenario.timeLabel, hours);
@@ -2830,7 +2963,8 @@ function renderPlayerPage() {
   const visibleContacts = playerVisibleContacts(cellId, 8);
   const visualShips = visibleContacts.filter(a => ['container_ship','bulk_carrier','tanker','lng_carrier','ro_ro_ferry','passenger_ferry','fishing_vessel','tug_workboat','dredger','pilot_boat','research_survey_vessel'].includes(normalizeAssetType(a.type)) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
   const otherContacts = visibleContacts.filter(a => !visualShips.includes(a));
-  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assigned: ${myAssets.length}</span><span class="tag">Controllable: ${controllableAssets.length}</span><span class="tag">Visual ships: ${visualShips.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Player view</strong><br>You can issue heading, speed, waypoint, and boarding/classification actions for your own controllable assets. Commercial traffic remains facilitator-controlled.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
+  const playerScenarioPanel = document.getElementById('playerScenarioPanel');
+  if (playerScenarioPanel) playerScenarioPanel.innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">Assigned: ${myAssets.length}</span><span class="tag">Controllable: ${controllableAssets.length}</span><span class="tag">Visual ships: ${visualShips.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Player view</strong><br>You can issue heading, speed, waypoint, and boarding/classification actions for your own controllable assets. Commercial traffic remains facilitator-controlled.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
   if (!controllableAssets.find(a => a.id === playerSelectedAssetId)) playerSelectedAssetId = controllableAssets[0]?.id || '';
   if (!visibleContacts.find(a => a.id === playerSelectedContactId)) playerSelectedContactId = visibleContacts[0]?.id || '';
   const selected = selectedPlayerAsset();
@@ -2852,8 +2986,12 @@ function renderPlayerPage() {
   const editor = document.getElementById('playerAssetEditor');
   const selectedContact = selectedPlayerContact();
   if (editor) {
-    const ownEditor = selected ? `<div class="card"><strong>${selected.name}</strong><div class="grid2" style="margin-top:8px"><label>Heading<input id="playerAssetHeading" type="number" min="0" max="359" step="1" value="${normalizeHeading(selected.heading)}"></label><label>Speed (kt)<input id="playerAssetSpeed" type="number" min="0" max="60" step="0.1" value="${normalizeSpeed(selected.speed)}"></label></div><label style="display:block;margin-top:10px">Waypoints<textarea id="playerAssetWaypoints" placeholder="Click Add Waypoint Mode and then click the map, or type one waypoint per line as lat,lon,label">${formatWaypointText(selected.waypoints || [])}</textarea></label><div class="row" style="margin-top:10px"><button onclick="savePlayerAssetOrders()">Save Orders</button><button class="secondary" onclick="playerMapMode = (playerMapMode === 'add-waypoint' ? 'select' : 'add-waypoint'); updatePlayerWaypointUi(); renderPlayerPage();">${playerMapMode === 'add-waypoint' ? 'Exit Waypoint Mode' : 'Add Waypoint Mode'}</button><button class="secondary" onclick="undoLastPlayerWaypoint()">Undo Last Waypoint</button><button class="secondary" onclick="clearPlayerSelectedWaypoints()">Clear Waypoints</button></div><div class="small" style="margin-top:8px">Only your own non-commercial assigned assets can receive heading, speed, and waypoint orders from this player view.</div></div>` : '<div class="small">Select one of your controllable assigned assets to set heading, speed, and waypoints.</div>';
-    const contactEditor = selectedContact ? `<div class="card" style="margin-top:10px"><strong>Contact classification: ${selectedContact.name}</strong><div class="grid2" style="margin-top:8px"><label>Affiliation<select id="playerContactAffiliation">${ASSET_AFFILIATION_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeAssetAffiliation(selectedContact.affiliation) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Representation<select id="playerContactRepresentation">${ASSET_REPRESENTATION_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeAssetRepresentation(selectedContact.representation) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Track quality<select id="playerContactTrackQuality">${TRACK_QUALITY_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeTrackQuality(selectedContact.trackQuality) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Name<input disabled value="${selectedContact.name}"></label></div><div class="row" style="margin-top:10px"><button onclick="savePlayerContactClassification()">Save Classification</button></div><label style="display:block;margin-top:10px">Boarding rationale<textarea id="playerBoardingRationale" placeholder="Why should this boarding have a better chance of success? Explain timing, support, geometry, behavior, or other justification."></textarea></label><div class="row" style="margin-top:10px"><button onclick="requestPlayerBoarding()">Request Boarding</button></div><div class="small" style="margin-top:8px">Players may reclassify contacts and submit boarding requests. Commercial vessels remain facilitator-controlled for heading, speed, and waypoint orders.</div></div>` : '<div class="small" style="margin-top:10px">Select a contact from Other Contacts to adjust affiliation/classification or request a boarding.</div>';
+    const headingOptions = Array.from({ length: 36 }, (_, i) => i * 10).map(v => `<option value="${v}" ${Math.round(normalizeHeading(selected?.heading || 0) / 10) * 10 === v ? 'selected' : ''}>${v}°</option>`).join('');
+    const speedBands = [0, 5, 10, 12, 15, 18, 20, 24, 28, 32, 36, 40];
+    const speedOptions = speedBands.map(v => `<option value="${v}" ${Number(normalizeSpeed(selected?.speed || 0)).toFixed(1) === Number(v).toFixed(1) ? 'selected' : ''}>${v} kt</option>`).join('');
+    const ownEditor = selected ? `<div class="card"><strong>${selected.name}</strong><div class="compact-grid" style="margin-top:8px"><label>Heading<select id="playerAssetHeading">${headingOptions}</select></label><label>Speed (kt)<select id="playerAssetSpeed">${speedOptions}</select></label></div><textarea id="playerAssetWaypoints" style="display:none">${escapeHtml(formatWaypointText(selected.waypoints || []))}</textarea><div class="small" style="margin-top:10px">Waypoints stay active but are hidden here. Use Add Waypoint Mode on the map, then save orders.</div><div class="row" style="margin-top:10px"><button onclick="savePlayerAssetOrders()">Save Orders</button><button class="secondary" onclick="playerMapMode = (playerMapMode === 'add-waypoint' ? 'select' : 'add-waypoint'); updatePlayerWaypointUi(); renderPlayerPage();">${playerMapMode === 'add-waypoint' ? 'Exit Waypoint Mode' : 'Add Waypoint Mode'}</button><button class="secondary" onclick="undoLastPlayerWaypoint()">Undo Last Waypoint</button><button class="secondary" onclick="clearPlayerSelectedWaypoints()">Clear Waypoints</button></div><div class="small" style="margin-top:8px">Only your own non-commercial assigned assets can receive heading, speed, and waypoint orders from this player view.</div></div>` : '<div class="small">Select one of your controllable assigned assets to set heading, speed, and waypoints.</div>';
+    const boardingDistance = selected && selectedContact ? boardingDistanceNm(selected, selectedContact) : Infinity;
+    const contactEditor = selectedContact ? `<div class="card" style="margin-top:10px"><strong>Contact classification: ${selectedContact.name}</strong><div class="small" style="margin-top:8px">Classification lets the player update how a visible contact is understood in-game: <strong>Affiliation</strong> changes friend/neutral/hostile judgement, <strong>Representation</strong> sets whether it is still a track or now a confirmed unit, and <strong>Track quality</strong> expresses confidence in the picture.</div><div class="compact-grid" style="margin-top:8px"><label>Affiliation<select id="playerContactAffiliation">${ASSET_AFFILIATION_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeAssetAffiliation(selectedContact.affiliation) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Representation<select id="playerContactRepresentation">${ASSET_REPRESENTATION_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeAssetRepresentation(selectedContact.representation) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Track quality<select id="playerContactTrackQuality">${TRACK_QUALITY_OPTIONS.map(o => `<option value="${o.value}" ${o.value === normalizeTrackQuality(selectedContact.trackQuality) ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label><label>Name<input disabled value="${selectedContact.name}"></label></div><div class="row" style="margin-top:10px"><button onclick="savePlayerContactClassification()">Save Classification</button></div><label style="display:block;margin-top:10px">Boarding rationale<textarea id="playerBoardingRationale" placeholder="Why should this boarding have a better chance of success? Explain timing, support, geometry, behavior, or other justification."></textarea></label><div class="row" style="margin-top:10px"><button ${boardingDistance <= 2 ? '' : 'disabled'} onclick="requestPlayerBoarding()">Request Boarding</button><span class="tag">Distance: ${Number.isFinite(boardingDistance) ? boardingDistance.toFixed(2) : '--'} nm</span>${boardingDistance <= 2 ? '<span class="tag">Boarding window open</span>' : '<span class="tag">Need ≤ 2.00 nm</span>'}</div><div class="small" style="margin-top:8px">A boarding request can only be submitted within 2 nm. When submitted, both vessels are set to 0 kt for the next turn. Commercial vessels remain facilitator-controlled for heading, speed, and waypoint orders.</div></div>` : '<div class="small" style="margin-top:10px">Select a contact from Other Contacts to adjust affiliation/classification or request a boarding.</div>';
     editor.innerHTML = ownEditor + contactEditor;
   }
   updatePlayerWaypointUi();

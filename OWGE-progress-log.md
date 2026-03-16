@@ -24,3 +24,12 @@
 
 ## Volgende logische stap
 - Visuele review op kaart en daarna gerichte polish van specifieke scheepstypes of APP-6 details
+
+
+## Update 2026-03-16 — Boarding + player/facilitator page split
+- Boarding requests now only work within 2.00 nm.
+- A valid boarding request forces both involved vessels to 0 kt for the next turn.
+- Player Scenario and Facilitator Scenario are now separate pages with nav buttons.
+- Player Map left pane no longer shows cell/scenario; it starts with Assigned Assets and Orders.
+- Player heading/speed controls are now dropdowns; waypoint text is hidden but waypoint buttons remain.
+- Contact classification panel now explains affiliation / representation / track quality and is constrained to the pane width.
