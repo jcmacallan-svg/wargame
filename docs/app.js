@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'owge_v16_northern_shield_default';
+const STORAGE_KEY = 'owge_v17_northern_shield_default';
 const PLAYER_CLAIM_KEY = `${STORAGE_KEY}_playerClaim`;
 const PLAYER_INSTANCE_KEY = `${STORAGE_KEY}_playerInstance`;
 
@@ -34,7 +34,7 @@ const DEFAULT_TEMPLATE = {
 };
 
 const DEFAULT_STATE = {
-  "version": 16,
+  "version": 17,
   "scenario": {
     "name": "Blank Maritime Scenario",
     "overview": "Start from an empty chart. Facilitator places zones and assets manually, then saves the setup as a scenario package.",
@@ -624,22 +624,69 @@ const COMMERCIAL_NAME_PARTS = {
 };
 
 const NAVAL_CLASS_LIBRARY = [
-  { value: 'arleigh_burke_ddg', label: 'USS Arleigh Burke / DDG-51 family', affiliation: 'friend', assignedCell: 'blue-maritime', speed: 18, readiness: 5, fuel: 14, heading: 90 },
-  { value: 'type_45_ddg', label: 'HMS Daring / Type 45', affiliation: 'friend', assignedCell: 'blue-maritime', speed: 17, readiness: 5, fuel: 14, heading: 90 },
-  { value: 'de_zeven_provincien_lcf', label: 'De Zeven Provinciën LCF', affiliation: 'friend', assignedCell: 'blue-maritime', speed: 16, readiness: 5, fuel: 14, heading: 90 },
-  { value: 'fremm_frigate', label: 'FREMM frigate', affiliation: 'friend', assignedCell: 'blue-maritime', speed: 16, readiness: 4, fuel: 13, heading: 90 },
-  { value: 'holland_opv', label: 'Holland OPV', affiliation: 'friend', assignedCell: 'blue-maritime', speed: 14, readiness: 4, fuel: 12, heading: 90 },
-  { value: 'queen_elizabeth_carrier', label: 'Queen Elizabeth carrier', affiliation: 'friend', assignedCell: 'blue-maritime', speed: 16, readiness: 5, fuel: 18, heading: 90 },
-  { value: 'admiral_gorshkov_frigate', label: 'Admiral Gorshkov frigate', affiliation: 'hostile', assignedCell: '', speed: 16, readiness: 4, fuel: 13, heading: 270 },
-  { value: 'admiral_grigorovich_frigate', label: 'Admiral Grigorovich frigate', affiliation: 'hostile', assignedCell: '', speed: 15, readiness: 4, fuel: 12, heading: 270 },
-  { value: 'project_636_submarine', label: 'Project 636.3 Kilo submarine', affiliation: 'hostile', assignedCell: '', speed: 10, readiness: 4, fuel: 12, heading: 270 },
-  { value: 'slava_cruiser', label: 'Slava-class cruiser', affiliation: 'hostile', assignedCell: '', speed: 15, readiness: 3, fuel: 15, heading: 270 },
-  { value: 'type_052d_destroyer', label: 'Type 052D destroyer', affiliation: 'hostile', assignedCell: '', speed: 17, readiness: 4, fuel: 14, heading: 110 },
-  { value: 'type_055_destroyer', label: 'Type 055 large destroyer', affiliation: 'hostile', assignedCell: '', speed: 17, readiness: 5, fuel: 15, heading: 110 },
-  { value: 'type_054a_frigate', label: 'Type 054A frigate', affiliation: 'hostile', assignedCell: '', speed: 15, readiness: 4, fuel: 13, heading: 110 },
-  { value: 'type_071_amphib', label: 'Type 071 amphibious transport dock', affiliation: 'hostile', assignedCell: '', speed: 14, readiness: 4, fuel: 15, heading: 110 },
-  { value: 'type_075_lhd', label: 'Type 075 LHD', affiliation: 'hostile', assignedCell: '', speed: 14, readiness: 4, fuel: 16, heading: 110 }
+  {
+    value: 'arleigh_burke_ddg', label: 'USS Arleigh Burke / DDG-51 family', baseType: 'destroyer', faction: 'NATO', roleTags: ['AAW', 'BMD', 'ASW', 'Surface Action'], affiliation: 'friend', assignedCell: 'blue-maritime', speed: 18, readiness: 96, fuel: 100, fuelCapacity: 14, heading: 90,
+    sensorProfile: { radar: 24, visual: 10, inspection: 0.8, ew: 18 }, notes: 'Multi-mission AEGIS destroyer with strong area-air and BMD profile.'
+  },
+  {
+    value: 'type_45_ddg', label: 'HMS Daring / Type 45', baseType: 'air_defence_destroyer', faction: 'NATO', roleTags: ['AAW', 'Area Air Defence', 'Escort'], affiliation: 'friend', assignedCell: 'blue-maritime', speed: 17, readiness: 94, fuel: 100, fuelCapacity: 14, heading: 90,
+    sensorProfile: { radar: 25, visual: 10, inspection: 0.7, ew: 16 }, notes: 'Area-air-defence escort with long-range radar picture.'
+  },
+  {
+    value: 'de_zeven_provincien_lcf', label: 'De Zeven Provinciën LCF', baseType: 'air_defence_frigate', faction: 'NATO', roleTags: ['AAW', 'Command', 'Escort'], affiliation: 'friend', assignedCell: 'blue-maritime', speed: 16, readiness: 93, fuel: 100, fuelCapacity: 14, heading: 90,
+    sensorProfile: { radar: 23, visual: 10, inspection: 0.7, ew: 16 }, notes: 'Dutch command-capable air-defence frigate.'
+  },
+  {
+    value: 'fremm_frigate', label: 'FREMM frigate', baseType: 'frigate', faction: 'NATO', roleTags: ['ASW', 'General Purpose', 'Escort'], affiliation: 'friend', assignedCell: 'blue-maritime', speed: 16, readiness: 90, fuel: 100, fuelCapacity: 13, heading: 90,
+    sensorProfile: { radar: 20, visual: 10, inspection: 0.7, ew: 14 }, notes: 'Balanced multi-role frigate with strong ASW profile.'
+  },
+  {
+    value: 'holland_opv', label: 'Holland OPV', baseType: 'patrol_vessel', faction: 'NATO', roleTags: ['Patrol', 'Maritime Security', 'Presence'], affiliation: 'friend', assignedCell: 'blue-maritime', speed: 14, readiness: 88, fuel: 100, fuelCapacity: 12, heading: 90,
+    sensorProfile: { radar: 16, visual: 11, inspection: 0.9, ew: 8 }, notes: 'Low-intensity patrol and maritime security platform.'
+  },
+  {
+    value: 'queen_elizabeth_carrier', label: 'Queen Elizabeth carrier', baseType: 'aircraft_carrier', faction: 'NATO', roleTags: ['Carrier', 'Air Power', 'Command'], affiliation: 'friend', assignedCell: 'blue-maritime', speed: 16, readiness: 95, fuel: 100, fuelCapacity: 18, heading: 90,
+    sensorProfile: { radar: 22, visual: 11, inspection: 0.6, ew: 18 }, notes: 'High-value aviation command platform.'
+  },
+  {
+    value: 'admiral_gorshkov_frigate', label: 'Admiral Gorshkov frigate', baseType: 'frigate', faction: 'Russia', roleTags: ['Strike', 'Escort', 'ASuW'], affiliation: 'hostile', assignedCell: '', speed: 16, readiness: 84, fuel: 100, fuelCapacity: 13, heading: 270,
+    sensorProfile: { radar: 20, visual: 10, inspection: 0.6, ew: 13 }, notes: 'Modern Russian frigate with credible strike profile.'
+  },
+  {
+    value: 'admiral_grigorovich_frigate', label: 'Admiral Grigorovich frigate', baseType: 'frigate', faction: 'Russia', roleTags: ['General Purpose', 'Escort'], affiliation: 'hostile', assignedCell: '', speed: 15, readiness: 82, fuel: 100, fuelCapacity: 12, heading: 270,
+    sensorProfile: { radar: 18, visual: 10, inspection: 0.6, ew: 12 }, notes: 'General-purpose Russian frigate.'
+  },
+  {
+    value: 'project_636_submarine', label: 'Project 636.3 Kilo submarine', baseType: 'attack_submarine', faction: 'Russia', roleTags: ['Subsurface', 'Ambush', 'ASuW'], affiliation: 'hostile', assignedCell: '', speed: 10, readiness: 80, fuel: 100, fuelCapacity: 12, heading: 270,
+    sensorProfile: { radar: 6, visual: 5, inspection: 0.2, ew: 6 }, notes: 'Diesel-electric submarine with low-signature ambush role.'
+  },
+  {
+    value: 'slava_cruiser', label: 'Slava-class cruiser', baseType: 'cruiser', faction: 'Russia', roleTags: ['Strike', 'Command', 'Area Air Defence'], affiliation: 'hostile', assignedCell: '', speed: 15, readiness: 72, fuel: 100, fuelCapacity: 15, heading: 270,
+    sensorProfile: { radar: 22, visual: 10, inspection: 0.5, ew: 14 }, notes: 'Legacy but still high-signature command / strike cruiser.'
+  },
+  {
+    value: 'type_052d_destroyer', label: 'Type 052D destroyer', baseType: 'destroyer', faction: 'China', roleTags: ['AAW', 'ASuW', 'Escort'], affiliation: 'hostile', assignedCell: '', speed: 17, readiness: 88, fuel: 100, fuelCapacity: 14, heading: 110,
+    sensorProfile: { radar: 22, visual: 10, inspection: 0.6, ew: 14 }, notes: 'Modern PLA Navy destroyer with balanced escort profile.'
+  },
+  {
+    value: 'type_055_destroyer', label: 'Type 055 large destroyer', baseType: 'cruiser', faction: 'China', roleTags: ['Command', 'Area Air Defence', 'Strike'], affiliation: 'hostile', assignedCell: '', speed: 17, readiness: 92, fuel: 100, fuelCapacity: 15, heading: 110,
+    sensorProfile: { radar: 24, visual: 10, inspection: 0.6, ew: 16 }, notes: 'Large multi-role combatant with command potential.'
+  },
+  {
+    value: 'type_054a_frigate', label: 'Type 054A frigate', baseType: 'frigate', faction: 'China', roleTags: ['General Purpose', 'Escort', 'ASW'], affiliation: 'hostile', assignedCell: '', speed: 15, readiness: 87, fuel: 100, fuelCapacity: 13, heading: 110,
+    sensorProfile: { radar: 18, visual: 10, inspection: 0.6, ew: 12 }, notes: 'Workhorse PLA Navy escort frigate.'
+  },
+  {
+    value: 'type_071_amphib', label: 'Type 071 amphibious transport dock', baseType: 'amphibious_ship', faction: 'China', roleTags: ['Amphibious', 'Sealift', 'Command Support'], affiliation: 'hostile', assignedCell: '', speed: 14, readiness: 85, fuel: 100, fuelCapacity: 15, heading: 110,
+    sensorProfile: { radar: 14, visual: 10, inspection: 0.7, ew: 10 }, notes: 'Amphibious transport dock for lift and command support.'
+  },
+  {
+    value: 'type_075_lhd', label: 'Type 075 LHD', baseType: 'amphibious_assault_ship', faction: 'China', roleTags: ['Amphibious Assault', 'Aviation', 'Command'], affiliation: 'hostile', assignedCell: '', speed: 14, readiness: 89, fuel: 100, fuelCapacity: 16, heading: 110,
+    sensorProfile: { radar: 18, visual: 10, inspection: 0.7, ew: 12 }, notes: 'Aviation-capable amphibious assault ship.'
+  }
 ];
+
+const NAVAL_CLASS_LIBRARY_BY_KEY = Object.fromEntries(NAVAL_CLASS_LIBRARY.map(item => [item.value, item]));
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function escapeHtml(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -650,6 +697,86 @@ function randomWithin(min, max) {
   const low = Math.min(a, b);
   const high = Math.max(a, b);
   return low + Math.random() * (high - low);
+}
+
+function clampPercent(value, fallback = 100) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, Number(n.toFixed(1))));
+}
+function modernPresetForType(type) {
+  return NAVAL_CLASS_LIBRARY_BY_KEY[normalizeAssetType(type)] || null;
+}
+function roleTagsForAsset(asset) {
+  return Array.isArray(asset?.roleTags) && asset.roleTags.length ? asset.roleTags : (modernPresetForType(asset?.type)?.roleTags || []);
+}
+function fuelCapacityForAsset(asset) {
+  const preset = modernPresetForType(asset?.type);
+  const own = Number(asset?.fuelCapacity);
+  if (Number.isFinite(own) && own > 0) return own;
+  if (preset?.fuelCapacity) return preset.fuelCapacity;
+  return defaultFuelCapacityForAssetType(asset?.type);
+}
+function fuelPercentLabel(asset) {
+  return `${clampPercent(asset?.fuel, 100).toFixed(0)}%`;
+}
+function readinessPercentLabel(asset) {
+  return `${clampPercent(asset?.readiness, 100).toFixed(0)}%`;
+}
+function sensorProfileForAsset(asset) {
+  const preset = modernPresetForType(asset?.type);
+  const base = preset?.sensorProfile || defaultSensorProfileForAssetType(asset?.type);
+  return Object.assign({}, base, asset?.sensorProfile || {});
+}
+function normalizeLegacyFuelToPercent(value, type, existingCapacity) {
+  const capacity = Number(existingCapacity) > 0 ? Number(existingCapacity) : defaultFuelCapacityForAssetType(type);
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return 100;
+  if (raw <= 20) return clampPercent((raw / Math.max(1, capacity)) * 100, 100);
+  return clampPercent(raw, 100);
+}
+function normalizeLegacyReadinessToPercent(value) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return 100;
+  if (raw <= 5) return clampPercent((raw / 5) * 100, 100);
+  return clampPercent(raw, 100);
+}
+function assetProfileSummary(asset) {
+  const preset = modernPresetForType(asset?.type);
+  const sensor = sensorProfileForAsset(asset);
+  const tags = roleTagsForAsset(asset);
+  return {
+    faction: asset?.faction || preset?.faction || (normalizeAssetAffiliation(asset?.affiliation) === 'hostile' ? 'Red / Opposed' : 'Blue / Friendly'),
+    roleTags: tags,
+    notes: asset?.classNotes || preset?.notes || '',
+    sensor,
+    fuelCapacity: fuelCapacityForAsset(asset)
+  };
+}
+function renderModernAssetLibraryInfo() {
+  const select = document.getElementById('modernAssetLibrarySelect');
+  const panel = document.getElementById('modernAssetLibraryInfo');
+  if (!select || !panel) return;
+  if (!select.options.length) {
+    select.innerHTML = NAVAL_CLASS_LIBRARY.map(item => `<option value="${item.value}">${item.label}</option>`).join('');
+  }
+  const preset = NAVAL_CLASS_LIBRARY_BY_KEY[select.value] || NAVAL_CLASS_LIBRARY[0];
+  if (!preset) { panel.innerHTML = ''; return; }
+  const tags = (preset.roleTags || []).map(tag => `<span class="tag">${tag}</span>`).join(' ');
+  panel.innerHTML = `
+    <div class="card" style="margin-top:8px">
+      <strong>${preset.label}</strong>
+      <div class="row" style="margin-top:6px">
+        <span class="tag">${preset.faction}</span>
+        <span class="tag">${assetTypeLabel(preset.baseType)}</span>
+        <span class="tag">Default affiliation: ${assetAffiliationLabel(preset.affiliation)}</span>
+        <span class="tag">Fuel 100% = ${preset.fuelCapacity} endurance units</span>
+        <span class="tag">Readiness ${preset.readiness}%</span>
+      </div>
+      <div class="row" style="margin-top:6px">${tags}</div>
+      <div class="small" style="margin-top:8px">Sensors: radar ${preset.sensorProfile.radar} nm · visual ${preset.sensorProfile.visual} nm · EW ${preset.sensorProfile.ew} · boarding / inspection ${preset.sensorProfile.inspection}</div>
+      <div class="small" style="margin-top:6px">${preset.notes}</div>
+    </div>`;
 }
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -663,7 +790,7 @@ function loadState() {
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function migrateState(pkg) {
   const merged = Object.assign(clone(DEFAULT_STATE), pkg || {});
-  merged.version = 16;
+  merged.version = 17;
   merged.scenario = Object.assign(clone(DEFAULT_STATE.scenario), pkg?.scenario || {});
   merged.zones = pkg?.zones || {};
   merged.assets = Array.isArray(pkg?.assets) ? pkg.assets : [];
@@ -677,32 +804,50 @@ function migrateState(pkg) {
   Object.entries(merged.zones).forEach(([id, z]) => {
     merged.zones[id] = Object.assign({ name: id, center: [54.8, 7.55], radius: 12000, kind: 'sea' }, z);
   });
-  merged.assets = merged.assets.map(a => Object.assign({
-    id: `asset-${Math.random().toString(36).slice(2, 8)}`,
-    name: 'New Asset',
-    type: 'patrol_vessel',
-    affiliation: 'friend',
-    representation: 'unit',
-    status: 'available',
-    zone: '',
-    fuel: 10,
-    readiness: 5,
-    assignedCell: merged.session.cells[0]?.id || '',
-    lat: null,
-    lon: null,
-    heading: 90,
-    speed: 12,
-    trackQuality: 'q2'
-  }, a, {
-    type: normalizeAssetType(a?.type),
-    affiliation: normalizeAssetAffiliation(a?.affiliation),
-    representation: normalizeAssetRepresentation(a?.representation || a?.classification),
-    trackQuality: normalizeTrackQuality(a?.trackQuality),
-    lat: normalizeCoord(a?.lat),
-    lon: normalizeCoord(a?.lon),
-    heading: normalizeHeading(a?.heading),
-    speed: normalizeSpeed(a?.speed)
-  }));
+  merged.assets = merged.assets.map(a => {
+    const normalizedType = normalizeAssetType(a?.type);
+    const preset = modernPresetForType(normalizedType);
+    const capacity = Number(a?.fuelCapacity) > 0 ? Number(a.fuelCapacity) : (preset?.fuelCapacity || defaultFuelCapacityForAssetType(normalizedType));
+    const roleTags = Array.isArray(a?.roleTags) && a.roleTags.length ? a.roleTags : (preset?.roleTags || []);
+    return Object.assign({
+      id: `asset-${Math.random().toString(36).slice(2, 8)}`,
+      name: 'New Asset',
+      type: 'patrol_vessel',
+      affiliation: 'friend',
+      representation: 'unit',
+      status: 'available',
+      zone: '',
+      fuel: 100,
+      fuelCapacity: capacity,
+      readiness: 100,
+      assignedCell: merged.session.cells[0]?.id || '',
+      lat: null,
+      lon: null,
+      heading: 90,
+      speed: 12,
+      trackQuality: 'q2',
+      roleTags,
+      faction: preset?.faction || '',
+      classNotes: preset?.notes || '',
+      sensorProfile: clone(preset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType))
+    }, a, {
+      type: normalizedType,
+      affiliation: normalizeAssetAffiliation(a?.affiliation),
+      representation: normalizeAssetRepresentation(a?.representation || a?.classification),
+      trackQuality: normalizeTrackQuality(a?.trackQuality),
+      lat: normalizeCoord(a?.lat),
+      lon: normalizeCoord(a?.lon),
+      heading: normalizeHeading(a?.heading),
+      speed: normalizeSpeed(a?.speed),
+      fuelCapacity: capacity,
+      fuel: normalizeLegacyFuelToPercent(a?.fuel, normalizedType, capacity),
+      readiness: normalizeLegacyReadinessToPercent(a?.readiness),
+      roleTags,
+      faction: a?.faction || preset?.faction || '',
+      classNotes: a?.classNotes || preset?.notes || '',
+      sensorProfile: Object.assign({}, preset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), a?.sensorProfile || {})
+    });
+  });
   merged.boardingRequests = Array.isArray(pkg?.boardingRequests) ? pkg.boardingRequests.map(r => Object.assign({ status: 'pending', facilitatorModifier: 0, envDifficulty: 'moderate', rationale: '', adjudication: null }, r || {})) : [];
   merged.turnHistory = Array.isArray(pkg?.turnHistory) ? pkg.turnHistory : [];
   merged.turnFuture = Array.isArray(pkg?.turnFuture) ? pkg.turnFuture : [];
@@ -978,17 +1123,41 @@ function autoNameForAssetType(type, existingNames = []) {
   return `${label} ${i}`;
 }
 
-function defaultFuelForAssetType(type) {
+function defaultFuelCapacityForAssetType(type) {
   const normalized = normalizeAssetType(type);
-  if (['maritime_helicopter', 'isr_drone', 'boarding_team', 'port_support_unit', 'command_element'].includes(normalized)) return 10;
+  const preset = modernPresetForType(normalized);
+  if (preset?.fuelCapacity) return preset.fuelCapacity;
+  if (['aircraft_carrier', 'amphibious_assault_ship'].includes(normalized)) return 16;
+  if (['destroyer', 'cruiser', 'air_defence_destroyer', 'air_defence_frigate', 'amphibious_ship', 'replenishment_ship', 'auxiliary_ship'].includes(normalized)) return 14;
+  if (['frigate', 'corvette', 'attack_submarine', 'ballistic_missile_submarine', 'submarine'].includes(normalized)) return 12;
+  if (isCommercialAssetType(normalized)) return 10;
+  if (['maritime_helicopter', 'isr_drone', 'boarding_team', 'port_support_unit', 'command_element'].includes(normalized)) return 8;
   return 10;
+}
+
+function defaultFuelForAssetType(type) {
+  return 100;
 }
 
 function defaultReadinessForAssetType(type) {
   const normalized = normalizeAssetType(type);
-  if (isCommercialAssetType(normalized)) return 4;
-  if (['boarding_team', 'port_support_unit', 'command_element'].includes(normalized)) return 5;
-  return 5;
+  const preset = modernPresetForType(normalized);
+  if (preset?.readiness != null) return clampPercent(preset.readiness, 100);
+  if (isCommercialAssetType(normalized)) return 80;
+  if (['boarding_team', 'port_support_unit', 'command_element'].includes(normalized)) return 95;
+  return 90;
+}
+
+function defaultSensorProfileForAssetType(type) {
+  const normalized = normalizeAssetType(type);
+  const preset = modernPresetForType(normalized);
+  if (preset?.sensorProfile) return clone(preset.sensorProfile);
+  if (normalized === 'aircraft_carrier') return { radar: 22, visual: 11, inspection: 0.6, ew: 16 };
+  if (['destroyer', 'cruiser', 'air_defence_destroyer', 'air_defence_frigate'].includes(normalized)) return { radar: 20, visual: 10, inspection: 0.7, ew: 14 };
+  if (['frigate', 'corvette', 'patrol_vessel'].includes(normalized)) return { radar: 16, visual: 10, inspection: 0.8, ew: 10 };
+  if (['attack_submarine', 'ballistic_missile_submarine', 'submarine'].includes(normalized)) return { radar: 6, visual: 5, inspection: 0.2, ew: 6 };
+  if (isCommercialAssetType(normalized)) return { radar: 12, visual: 8, inspection: 0.5, ew: 4 };
+  return { radar: 10, visual: 8, inspection: 0.5, ew: 6 };
 }
 
 function playerControllableAssets(cellId = getPlayerCell()) {
@@ -1045,9 +1214,9 @@ function inspectionStrength(asset) {
 }
 
 function readinessModifier(asset) {
-  const r = Number(asset?.readiness ?? 0);
-  if (r >= 5) return 1;
-  if (r <= 2) return -1;
+  const r = clampPercent(asset?.readiness, 100);
+  if (r >= 85) return 1;
+  if (r <= 50) return -1;
   return 0;
 }
 
@@ -1595,6 +1764,7 @@ function bindEvents() {
   bindClick('measurePlayerBtn', () => toggleMeasurementMode('player'));
   bindClick('clearMeasurePlayerBtn', () => clearMeasurement('player'));
   bindClick('addModernAssetBtn', addModernAssetFromLibrary);
+  bindChange('modernAssetLibrarySelect', renderModernAssetLibraryInfo);
   bindChange('overlaySelect', (e) => { state.scenario.overlayMode = e.target.value; saveState(); initMaps(true); });
   bindChange('turnDurationHoursInput', saveScenarioMeta);
   bindChange('turnDurationUnitSelect', saveScenarioMeta);
@@ -1663,7 +1833,9 @@ function setMapMode(mode) {
   renderAssetEditor();
   renderFacilitatorMap();
   updateWaypointUi();
+  renderModernAssetLibraryInfo();
 }
+
 
 function resetToBlankScenario() {
   state = clone(DEFAULT_STATE);
@@ -1885,14 +2057,19 @@ function createAssetBase(type, overrides = {}) {
     representation: normalizeAssetRepresentation(overrides.representation || (isCommercialAssetType(normalizedType) ? 'track' : 'unit')),
     status: overrides.status || 'available',
     zone,
-    fuel: overrides.fuel != null ? Math.max(0, Number(overrides.fuel)) : defaultFuelForAssetType(normalizedType),
-    readiness: overrides.readiness != null ? Math.max(0, Number(overrides.readiness)) : defaultReadinessForAssetType(normalizedType),
+    fuel: overrides.fuel != null ? clampPercent(overrides.fuel, 100) : defaultFuelForAssetType(normalizedType),
+    fuelCapacity: overrides.fuelCapacity != null ? Math.max(1, Number(overrides.fuelCapacity)) : defaultFuelCapacityForAssetType(normalizedType),
+    readiness: overrides.readiness != null ? clampPercent(overrides.readiness, defaultReadinessForAssetType(normalizedType)) : defaultReadinessForAssetType(normalizedType),
     assignedCell: overrides.assignedCell != null ? overrides.assignedCell : (isCommercialAssetType(normalizedType) ? '' : (state.session.cells[0]?.id || '')),
     lat: Number(Number(center[0]).toFixed(6)),
     lon: Number(Number(center[1]).toFixed(6)),
     heading: normalizeHeading(overrides.heading ?? (Math.random() * 360)),
     speed: normalizeSpeed(overrides.speed ?? (isCommercialAssetType(normalizedType) ? randomWithin(8, 18) : 12)),
     trackQuality: normalizeTrackQuality(overrides.trackQuality || (isCommercialAssetType(normalizedType) ? 'q3' : 'q2')),
+    roleTags: Array.isArray(overrides.roleTags) ? clone(overrides.roleTags) : clone(modernPresetForType(normalizedType)?.roleTags || []),
+    faction: overrides.faction != null ? overrides.faction : (modernPresetForType(normalizedType)?.faction || ''),
+    classNotes: overrides.classNotes != null ? overrides.classNotes : (modernPresetForType(normalizedType)?.notes || ''),
+    sensorProfile: Object.assign({}, modernPresetForType(normalizedType)?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), overrides.sensorProfile || {}),
     waypoints: Array.isArray(overrides.waypoints) ? clone(overrides.waypoints) : []
   };
 }
@@ -1962,15 +2139,21 @@ function addModernAssetFromLibrary() {
   }
   const preset = NAVAL_CLASS_LIBRARY.find(item => item.value === select.value);
   if (!preset) return;
-  const asset = createAssetBase(preset.value, {
+  const asset = createAssetBase(preset.baseType || preset.value, {
     affiliation: preset.affiliation,
     assignedCell: preset.assignedCell || '',
     speed: preset.speed,
     readiness: preset.readiness,
     fuel: preset.fuel,
-    heading: preset.heading
+    fuelCapacity: preset.fuelCapacity,
+    heading: preset.heading,
+    sensorProfile: clone(preset.sensorProfile || {}),
+    roleTags: clone(preset.roleTags || []),
+    faction: preset.faction || '',
+    classNotes: preset.notes || ''
   });
   asset.name = preset.label;
+  asset.type = preset.value;
   asset.representation = isCommercialAssetType(asset.type) ? 'track' : 'unit';
   state.assets.push(asset);
   state.selectedAssetId = asset.id;
@@ -1994,6 +2177,15 @@ function onSelectedAssetTypeChanged() {
   }
   if (fuelEl && !String(fuelEl.value || '').trim()) fuelEl.value = defaultFuelForAssetType(type);
   if (readinessEl && !String(readinessEl.value || '').trim()) readinessEl.value = defaultReadinessForAssetType(type);
+  if (asset) {
+    const preset = modernPresetForType(type);
+    asset.fuelCapacity = preset?.fuelCapacity || defaultFuelCapacityForAssetType(type);
+    asset.roleTags = clone(preset?.roleTags || []);
+    asset.faction = preset?.faction || asset.faction || '';
+    asset.classNotes = preset?.notes || asset.classNotes || '';
+    asset.sensorProfile = Object.assign({}, preset?.sensorProfile || defaultSensorProfileForAssetType(type));
+  }
+  renderModernAssetLibraryInfo();
 }
 
 function addAsset() {
@@ -2034,8 +2226,10 @@ function saveSelectedAssetProps() {
   asset.representation = normalizeAssetRepresentation(document.getElementById('assetRepresentation').value);
   asset.status = document.getElementById('assetStatus').value;
   asset.zone = document.getElementById('assetZone').value;
-  asset.fuel = Math.max(0, Number(document.getElementById('assetFuel').value) || defaultFuelForAssetType(asset.type));
-  asset.readiness = Math.max(0, Number(document.getElementById('assetReadiness').value) || defaultReadinessForAssetType(asset.type));
+  asset.fuel = clampPercent(document.getElementById('assetFuel').value, defaultFuelForAssetType(asset.type));
+  asset.readiness = clampPercent(document.getElementById('assetReadiness').value, defaultReadinessForAssetType(asset.type));
+  asset.fuelCapacity = fuelCapacityForAsset(asset);
+  asset.sensorProfile = Object.assign({}, defaultSensorProfileForAssetType(asset.type), asset.sensorProfile || {});
   asset.assignedCell = document.getElementById('assetAssignedCell').value;
   asset.trackQuality = normalizeTrackQuality(document.getElementById('assetTrackQuality').value);
   asset.heading = normalizeHeading(document.getElementById('assetHeading').value);
@@ -2547,15 +2741,17 @@ function fuelProfileLabel(speed) {
 
 function fuelPlanForTurn(asset, hours) {
   const requestedHours = Math.max(0, Number(hours || 0));
-  const availableFuel = Math.max(0, Number(asset?.fuel || 0));
+  const availableFuel = clampPercent(asset?.fuel, 100);
   const speed = Math.max(0, normalizeSpeed(asset?.speed));
-  const burnRate = fuelBurnRatePerHour(speed);
+  const burnRateUnits = fuelBurnRatePerHour(speed);
+  const capacity = fuelCapacityForAsset(asset);
+  const burnRate = capacity > 0 ? (burnRateUnits / capacity) * 100 : burnRateUnits;
   const maxHoursByFuel = burnRate > 0 ? (availableFuel / burnRate) : requestedHours;
   const effectiveHours = Math.max(0, Math.min(requestedHours, maxHoursByFuel));
   const fuelUsed = Math.min(availableFuel, burnRate * effectiveHours);
   const fuelRemaining = Math.max(0, availableFuel - fuelUsed);
   const limitedByFuel = effectiveHours + 1e-6 < requestedHours;
-  return { requestedHours, effectiveHours, burnRate, fuelUsed, fuelRemaining, limitedByFuel, profile: fuelProfileLabel(speed) };
+  return { requestedHours, effectiveHours, burnRate, fuelUsed, fuelRemaining, limitedByFuel, profile: fuelProfileLabel(speed), capacity };
 }
 
 function movementPreviewRows() {
@@ -2579,7 +2775,7 @@ function previewNextTurnMovement() {
     return;
   }
   const hours = Math.max(0.25, Math.min(24, Number(state.scenario.turnDurationHours || 1) || 1));
-  const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm ${r.movement.consumedWaypoints ? `via ${r.movement.consumedWaypoints} WP` : `on ${normalizeHeading(r.movement.heading)}°`} to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}${r.movement.remainingWaypoints[0] ? ` · next ${r.movement.remainingWaypoints[0].label || 'WP'}` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(2)} used / ${r.fuelPlan.fuelRemaining.toFixed(2)} left @ ${r.fuelPlan.burnRate.toFixed(2)}/h${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
+  const lines = rows.slice(0, 10).map(r => `${r.asset.name}: ${r.distanceNm.toFixed(1)} nm ${r.movement.consumedWaypoints ? `via ${r.movement.consumedWaypoints} WP` : `on ${normalizeHeading(r.movement.heading)}°`} to ${r.destination[0].toFixed(4)}, ${r.destination[1].toFixed(4)}${r.zone ? ` (${prettyZone(r.zone)})` : ''}${r.movement.remainingWaypoints[0] ? ` · next ${r.movement.remainingWaypoints[0].label || 'WP'}` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(1)}% used / ${r.fuelPlan.fuelRemaining.toFixed(1)}% left @ ${r.fuelPlan.burnRate.toFixed(1)}%/h${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
   alert(`Movement preview for next turn (${hours}h):\n\n${lines.join('\n')}${rows.length > 10 ? `\n...and ${rows.length - 10} more asset(s)` : ''}`);
 }
 
@@ -2661,9 +2857,9 @@ function advanceSimulationTurn() {
     r.asset.lon = Number(r.destination[1].toFixed(6));
     r.asset.heading = normalizeHeading(r.movement.heading);
     r.asset.waypoints = r.movement.remainingWaypoints;
-    r.asset.fuel = Number(r.fuelPlan.fuelRemaining.toFixed(2));
+    r.asset.fuel = Number(r.fuelPlan.fuelRemaining.toFixed(1));
     if (r.zone) r.asset.zone = r.zone;
-    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.holdActive ? ' · boarding hold / 0 kt' : ''}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(2)} used / ${r.fuelPlan.fuelRemaining.toFixed(2)} left${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
+    moved.push(`${r.asset.name} ${r.distanceNm.toFixed(1)} nm to ${r.destination[0].toFixed(3)}, ${r.destination[1].toFixed(3)}${r.holdActive ? ' · boarding hold / 0 kt' : ''}${r.movement.consumedWaypoints ? ` via ${r.movement.consumedWaypoints} WP` : ''} · fuel ${r.fuelPlan.fuelUsed.toFixed(1)}% used / ${r.fuelPlan.fuelRemaining.toFixed(1)}% left${r.fuelPlan.limitedByFuel ? ' · fuel-limited' : ''}`);
   });
   state.scenario.turn = Number(state.scenario.turn || 1) + 1;
   state.scenario.timeLabel = advanceTimeLabel(state.scenario.timeLabel, hours);
@@ -2918,7 +3114,7 @@ function renderFacilitatorMap() {
     }).addTo(map);
     assetLayers.push(vectorLine);
     const marker = L.marker(ll, { icon: assetIcon(a), draggable: true, title: a.name }).addTo(map);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + fuelPercentLabel(a) + ' (' + fuelCapacityForAsset(a).toFixed(0) + 'u cap)<br>Readiness: ' + readinessPercentLabel(a) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
     marker.on('click', (ev) => { if (ev?.originalEvent) L.DomEvent.stopPropagation(ev.originalEvent); selectAsset(a.id); });
     marker.on('dragend', e => {
       const p = e.target.getLatLng();
@@ -2968,7 +3164,7 @@ function renderPlayerMap() {
     const isOwn = a.assignedCell === cellId;
     const canControl = isOwn && !isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral';
     const marker = L.marker(ll, { icon: assetIcon(a), title: a.name, draggable: canControl }).addTo(playerMap);
-    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + Number(a.fuel ?? 0).toFixed(1) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
+    marker.bindPopup('<strong>' + a.name + '</strong><br>Display: ' + assetRepresentationLabel(a.representation) + '<br>Type: ' + assetTypeLabel(a.type) + '<br>Affiliation: ' + assetAffiliationLabel(a.affiliation) + '<br>Track quality: ' + trackQualityLabel(a.trackQuality) + '<br>Heading: ' + normalizeHeading(a.heading) + '&deg;<br>Speed: ' + normalizeSpeed(a.speed) + ' kt<br>Fuel: ' + fuelPercentLabel(a) + ' (' + fuelCapacityForAsset(a).toFixed(0) + 'u cap)<br>Readiness: ' + readinessPercentLabel(a) + '<br>Waypoints: ' + waypointSummary(a) + '<br>Zone: ' + prettyZone(a.zone) + '<br>Group: ' + assetOwningGroupLabel(a));
     if (canControl) {
       marker.on('click', () => selectPlayerAsset(a.id));
       marker.on('dragend', e => {
@@ -3020,7 +3216,7 @@ function renderScenario() {
   `;
   renderGlobalStatusBadge();
   const title = document.querySelector('header h1');
-  if (title) title.textContent = 'Open War Game Engine v16';
+  if (title) title.textContent = 'Open War Game Engine v17';
   const addZoneModeBtn = document.getElementById('addZoneModeBtn');
   if (addZoneModeBtn) {
     addZoneModeBtn.textContent = state.mapMode === 'add-zone' ? 'Exit Add Zone Mode' : 'Add Zone Mode';
@@ -3121,9 +3317,10 @@ function renderAssets() {
             <span class="tag">${a.status}</span>
             <span class="tag">${prettyZone(a.zone)}</span>
             <span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span>
-            <span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span>
+            <span class="tag">Fuel ${fuelPercentLabel(a)}</span><span class="tag">Ready ${readinessPercentLabel(a)}</span>
             <span class="tag">${waypointSummary(a)}</span>
             <span class="tag">${assetOwningGroupLabel(a)}</span>
+            ${(roleTagsForAsset(a) || []).slice(0,3).map(tag => `<span class="tag">${tag}</span>`).join('')}
           </div>
           <button class="secondary" onclick="selectAsset('${a.id}')">Select</button>
         </div>`).join('')}
@@ -3164,8 +3361,8 @@ function renderAssetEditor() {
   if (assetRepresentation) assetRepresentation.value = normalizeAssetRepresentation(asset?.representation || 'unit');
   if (assetStatus) assetStatus.value = asset?.status || 'available';
   if (assetZone) assetZone.value = asset?.zone || '';
-  if (assetFuel) { assetFuel.value = asset?.fuel ?? defaultFuelForAssetType(asset?.type); assetFuel.placeholder = 'Fuel (default 10)'; assetFuel.title = 'Fuel remaining'; }
-  if (assetReadiness) { assetReadiness.value = asset?.readiness ?? defaultReadinessForAssetType(asset?.type); assetReadiness.placeholder = 'Readiness (1-5)'; assetReadiness.title = 'Operational readiness'; }
+  if (assetFuel) { assetFuel.value = clampPercent(asset?.fuel, defaultFuelForAssetType(asset?.type)); assetFuel.placeholder = 'Fuel (%)'; assetFuel.title = `Fuel remaining in percent; 100% equals ${fuelCapacityForAsset(asset || { type: assetType?.value })} endurance units for this class`; }
+  if (assetReadiness) { assetReadiness.value = clampPercent(asset?.readiness, defaultReadinessForAssetType(asset?.type)); assetReadiness.placeholder = 'Readiness (%)'; assetReadiness.title = 'Operational readiness percentage'; }
   if (assetAssignedCell) assetAssignedCell.value = asset?.assignedCell || state.session.cells[0]?.id || '';
   if (assetTrackQuality) assetTrackQuality.value = normalizeTrackQuality(asset?.trackQuality || 'q2');
   if (assetHeading) assetHeading.value = normalizeHeading(asset?.heading ?? 90);
@@ -3174,7 +3371,9 @@ function renderAssetEditor() {
   if (assetLon) assetLon.value = asset?.lon ?? '';
   if (assetWaypoints) assetWaypoints.value = formatWaypointText(asset?.waypoints || []);
   updateWaypointUi();
+  renderModernAssetLibraryInfo();
 }
+
 
 function renderInjects() {
   const el = document.getElementById('injectsPanel');
@@ -3275,7 +3474,7 @@ function renderPlayerPage() {
   document.getElementById('playerAssetsPanel').innerHTML = `
     <div class="asset-section">
       <div class="section-title">Assigned Assets</div>
-      ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div>${(!isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral') ? `<button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button>` : `<div class="small" style="margin-top:8px">Facilitator-controlled contact. Visible, but not movable from player view.</div>`}</div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
+      ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${fuelPercentLabel(a)}</span><span class="tag">Ready ${readinessPercentLabel(a)}</span><span class="tag">Readiness ${a.readiness}</span></div>${(!isCommercialAssetType(a.type) && normalizeAssetAffiliation(a.affiliation) !== 'neutral') ? `<button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button>` : `<div class="small" style="margin-top:8px">Facilitator-controlled contact. Visible, but not movable from player view.</div>`}</div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
     </div>`;
   const visualPanel = document.getElementById('playerVisualContactsPanel');
   if (visualPanel) visualPanel.innerHTML = `
@@ -3321,6 +3520,7 @@ function renderAll() {
   bindAssetFilterControls();
   renderInjects();
   renderTimeline();
+  renderModernAssetLibraryInfo();
   const legendLabel = document.getElementById('legendStyleLabel');
   if (legendLabel) legendLabel.textContent = '(' + (state.scenario.symbolStyle || 'ntds').toUpperCase().replace('APP6','APP-6') + ')';
   updateMeasurementControl('facilitator');

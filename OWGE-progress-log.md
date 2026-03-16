@@ -56,3 +56,9 @@
 - Reduced Facilitator Ops / Injects to turn status, inject handling, facilitator updates, and timeline.
 - Reduced Map / Authoring to chart controls, blue cells, zone editing, selected-asset editing, duplication, commercial traffic, and turn controls.
 - Added a clearer inline turn status panel on Scenario, Ops, and Map so Turn 1 / current turn is always obvious.
+
+
+## Update: Modern asset profiles + 0–100% fuel/readiness
+- Modern naval class library now shows faction, role tags, default affiliation, sensor profile, and class notes.
+- Added per-class fuel capacity baseline so fuel is edited/displayed as percent while movement still burns against a class capacity.
+- Readiness moved from legacy 1–5 style to 0–100% for clearer operational interpretation.
