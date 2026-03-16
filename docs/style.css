@@ -174,3 +174,21 @@ header .row { padding-right:160px; }
 .external-map-tools { position: static; margin: 8px 0 10px; }
 .cell-map-badge { display:none !important; }
 .cell-div-icon { display:none !important; }
+
+.ops-container.player-page-scroll > .panel,
+.player-page-scroll > .panel {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.fullmap-layout { padding:16px; }
+.fullmap-layout > .panel { min-height: calc(100vh - 120px); }
+.player-map-small { height: 520px !important; }
+.player-map-full { height: calc(100vh - 260px) !important; min-height: 640px; }
+.weather-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+.tag-warn { background: rgba(245,158,11,.15); border-color:#f59e0b; color:#fde68a; }
+@media (max-width: 1100px) {
+  .ops-container.player-page-scroll > .panel,
+  .player-page-scroll > .panel { max-height:none; overflow:visible; }
+  .player-map-full { height: 70vh !important; min-height: 480px; }
+}

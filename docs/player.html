@@ -2,36 +2,36 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Open War Game Engine v17 - Player Map</title>
+  <title>Open War Game Engine v17 - Player Full Map</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
-<body>
+<body data-player-map-mode="readonly">
 <header>
   <h1>Open War Game Engine v17</h1>
-  <div class="small">Player map view with shared chart picture and assigned-asset awareness</div>
-  <div class="row" style="margin-top:10px"><a id="playerScenarioNavLink" class="nav-btn" href="./player-scenario.html">Player Scenario</a><a id="playerOpsNavLink" class="nav-btn" href="./player-ops.html">Player Ops</a><a id="playerMapNavLink" class="nav-btn" href="./player.html">Player Map</a></div>
+  <div class="small">Full screen player map for zooming, panning, and measuring only</div>
+  <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
+    <div style="min-width:240px;max-width:320px">
+      <label class="small" for="playerCellSelect">Cell</label>
+      <select id="playerCellSelect"></select>
+    </div>
+    <a id="playerScenarioNavLink" class="nav-btn" href="./player-scenario.html">Scenario</a>
+    <a id="playerNavigationNavLink" class="nav-btn" href="./player-navigation.html">Navigation</a>
+    <a id="playerOpsNavLink" class="nav-btn" href="./player-ops.html">Ops / Action</a>
+    <a id="playerStatusNavLink" class="nav-btn" href="./player-status.html">Status Update</a>
+    <a id="playerWeatherNavLink" class="nav-btn" href="./player-weather.html">Weather Forecast</a>
+    <a id="playerMapNavLink" class="nav-btn" href="./player.html">Full Map</a>
+  </div>
   <div id="turnCounterBadge" class="turn-badge" aria-label="Current turn status"></div>
 </header>
-<div class="player-container">
+<div class="fullmap-layout">
   <div class="panel">
-    <h2>Assigned Assets</h2>
-    <div id="playerAssetsPanel"></div>
-    <h2 style="margin-top:18px">Orders / Contact Actions</h2>
-    <div id="playerWaypointStatus" class="small" style="margin-bottom:8px"></div>
-    <div id="playerAssetEditor"></div>
-    <h2 style="margin-top:18px">Visual Contacts</h2>
-    <div id="playerVisualContactsPanel"></div>
-  </div>
-  <div class="panel">
-    <h2>Player Map</h2>
-    <div class="small">Map tools</div>
     <div class="map-toolbar external-map-tools">
       <button id="measurePlayerBtn" class="secondary">Measure</button>
       <button id="clearMeasurePlayerBtn" class="secondary">Clear Measure</button>
       <div id="measurePlayerStatus" class="small map-toolbar-status">Off</div>
     </div>
-    <div id="playerMap"></div>
+    <div id="playerMap" class="player-map-full"></div>
     <div class="legend-box" style="margin-top:10px">
       <div class="map-legend">
         <div class="small"><strong>Map legend</strong></div>

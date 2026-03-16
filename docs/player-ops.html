@@ -8,28 +8,29 @@
 <body>
 <header>
   <h1>Open War Game Engine v17</h1>
-  <div class="small">Player operations view for injects, orders, classification, and action submission</div>
-  <div class="row" style="margin-top:10px"><a id="playerScenarioNavLink" class="nav-btn" href="./player-scenario.html">Player Scenario</a><a id="playerOpsNavLink" class="nav-btn" href="./player-ops.html">Player Ops</a><a id="playerMapNavLink" class="nav-btn" href="./player.html">Player Map</a></div>
+  <div class="small">Ops and action requests: boarding, hailing, resupply, reinforcements, and facilitator updates</div>
+  <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
+    <div style="min-width:240px;max-width:320px">
+      <label class="small" for="playerCellSelect">Cell</label>
+      <select id="playerCellSelect"></select>
+    </div>
+    <a id="playerScenarioNavLink" class="nav-btn" href="./player-scenario.html">Scenario</a>
+    <a id="playerNavigationNavLink" class="nav-btn" href="./player-navigation.html">Navigation</a>
+    <a id="playerOpsNavLink" class="nav-btn" href="./player-ops.html">Ops / Action</a>
+    <a id="playerStatusNavLink" class="nav-btn" href="./player-status.html">Status Update</a>
+    <a id="playerWeatherNavLink" class="nav-btn" href="./player-weather.html">Weather Forecast</a>
+    <a id="playerMapNavLink" class="nav-btn" href="./player.html">Full Map</a>
+  </div>
   <div id="turnCounterBadge" class="turn-badge" aria-label="Current turn status"></div>
 </header>
-<div class="ops-container">
+<div class="ops-container player-page-scroll">
   <div class="panel">
-    <h2>Cell</h2>
-    <select id="playerCellSelect"></select>
-    <div class="small" style="margin-top:8px">Choose your cell once. After selection, that cell is locked to this player session and cannot be picked by another player at the same time.</div>
-    <div id="playerScenarioPanel"></div>
-    <h2 style="margin-top:18px">Assigned Assets</h2>
-    <div id="playerAssetsPanel"></div>
-    <h2 style="margin-top:18px">Selected Asset Orders / Contact Classification</h2>
-    <div id="playerWaypointStatus" class="small" style="margin-bottom:8px"></div>
-    <div id="playerAssetEditor"></div>
+    <h2>Ops / Action</h2>
+    <div id="playerOpsActionPanel"></div>
   </div>
   <div class="panel">
     <h2>Facilitator Updates / Injects</h2>
     <div id="playerFeedPanel"></div>
-    <h2 style="margin-top:18px">Submit Action</h2>
-    <textarea id="playerActionText" placeholder="Describe your intended action, intent, timing, and desired effect"></textarea>
-    <button id="playerSubmitBtn" class="good">Submit Action</button>
     <h2 style="margin-top:18px">Action Log</h2>
     <div id="playerActionLog"></div>
   </div>
