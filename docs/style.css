@@ -16,13 +16,13 @@ textarea { width:100%; min-height:110px; resize:vertical; } .zone-selected { out
 
 .ntds-div-icon { background: transparent; border: 0; }
 .ntds-marker-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; pointer-events:none; }
-.ntds-symbol-shell { padding:2px 4px 0; border-radius:14px; background:rgba(2,6,23,.14); backdrop-filter: blur(1px); }
+.ntds-symbol-shell { padding:2px 4px 0; border-radius:14px; background:transparent; backdrop-filter:none; }
 .ntds-marker-wrap svg { overflow: visible; filter: drop-shadow(0 2px 4px rgba(2,6,23,.45)); }
 .ntds-asset-name { margin-top:-2px; padding:2px 8px; border-radius:999px; border:1px solid #334155; font-size:10px; font-weight:800; line-height:1.3; white-space:nowrap; text-align:center; max-width:168px; overflow:hidden; text-overflow:ellipsis; }
 .ntds-asset-meta { padding:1px 6px; border-radius:999px; background:rgba(248,250,252,.95); border:1px solid #cbd5e1; color:#0f172a; font-size:9px; font-weight:700; line-height:1.2; white-space:nowrap; text-align:center; max-width:190px; overflow:hidden; text-overflow:ellipsis; }
 
-.ntds-track .ntds-symbol-shell { background: rgba(15,23,42,.10); }
-.ntds-unit .ntds-symbol-shell { background: rgba(2,6,23,.16); }
+.ntds-track .ntds-symbol-shell { background: transparent; }
+.ntds-unit .ntds-symbol-shell { background: transparent; }
 .ntds-track .ntds-asset-meta { background: rgba(255,251,235,.96); }
 .ntds-unit .ntds-asset-meta { background: rgba(248,250,252,.95); }
 
@@ -97,5 +97,5 @@ header { position: sticky; top: 0; z-index: 20; }
 @media (max-width: 1100px) { .ops-container { grid-template-columns:1fr; } }
 
 .app6-div-icon,.minimal-div-icon,.commercial-div-icon{background:transparent;border:0;}
-.symbol-app6 .ntds-symbol-shell,.symbol-minimal .ntds-symbol-shell,.symbol-commercial .ntds-symbol-shell{background:transparent;backdrop-filter:none;}
+.symbol-app6 .ntds-symbol-shell,.symbol-minimal .ntds-symbol-shell,.symbol-commercial .ntds-symbol-shell{background:transparent;}
 #symbolStyleSelect{min-width:160px;}
