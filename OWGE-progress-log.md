@@ -39,3 +39,7 @@
 - Fixed: player order saves now write a clear facilitator-facing log entry with heading, speed, and waypoint summary.
 - Fixed: global turn/time badge now renders in the header at top right across facilitator and player pages.
 - Note: facilitator map still only shows waypoint lines for the currently selected asset on the map itself; the new log makes Blue cell orders visible even when that asset is not selected.
+
+## Latest update
+
+- Measuring tool toegevoegd als zichtbare map-overlay control op facilitator- en playermap; klik Start, kies startpunt en eindpunt, lees afstand in nautische mijlen af.

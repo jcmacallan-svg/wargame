@@ -527,6 +527,8 @@ let playerMapMode = 'select';
 let playerSelectedAssetId = '';
 let playerSelectedContactId = '';
 let playerLastHoveredLatLng = null;
+let facilitatorMeasure = { active: false, start: null, end: null, line: null, tooltip: null, controlNode: null };
+let playerMeasure = { active: false, start: null, end: null, line: null, tooltip: null, controlNode: null };
 
 const ASSET_TYPE_OPTIONS = [
   { value: 'frigate', label: 'Frigate' },
@@ -2532,6 +2534,124 @@ function trackQualityStyle(asset) {
   return map[q] || map.q2;
 }
 
+function measurementStateFor(target) {
+  return target === 'player' ? playerMeasure : facilitatorMeasure;
+}
+
+function measurementLabel(start, end) {
+  const nm = distanceNmBetween(start.lat, start.lng, end.lat, end.lng);
+  return `${nm.toFixed(2)} nm`;
+}
+
+function clearMeasurement(target) {
+  const st = measurementStateFor(target);
+  const activeMap = target === 'player' ? playerMap : map;
+  if (st.line && activeMap) activeMap.removeLayer(st.line);
+  if (st.tooltip && activeMap) activeMap.removeLayer(st.tooltip);
+  st.line = null;
+  st.tooltip = null;
+  st.start = null;
+  st.end = null;
+  updateMeasurementControl(target);
+}
+
+function setMeasurementActive(target, active) {
+  const st = measurementStateFor(target);
+  st.active = !!active;
+  if (!st.active) {
+    clearMeasurement(target);
+    return;
+  }
+  updateMeasurementControl(target);
+}
+
+function updateMeasurementOverlay(target) {
+  const st = measurementStateFor(target);
+  const activeMap = target === 'player' ? playerMap : map;
+  if (!activeMap || !st.start || !st.end) return;
+  if (st.line) activeMap.removeLayer(st.line);
+  if (st.tooltip) activeMap.removeLayer(st.tooltip);
+  st.line = L.polyline([[st.start.lat, st.start.lng], [st.end.lat, st.end.lng]], {
+    color: '#f59e0b',
+    weight: 3,
+    opacity: 0.95,
+    dashArray: '8 6'
+  }).addTo(activeMap);
+  const mid = L.latLng((st.start.lat + st.end.lat) / 2, (st.start.lng + st.end.lng) / 2);
+  st.tooltip = L.marker(mid, {
+    interactive: false,
+    icon: L.divIcon({
+      className: 'measure-label',
+      html: `<div>${measurementLabel(st.start, st.end)}</div>`,
+      iconSize: [96, 28],
+      iconAnchor: [48, 14]
+    })
+  }).addTo(activeMap);
+}
+
+function updateMeasurementControl(target) {
+  const st = measurementStateFor(target);
+  if (!st.controlNode) return;
+  const status = st.start && st.end ? measurementLabel(st.start, st.end) : st.start ? 'Select end point' : st.active ? 'Select start point' : 'Off';
+  st.controlNode.innerHTML = `
+    <div class="measure-title">Measure</div>
+    <div class="measure-status">${status}</div>
+    <div class="measure-actions">
+      <button type="button" class="measure-btn ${st.active ? 'active' : ''}" data-action="toggle">${st.active ? 'Cancel' : 'Start'}</button>
+      <button type="button" class="measure-btn secondary" data-action="clear">Clear</button>
+    </div>
+  `;
+  st.controlNode.querySelector('[data-action="toggle"]').onclick = () => {
+    if (st.active) {
+      setMeasurementActive(target, false);
+    } else {
+      clearMeasurement(target);
+      setMeasurementActive(target, true);
+    }
+  };
+  st.controlNode.querySelector('[data-action="clear"]').onclick = () => clearMeasurement(target);
+}
+
+function addMeasurementControl(activeMap, target) {
+  const st = measurementStateFor(target);
+  const MeasureControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const div = L.DomUtil.create('div', 'leaflet-bar measure-control');
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.disableScrollPropagation(div);
+      st.controlNode = div;
+      updateMeasurementControl(target);
+      return div;
+    }
+  });
+  activeMap.addControl(new MeasureControl());
+}
+
+function handleMeasurementClick(target, latlng) {
+  const st = measurementStateFor(target);
+  if (!st.active) return false;
+  if (!st.start) {
+    st.start = latlng;
+    st.end = null;
+    updateMeasurementControl(target);
+    return true;
+  }
+  st.end = latlng;
+  st.active = false;
+  updateMeasurementOverlay(target);
+  updateMeasurementControl(target);
+  return true;
+}
+
+function handleMeasurementMove(target, latlng) {
+  const st = measurementStateFor(target);
+  if (!st.active || !st.start) return;
+  st.end = latlng;
+  updateMeasurementOverlay(target);
+  updateMeasurementControl(target);
+}
+
 function clearLayers(arr, target) {
   if (!target) return;
   arr.forEach(l => target.removeLayer(l));
@@ -2558,7 +2678,9 @@ function initMaps(force) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     seaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') seaLayer.addTo(map);
+    addMeasurementControl(map, 'facilitator');
     map.on('click', e => {
+      if (handleMeasurementClick('facilitator', e.latlng)) return;
       if (state.mapMode === 'add-zone') {
         createZoneAt(e.latlng);
         return;
@@ -2569,6 +2691,7 @@ function initMaps(force) {
     });
     map.on('mousemove', e => {
       lastHoveredLatLng = e.latlng;
+      handleMeasurementMove('facilitator', e.latlng);
       if (state.mapMode === 'add-waypoint') updateWaypointUi();
     });
     map.on('moveend', () => persistLastMapView(map));
@@ -2580,11 +2703,14 @@ function initMaps(force) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(playerMap);
     playerSeaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') playerSeaLayer.addTo(playerMap);
+    addMeasurementControl(playerMap, 'player');
     playerMap.on('click', e => {
+      if (handleMeasurementClick('player', e.latlng)) return;
       if (playerMapMode === 'add-waypoint') appendWaypointToPlayerAsset(e.latlng);
     });
     playerMap.on('mousemove', e => {
       playerLastHoveredLatLng = e.latlng;
+      handleMeasurementMove('player', e.latlng);
       if (playerMapMode === 'add-waypoint') updatePlayerWaypointUi();
     });
     renderPlayerMap();

@@ -105,3 +105,20 @@ header { position: sticky; top: 0; z-index: 20; }
 .panel select, .panel input, .panel textarea { width:100%; max-width:100%; }
 .player-container .panel:first-child .tag { max-width:100%; }
 .player-container .panel:first-child .card, .ops-container .panel .card { overflow:hidden; }
+
+.measure-control {
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  border-radius: 12px;
+  padding: 10px;
+  min-width: 170px;
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
+}
+.measure-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #93c5fd; }
+.measure-status { margin-top: 6px; font-size: 13px; font-weight: 700; color: #f8fafc; }
+.measure-actions { display: flex; gap: 8px; margin-top: 8px; }
+.measure-btn { border: 1px solid #64748b; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.measure-btn.secondary { background: #1e293b; }
+.measure-btn.active { border-color: #f59e0b; color: #fbbf24; }
+.measure-label div { background: rgba(15, 23, 42, 0.96); color: #f8fafc; border: 1px solid #f59e0b; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; box-shadow: 0 6px 16px rgba(2, 6, 23, 0.28); }

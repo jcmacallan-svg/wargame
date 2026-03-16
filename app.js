@@ -527,6 +527,8 @@ let playerMapMode = 'select';
 let playerSelectedAssetId = '';
 let playerSelectedContactId = '';
 let playerLastHoveredLatLng = null;
+let facilitatorMeasure = { active: false, start: null, end: null, line: null, tooltip: null, controlNode: null };
+let playerMeasure = { active: false, start: null, end: null, line: null, tooltip: null, controlNode: null };
 
 const ASSET_TYPE_OPTIONS = [
   { value: 'frigate', label: 'Frigate' },
@@ -1352,6 +1354,18 @@ function updatePlayerWaypointUi(msg) {
   el.textContent = msg || (modeText + assetText + cursorText);
 }
 
+function waypointOrderSummary(waypoints) {
+  const queue = Array.isArray(waypoints) ? waypoints : [];
+  if (!queue.length) return 'no waypoints';
+  const preview = queue.slice(0, 3).map((wp, idx) => {
+    const label = wp.label || `WP${idx + 1}`;
+    const lat = Number(wp.lat).toFixed(3);
+    const lon = Number(wp.lon).toFixed(3);
+    return `${label} ${lat}, ${lon}`;
+  }).join(' · ');
+  return `${queue.length} waypoint${queue.length === 1 ? '' : 's'}: ${preview}${queue.length > 3 ? ' · …' : ''}`;
+}
+
 function savePlayerAssetOrders() {
   const asset = selectedPlayerAsset();
   if (!asset) return;
@@ -1361,6 +1375,9 @@ function savePlayerAssetOrders() {
   asset.heading = normalizeHeading(headingEl?.value || asset.heading);
   asset.speed = normalizeSpeed(speedEl?.value || asset.speed);
   asset.waypoints = parseWaypointText(waypointsEl?.value || '');
+  const summary = `${getPlayerCell()} saved orders for ${asset.name}: heading ${normalizeHeading(asset.heading)}°, speed ${normalizeSpeed(asset.speed)} kt, ${waypointOrderSummary(asset.waypoints)}.`;
+  state.actionLogByCell[getPlayerCell()].push({ time: state.scenario.timeLabel || 'H+0', text: summary });
+  state.timeline.push({ time: state.scenario.timeLabel || 'H+0', text: summary });
   saveState();
   updatePlayerWaypointUi(`Saved orders for ${asset.name}.`);
   renderPlayerPage();
@@ -2517,6 +2534,124 @@ function trackQualityStyle(asset) {
   return map[q] || map.q2;
 }
 
+function measurementStateFor(target) {
+  return target === 'player' ? playerMeasure : facilitatorMeasure;
+}
+
+function measurementLabel(start, end) {
+  const nm = distanceNmBetween(start.lat, start.lng, end.lat, end.lng);
+  return `${nm.toFixed(2)} nm`;
+}
+
+function clearMeasurement(target) {
+  const st = measurementStateFor(target);
+  const activeMap = target === 'player' ? playerMap : map;
+  if (st.line && activeMap) activeMap.removeLayer(st.line);
+  if (st.tooltip && activeMap) activeMap.removeLayer(st.tooltip);
+  st.line = null;
+  st.tooltip = null;
+  st.start = null;
+  st.end = null;
+  updateMeasurementControl(target);
+}
+
+function setMeasurementActive(target, active) {
+  const st = measurementStateFor(target);
+  st.active = !!active;
+  if (!st.active) {
+    clearMeasurement(target);
+    return;
+  }
+  updateMeasurementControl(target);
+}
+
+function updateMeasurementOverlay(target) {
+  const st = measurementStateFor(target);
+  const activeMap = target === 'player' ? playerMap : map;
+  if (!activeMap || !st.start || !st.end) return;
+  if (st.line) activeMap.removeLayer(st.line);
+  if (st.tooltip) activeMap.removeLayer(st.tooltip);
+  st.line = L.polyline([[st.start.lat, st.start.lng], [st.end.lat, st.end.lng]], {
+    color: '#f59e0b',
+    weight: 3,
+    opacity: 0.95,
+    dashArray: '8 6'
+  }).addTo(activeMap);
+  const mid = L.latLng((st.start.lat + st.end.lat) / 2, (st.start.lng + st.end.lng) / 2);
+  st.tooltip = L.marker(mid, {
+    interactive: false,
+    icon: L.divIcon({
+      className: 'measure-label',
+      html: `<div>${measurementLabel(st.start, st.end)}</div>`,
+      iconSize: [96, 28],
+      iconAnchor: [48, 14]
+    })
+  }).addTo(activeMap);
+}
+
+function updateMeasurementControl(target) {
+  const st = measurementStateFor(target);
+  if (!st.controlNode) return;
+  const status = st.start && st.end ? measurementLabel(st.start, st.end) : st.start ? 'Select end point' : st.active ? 'Select start point' : 'Off';
+  st.controlNode.innerHTML = `
+    <div class="measure-title">Measure</div>
+    <div class="measure-status">${status}</div>
+    <div class="measure-actions">
+      <button type="button" class="measure-btn ${st.active ? 'active' : ''}" data-action="toggle">${st.active ? 'Cancel' : 'Start'}</button>
+      <button type="button" class="measure-btn secondary" data-action="clear">Clear</button>
+    </div>
+  `;
+  st.controlNode.querySelector('[data-action="toggle"]').onclick = () => {
+    if (st.active) {
+      setMeasurementActive(target, false);
+    } else {
+      clearMeasurement(target);
+      setMeasurementActive(target, true);
+    }
+  };
+  st.controlNode.querySelector('[data-action="clear"]').onclick = () => clearMeasurement(target);
+}
+
+function addMeasurementControl(activeMap, target) {
+  const st = measurementStateFor(target);
+  const MeasureControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const div = L.DomUtil.create('div', 'leaflet-bar measure-control');
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.disableScrollPropagation(div);
+      st.controlNode = div;
+      updateMeasurementControl(target);
+      return div;
+    }
+  });
+  activeMap.addControl(new MeasureControl());
+}
+
+function handleMeasurementClick(target, latlng) {
+  const st = measurementStateFor(target);
+  if (!st.active) return false;
+  if (!st.start) {
+    st.start = latlng;
+    st.end = null;
+    updateMeasurementControl(target);
+    return true;
+  }
+  st.end = latlng;
+  st.active = false;
+  updateMeasurementOverlay(target);
+  updateMeasurementControl(target);
+  return true;
+}
+
+function handleMeasurementMove(target, latlng) {
+  const st = measurementStateFor(target);
+  if (!st.active || !st.start) return;
+  st.end = latlng;
+  updateMeasurementOverlay(target);
+  updateMeasurementControl(target);
+}
+
 function clearLayers(arr, target) {
   if (!target) return;
   arr.forEach(l => target.removeLayer(l));
@@ -2543,7 +2678,9 @@ function initMaps(force) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     seaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') seaLayer.addTo(map);
+    addMeasurementControl(map, 'facilitator');
     map.on('click', e => {
+      if (handleMeasurementClick('facilitator', e.latlng)) return;
       if (state.mapMode === 'add-zone') {
         createZoneAt(e.latlng);
         return;
@@ -2554,6 +2691,7 @@ function initMaps(force) {
     });
     map.on('mousemove', e => {
       lastHoveredLatLng = e.latlng;
+      handleMeasurementMove('facilitator', e.latlng);
       if (state.mapMode === 'add-waypoint') updateWaypointUi();
     });
     map.on('moveend', () => persistLastMapView(map));
@@ -2565,11 +2703,14 @@ function initMaps(force) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(playerMap);
     playerSeaLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenSeaMap contributors' });
     if ((state.scenario.overlayMode || 'openseamap') === 'openseamap') playerSeaLayer.addTo(playerMap);
+    addMeasurementControl(playerMap, 'player');
     playerMap.on('click', e => {
+      if (handleMeasurementClick('player', e.latlng)) return;
       if (playerMapMode === 'add-waypoint') appendWaypointToPlayerAsset(e.latlng);
     });
     playerMap.on('mousemove', e => {
       playerLastHoveredLatLng = e.latlng;
+      handleMeasurementMove('player', e.latlng);
       if (playerMapMode === 'add-waypoint') updatePlayerWaypointUi();
     });
     renderPlayerMap();
@@ -2701,6 +2842,17 @@ function renderPlayerMap() {
   });
 }
 
+function renderGlobalStatusBadge() {
+  const nodes = Array.from(document.querySelectorAll('#turnCounterBadge'));
+  if (!nodes.length) return;
+  const turn = Number(state?.scenario?.turn || 1);
+  const timeLabel = state?.scenario?.timeLabel || 'H+0';
+  const duration = Number(state?.scenario?.turnDurationHours || 1);
+  nodes.forEach(node => {
+    node.innerHTML = `<div class="turn-badge-turn">Turn ${turn}</div><div class="turn-badge-time">${timeLabel}</div><div class="turn-badge-meta">${duration}h / turn</div>`;
+  });
+}
+
 function renderScenario() {
   const el = document.getElementById('scenarioPanel');
   if (!el) return;
@@ -2723,6 +2875,7 @@ function renderScenario() {
     <p class="small"><strong>Turn clock</strong><br>${state.scenario.timeLabel || 'H+0'} · each turn advances assets by heading/speed for ${Number(state.scenario.turnDurationHours || 1)} hour(s). Fuel burn is speed-based, with 18 kt as the most efficient cruise band.</p>
     <p class="small"><strong>Map start view</strong><br>${pinned ? `Pinned at ${pinned.center[0].toFixed(2)}, ${pinned.center[1].toFixed(2)} / zoom ${pinned.zoom}` : 'No pinned view saved.'}${remembered ? `<br>Last remembered view ${remembered.center[0].toFixed(2)}, ${remembered.center[1].toFixed(2)} / zoom ${remembered.zoom}` : ''}</p>
   `;
+  renderGlobalStatusBadge();
   const title = document.querySelector('header h1');
   if (title) title.textContent = 'Open War Game Engine v16';
   const addZoneModeBtn = document.getElementById('addZoneModeBtn');
@@ -2996,6 +3149,7 @@ function renderPlayerPage() {
   }
   updatePlayerWaypointUi();
   updatePlayerNavLinks();
+  renderGlobalStatusBadge();
   const feed = state.playerFeedByCell[cellId] || [];
   const feedPanel = document.getElementById('playerFeedPanel');
   if (feedPanel) feedPanel.innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
