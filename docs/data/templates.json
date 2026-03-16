@@ -146,5 +146,35 @@
         "kind": "support"
       }
     }
+  },
+  "northern_shield": {
+    "label": "Northern Shield",
+    "scenario": {
+      "name": "Blank Maritime Scenario",
+      "overview": "Start from an empty chart. Facilitator places zones and assets manually, then saves the setup as a scenario package.",
+      "turn": 1,
+      "timeLabel": "H+0",
+      "movementPressure": 0,
+      "timePressure": 0,
+      "assetPressure": 0,
+      "shippingConfidence": 6,
+      "zoneControlScore": 0,
+      "objectiveScore": 0,
+      "failureState": "",
+      "currentSituation": "No scenario geometry yet. Build the battlespace by placing zones and assets on the map.",
+      "overlayMode": "openseamap",
+      "redDoctrine": "manual",
+      "rememberLastMapView": true,
+      "lastMapView": {
+        "center": [
+          53.40298,
+          5.01938
+        ],
+        "zoom": 10
+      },
+      "pinnedMapView": null,
+      "turnDurationHours": 1
+    },
+    "zones": {}
   }
 }

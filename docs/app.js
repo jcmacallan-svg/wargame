@@ -1,55 +1,515 @@
-const STORAGE_KEY = 'owge_v16_blank_authoring';
+const STORAGE_KEY = 'owge_v16_northern_shield_default';
+const PLAYER_CLAIM_KEY = `${STORAGE_KEY}_playerClaim`;
+const PLAYER_INSTANCE_KEY = `${STORAGE_KEY}_playerInstance`;
 
 const DEFAULT_TEMPLATE = {
   scenario: {
-    name: 'Blank Maritime Scenario',
-    overview: 'Start from an empty chart. Facilitator places zones and assets manually, then saves the setup as a scenario package.',
-    turn: 1,
-    timeLabel: 'H+0',
-    movementPressure: 0,
-    timePressure: 0,
-    assetPressure: 0,
-    shippingConfidence: 6,
-    zoneControlScore: 0,
-    objectiveScore: 0,
-    failureState: '',
-    currentSituation: 'No scenario geometry yet. Build the battlespace by placing zones and assets on the map.',
-    overlayMode: 'openseamap',
-    redDoctrine: 'manual',
-    rememberLastMapView: true,
-    lastMapView: { center: [54.8, 7.55], zoom: 8 },
-    pinnedMapView: null,
-    turnDurationHours: 1
+  "name": "Blank Maritime Scenario",
+  "overview": "Start from an empty chart. Facilitator places zones and assets manually, then saves the setup as a scenario package.",
+  "turn": 1,
+  "timeLabel": "H+0",
+  "movementPressure": 0,
+  "timePressure": 0,
+  "assetPressure": 0,
+  "shippingConfidence": 6,
+  "zoneControlScore": 0,
+  "objectiveScore": 0,
+  "failureState": "",
+  "currentSituation": "No scenario geometry yet. Build the battlespace by placing zones and assets on the map.",
+  "overlayMode": "openseamap",
+  "redDoctrine": "manual",
+  "rememberLastMapView": true,
+  "lastMapView": {
+    "center": [
+      53.40298,
+      5.01938
+    ],
+    "zoom": 10
   },
+  "pinnedMapView": null,
+  "turnDurationHours": 1
+},
   zones: {}
 };
 
 const DEFAULT_STATE = {
-  version: 16,
-  scenario: clone(DEFAULT_TEMPLATE.scenario),
-  zones: clone(DEFAULT_TEMPLATE.zones),
-  selectedZoneId: '',
-  selectedAssetId: '',
-  mapMode: 'select',
-  session: {
-    cells: [
-      { id: 'blue-maritime', name: 'Blue Maritime', domain: 'maritime' },
-      { id: 'blue-port', name: 'Blue Port Authority', domain: 'logistics' }
+  "version": 16,
+  "scenario": {
+    "name": "Blank Maritime Scenario",
+    "overview": "Start from an empty chart. Facilitator places zones and assets manually, then saves the setup as a scenario package.",
+    "turn": 1,
+    "timeLabel": "H+0",
+    "movementPressure": 0,
+    "timePressure": 0,
+    "assetPressure": 0,
+    "shippingConfidence": 6,
+    "zoneControlScore": 0,
+    "objectiveScore": 0,
+    "failureState": "",
+    "currentSituation": "No scenario geometry yet. Build the battlespace by placing zones and assets on the map.",
+    "overlayMode": "openseamap",
+    "redDoctrine": "manual",
+    "rememberLastMapView": true,
+    "lastMapView": {
+      "center": [
+        53.40298,
+        5.01938
+      ],
+      "zoom": 10
+    },
+    "pinnedMapView": null,
+    "turnDurationHours": 1
+  },
+  "zones": {},
+  "selectedZoneId": "",
+  "selectedAssetId": "asset-13",
+  "mapMode": "select",
+  "session": {
+    "cells": [
+      {
+        "id": "blue-maritime",
+        "name": "Blue Maritime",
+        "domain": "maritime"
+      },
+      {
+        "id": "blue-port",
+        "name": "Blue Port Authority",
+        "domain": "logistics"
+      }
     ]
   },
-  assets: [],
-  incidents: [],
-  releasedInjects: [],
-  selectedActions: {},
-  playerFeedByCell: { 'blue-maritime': [], 'blue-port': [] },
-  actionLogByCell: { 'blue-maritime': [], 'blue-port': [] },
-  timeline: [],
-  boardingRequests: [],
-  ui: {
-    assetFilters: {
-      affiliations: ['friend','assumed_friend','neutral','hostile','suspect','unknown'],
-      representations: ['unit','track'],
-      scope: 'all'
+  "assets": [
+    {
+      "id": "asset-1",
+      "name": "MV Mercury",
+      "type": "container_ship",
+      "affiliation": "unknown",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.227413,
+      "lon": 4.523621,
+      "heading": 167,
+      "speed": 14.8,
+      "trackQuality": "q2",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.30975,
+          "lon": 4.630737,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-2",
+      "name": "MV Iron Crest",
+      "type": "bulk_carrier",
+      "affiliation": "neutral",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.554179,
+      "lon": 4.588165,
+      "heading": 253.4,
+      "speed": 15.5,
+      "trackQuality": "q2",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.413215,
+          "lon": 4.570313,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-3",
+      "name": "MT Sea Spirit",
+      "type": "tanker",
+      "affiliation": "neutral",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.560705,
+      "lon": 5.373688,
+      "heading": 163.3,
+      "speed": 12.1,
+      "trackQuality": "q2",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.577627,
+          "lon": 5.448532,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-4",
+      "name": "LNG Arctic Flow",
+      "type": "lng_carrier",
+      "affiliation": "neutral",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.579461,
+      "lon": 4.9823,
+      "heading": 193.2,
+      "speed": 15.9,
+      "trackQuality": "q3",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.494378,
+          "lon": 4.689789,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-5",
+      "name": "MV Channel Runner",
+      "type": "ro_ro_ferry",
+      "affiliation": "suspect",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.538709,
+      "lon": 4.766963,
+      "heading": 66.8,
+      "speed": 13.2,
+      "trackQuality": "q4",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.618376,
+          "lon": 4.85527,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-6",
+      "name": "MV Island Star",
+      "type": "passenger_ferry",
+      "affiliation": "suspect",
+      "representation": "track",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.334973,
+      "lon": 4.484482,
+      "heading": 352.2,
+      "speed": 15,
+      "trackQuality": "q2",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.254328,
+          "lon": 4.463196,
+          "label": "WP1"
+        },
+        {
+          "lat": 53.168797,
+          "lon": 4.408264,
+          "label": "WP2"
+        },
+        {
+          "lat": 53.139563,
+          "lon": 4.347153,
+          "label": "WP3"
+        }
+      ]
+    },
+    {
+      "id": "asset-7",
+      "name": "FV North Net",
+      "type": "fishing_vessel",
+      "affiliation": "neutral",
+      "representation": "track",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.626724,
+      "lon": 5.204773,
+      "heading": 101.4,
+      "speed": 13.6,
+      "trackQuality": "q3",
+      "sensorProfile": {
+        "radar": 10,
+        "visual": 6,
+        "inspection": 0.4
+      },
+      "waypoints": [
+        {
+          "lat": 53.569472,
+          "lon": 5.042725,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-8",
+      "name": "TB Harbor Hand",
+      "type": "tug_workboat",
+      "affiliation": "neutral",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.4717,
+      "lon": 4.905396,
+      "heading": 98,
+      "speed": 14.7,
+      "trackQuality": "q2",
+      "sensorProfile": {
+        "radar": 10,
+        "visual": 6,
+        "inspection": 0.3
+      },
+      "waypoints": [
+        {
+          "lat": 53.497237,
+          "lon": 5.065384,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-9",
+      "name": "DV Channel Maker",
+      "type": "dredger",
+      "affiliation": "suspect",
+      "representation": "track",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.797406,
+      "lon": 4.729614,
+      "heading": 276.9,
+      "speed": 13.3,
+      "trackQuality": "q4",
+      "sensorProfile": {
+        "radar": 10,
+        "visual": 6,
+        "inspection": 0.3
+      },
+      "waypoints": []
+    },
+    {
+      "id": "asset-10",
+      "name": "PB Pilot One",
+      "type": "pilot_boat",
+      "affiliation": "unknown",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.25289,
+      "lon": 4.557953,
+      "heading": 321.8,
+      "speed": 13.8,
+      "trackQuality": "q4",
+      "sensorProfile": {
+        "radar": 10,
+        "visual": 6,
+        "inspection": 0.3
+      },
+      "waypoints": [
+        {
+          "lat": 53.311391,
+          "lon": 4.639664,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-11",
+      "name": "RV Ocean Quest",
+      "type": "research_survey_vessel",
+      "affiliation": "neutral",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.399707,
+      "lon": 4.671936,
+      "heading": 151.4,
+      "speed": 14.7,
+      "trackQuality": "q3",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 7,
+        "inspection": 0.4
+      },
+      "waypoints": [
+        {
+          "lat": 53.426515,
+          "lon": 4.829865,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-12",
+      "name": "MV Atlas",
+      "type": "container_ship",
+      "affiliation": "neutral",
+      "representation": "track",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 4,
+      "assignedCell": "",
+      "lat": 53.517451,
+      "lon": 5.166321,
+      "heading": 138.9,
+      "speed": 10.3,
+      "trackQuality": "q4",
+      "sensorProfile": {
+        "radar": 12,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.539695,
+          "lon": 5.281677,
+          "label": "WP1"
+        }
+      ]
+    },
+    {
+      "id": "asset-13",
+      "name": "Patrol Vessel",
+      "type": "patrol_vessel",
+      "affiliation": "friend",
+      "representation": "unit",
+      "status": "available",
+      "zone": "",
+      "fuel": 10,
+      "readiness": 5,
+      "assignedCell": "blue-maritime",
+      "lat": 53.161594,
+      "lon": 4.492035,
+      "heading": 90,
+      "speed": 12,
+      "trackQuality": "q2",
+      "sensorProfile": {
+        "radar": 14,
+        "visual": 8,
+        "inspection": 0.5
+      },
+      "waypoints": [
+        {
+          "lat": 53.306673,
+          "lon": 4.647217,
+          "label": "WP1"
+        },
+        {
+          "lat": 53.418126,
+          "lon": 4.785919,
+          "label": "WP2"
+        },
+        {
+          "lat": 53.491722,
+          "lon": 5.07431,
+          "label": "WP3"
+        },
+        {
+          "lat": 53.58313,
+          "lon": 5.539856,
+          "label": "WP4"
+        },
+        {
+          "lat": 53.658068,
+          "lon": 5.870819,
+          "label": "WP5"
+        }
+      ]
+    }
+  ],
+  "incidents": [],
+  "releasedInjects": [],
+  "selectedActions": {},
+  "playerFeedByCell": {
+    "blue-maritime": [],
+    "blue-port": []
+  },
+  "actionLogByCell": {
+    "blue-maritime": [],
+    "blue-port": []
+  },
+  "timeline": [],
+  "inspections": [],
+  "boardingRequests": [],
+  "ui": {
+    "assetFilters": {
+      "affiliations": [
+        "friend",
+        "assumed_friend",
+        "neutral",
+        "hostile",
+        "suspect",
+        "unknown"
+      ],
+      "representations": [
+        "unit",
+        "track"
+      ],
+      "scope": "all"
     }
   }
 };
@@ -201,6 +661,7 @@ function migrateState(pkg) {
 function ensureSessionMaps(targetState = state) {
   targetState.session = targetState.session || { cells: [] };
   targetState.session.cells = Array.isArray(targetState.session.cells) && targetState.session.cells.length ? targetState.session.cells : clone(DEFAULT_STATE.session.cells);
+  targetState.session.cellLocks = targetState.session.cellLocks || {};
   targetState.playerFeedByCell = targetState.playerFeedByCell || {};
   targetState.actionLogByCell = targetState.actionLogByCell || {};
   targetState.session.cells.forEach(c => {
@@ -208,9 +669,89 @@ function ensureSessionMaps(targetState = state) {
     if (!targetState.actionLogByCell[c.id]) targetState.actionLogByCell[c.id] = [];
   });
 }
-function getPlayerCell() {
+function getPlayerInstanceId() {
+  try {
+    let id = sessionStorage.getItem(PLAYER_INSTANCE_KEY);
+    if (!id) {
+      id = `player-${Math.random().toString(36).slice(2,10)}`;
+      sessionStorage.setItem(PLAYER_INSTANCE_KEY, id);
+    }
+    return id;
+  } catch (_) {
+    return 'player-single';
+  }
+}
+function getStoredPlayerClaim() {
+  try { return sessionStorage.getItem(PLAYER_CLAIM_KEY) || ''; } catch (_) { return ''; }
+}
+function setStoredPlayerClaim(cellId) {
+  try {
+    if (cellId) sessionStorage.setItem(PLAYER_CLAIM_KEY, cellId);
+    else sessionStorage.removeItem(PLAYER_CLAIM_KEY);
+  } catch (_) {}
+}
+function cellLockFor(cellId) {
+  return state.session?.cellLocks?.[cellId] || null;
+}
+function isCellClaimedByCurrentPlayer(cellId) {
+  const lock = cellLockFor(cellId);
+  return !!lock && lock.ownerId === getPlayerInstanceId();
+}
+function canClaimCell(cellId) {
+  const lock = cellLockFor(cellId);
+  return !lock || lock.ownerId === getPlayerInstanceId();
+}
+function claimPlayerCell(cellId) {
+  if (!cellId) return false;
+  ensureSessionMaps();
+  const existing = getStoredPlayerClaim();
+  if (existing && existing !== cellId) return false;
+  if (!canClaimCell(cellId)) return false;
+  state.session.cellLocks[cellId] = { ownerId: getPlayerInstanceId(), claimedAt: new Date().toISOString() };
+  setStoredPlayerClaim(cellId);
+  saveState();
+  return true;
+}
+function syncPlayerClaimFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('cell') || document.getElementById('playerCellSelect')?.value || state.session.cells[0]?.id || '';
+  const requested = params.get('cell') || '';
+  if (!getStoredPlayerClaim() && requested && canClaimCell(requested)) claimPlayerCell(requested);
+}
+function getPlayerCell() {
+  const claimed = getStoredPlayerClaim();
+  if (claimed) return claimed;
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('cell') || '';
+  if (requested && canClaimCell(requested)) return requested;
+  return document.getElementById('playerCellSelect')?.value || '';
+}
+function updatePlayerNavLinks() {
+  const cellId = getPlayerCell();
+  const suffix = cellId ? `?cell=${encodeURIComponent(cellId)}` : '';
+  const mapLink = document.getElementById('playerMapNavLink');
+  const opsLink = document.getElementById('playerOpsNavLink');
+  if (mapLink) mapLink.href = `./player.html${suffix}`;
+  if (opsLink) opsLink.href = `./player-ops.html${suffix}`;
+}
+function renderPlayerCellSelector() {
+  const sel = document.getElementById('playerCellSelect');
+  if (!sel) return;
+  const claimed = getStoredPlayerClaim();
+  const requested = new URLSearchParams(window.location.search).get('cell') || '';
+  const current = claimed || requested || '';
+  const placeholder = `<option value="">Choose your cell…</option>`;
+  const options = state.session.cells.map(c => {
+    const lock = cellLockFor(c.id);
+    const mine = lock && lock.ownerId === getPlayerInstanceId();
+    const disabled = !!lock && !mine;
+    const selected = c.id === current;
+    const suffix = mine ? ' (locked by you)' : (lock ? ' (locked)' : '');
+    return `<option value="${c.id}" ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${c.name}${suffix}</option>`;
+  }).join('');
+  sel.innerHTML = placeholder + options;
+  sel.disabled = !!claimed;
+  if (claimed) sel.value = claimed;
+  updatePlayerNavLinks();
 }
 function prettyZone(zoneId) { return state.zones[zoneId]?.name || (zoneId || 'Unplaced'); }
 function assetTypeLabel(type) { return ASSET_TYPE_OPTIONS.find(o => o.value === type)?.label || type || 'Asset'; }
@@ -906,6 +1447,7 @@ async function init() {
     templates = {};
   }
   ensureSessionMaps();
+  syncPlayerClaimFromUrl();
   bindEvents();
   renderAll();
   initMaps(true);
@@ -943,7 +1485,14 @@ function bindEvents() {
     document.getElementById('clearAssetsBtn').onclick = clearAssets;
   }
   if (document.getElementById('playerCellSelect')) {
-    document.getElementById('playerCellSelect').onchange = () => { renderPlayerPage(); initMaps(true); };
+    document.getElementById('playerCellSelect').onchange = (e) => {
+      const cellId = e.target.value;
+      if (!cellId) return;
+      if (!claimPlayerCell(cellId)) {
+        alert('This cell is already locked, or this browser tab has already claimed a different cell.');
+      }
+      renderPlayerPage(); initMaps(true);
+    };
     document.getElementById('playerSubmitBtn').onclick = submitPlayerAction;
   }
   window.addEventListener('storage', (e) => {
@@ -951,6 +1500,7 @@ function bindEvents() {
     try {
       state = migrateState(JSON.parse(e.newValue));
       ensureSessionMaps();
+      syncPlayerClaimFromUrl();
       renderAll();
       initMaps(true);
     } catch (_) {}
@@ -959,6 +1509,7 @@ function bindEvents() {
     try {
       state = loadState();
       ensureSessionMaps();
+      syncPlayerClaimFromUrl();
       renderAll();
       initMaps(true);
     } catch (_) {}
@@ -2123,26 +2674,41 @@ function renderTimeline() {
 
 function submitPlayerAction() {
   const cellId = getPlayerCell();
-  const text = document.getElementById('playerAction')?.value.trim();
+  const text = (document.getElementById('playerAction')?.value || document.getElementById('playerActionText')?.value || '').trim();
   if (!text) return;
   const item = { time: state.scenario.timeLabel || 'H+0', text };
   state.actionLogByCell[cellId].push(item);
   saveState();
-  document.getElementById('playerAction').value = '';
+  const actionEl = document.getElementById('playerAction') || document.getElementById('playerActionText'); if (actionEl) actionEl.value = '';
   renderPlayerPage();
 }
 
 function renderPlayerPage() {
   const sel = document.getElementById('playerCellSelect');
   if (!sel) return;
-  const current = getPlayerCell();
-  sel.innerHTML = state.session.cells.map(c => `<option value="${c.id}" ${c.id === current ? 'selected' : ''}>${c.name}</option>`).join('');
+  renderPlayerCellSelector();
   const cellId = getPlayerCell();
   const cell = state.session.cells.find(c => c.id === cellId);
+  if (!cellId || !cell) {
+    const panel = document.getElementById('playerScenarioPanel');
+    if (panel) panel.innerHTML = `<div class="small">Choose your cell once to lock it for this player session. After locking, the choice cannot be switched from this browser tab.</div>`;
+    const assetsPanel = document.getElementById('playerAssetsPanel');
+    if (assetsPanel) assetsPanel.innerHTML = '<div class="small">No cell selected yet.</div>';
+    const editor = document.getElementById('playerAssetEditor');
+    if (editor) editor.innerHTML = '<div class="small">Select and lock a cell first.</div>';
+    const feed = document.getElementById('playerFeedPanel');
+    if (feed) feed.innerHTML = '<div class="small">No cell selected yet.</div>';
+    const log = document.getElementById('playerActionLog');
+    if (log) log.innerHTML = '<div class="small">No cell selected yet.</div>';
+    updatePlayerWaypointUi();
+    updatePlayerNavLinks();
+    initMaps(true);
+    return;
+  }
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
   const sharedCommercial = state.assets.filter(a => isCommercialAssetType(a.type) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
   const sharedContacts = playerVisibleContacts(cellId);
-  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">My assets: ${myAssets.length}</span><span class="tag">Shared map assets: ${state.assets.length}</span><span class="tag">Commercial: ${sharedCommercial.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Shared map mode</strong><br>The player map mirrors the facilitator battlespace, including commercial vessels and shared contacts, so everyone validates against the same chart picture.</p>`;
+  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">My assets: ${myAssets.length}</span><span class="tag">Shared map assets: ${state.assets.length}</span><span class="tag">Commercial: ${sharedCommercial.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Shared map mode</strong><br>The player map mirrors the facilitator battlespace, including commercial vessels and shared contacts, so everyone validates against the same chart picture.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
   if (!myAssets.find(a => a.id === playerSelectedAssetId)) playerSelectedAssetId = myAssets[0]?.id || '';
   const selected = selectedPlayerAsset();
   document.getElementById('playerAssetsPanel').innerHTML = `
@@ -2166,6 +2732,7 @@ function renderPlayerPage() {
     editor.innerHTML = ownEditor + contactEditor;
   }
   updatePlayerWaypointUi();
+  updatePlayerNavLinks();
   const feed = state.playerFeedByCell[cellId] || [];
   document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
