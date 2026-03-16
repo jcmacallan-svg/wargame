@@ -95,3 +95,7 @@ header { position: sticky; top: 0; z-index: 20; }
 .distance-label { padding:1px 6px; border-radius:999px; background:rgba(248,250,252,.96); color:#0f172a; border:1px solid #cbd5e1; font-size:10px; font-weight:700; white-space:nowrap; }
 .ops-container { display:grid; grid-template-columns: minmax(420px, 1fr) minmax(320px, 420px); gap:16px; padding:16px; }
 @media (max-width: 1100px) { .ops-container { grid-template-columns:1fr; } }
+
+.app6-div-icon,.minimal-div-icon,.commercial-div-icon{background:transparent;border:0;}
+.symbol-app6 .ntds-symbol-shell,.symbol-minimal .ntds-symbol-shell,.symbol-commercial .ntds-symbol-shell{background:rgba(2,6,23,.12);}
+#symbolStyleSelect{min-width:160px;}

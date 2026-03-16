@@ -27,7 +27,8 @@ const DEFAULT_TEMPLATE = {
     "zoom": 10
   },
   "pinnedMapView": null,
-  "turnDurationHours": 1
+  "turnDurationHours": 1,
+  "symbolStyle": "ntds"
 },
   zones: {}
 };
@@ -58,7 +59,8 @@ const DEFAULT_STATE = {
       "zoom": 10
     },
     "pinnedMapView": null,
-    "turnDurationHours": 1
+    "turnDurationHours": 1,
+    "symbolStyle": "ntds"
   },
   "zones": {},
   "selectedZoneId": "",
@@ -1620,6 +1622,8 @@ function saveScenarioMeta() {
   state.scenario.overview = document.getElementById('scenarioOverviewInput').value.trim() || 'Facilitator-authored scenario.';
   state.scenario.currentSituation = document.getElementById('scenarioSituationInput').value.trim() || 'Facilitator-authored setup.';
   state.scenario.overlayMode = document.getElementById('overlaySelect').value;
+  const symbolStyleSelect = document.getElementById('symbolStyleSelect');
+  state.scenario.symbolStyle = symbolStyleSelect ? symbolStyleSelect.value : (state.scenario.symbolStyle || 'ntds');
   const turnDurationInput = document.getElementById('turnDurationHoursInput');
   state.scenario.turnDurationHours = Math.max(0.25, Math.min(24, Number(turnDurationInput?.value || state.scenario.turnDurationHours || 1) || 1));
   const rememberLast = document.getElementById('rememberLastMapView');
@@ -2075,15 +2079,97 @@ function buildNtdsSvg(asset, selected) {
     </svg>`;
 }
 
+
+function currentSymbolStyle() {
+  return String(state?.scenario?.symbolStyle || 'ntds').toLowerCase();
+}
+
+function assetMinimalShape(asset) {
+  const domain = assetDoctrineDomain(asset);
+  if (domain === 'subsurface') return 'M8 24 C12 16, 22 12, 34 12 C46 12, 56 16, 60 24 C56 32, 46 36, 34 36 C22 36, 12 32, 8 24 Z';
+  if (domain === 'air') return 'M34 8 L60 24 L34 40 L8 24 Z';
+  if (domain === 'ground') return 'M10 10 H58 V38 H10 Z';
+  return 'M8 22 L18 10 H50 L60 22 L50 34 H18 Z';
+}
+
+function buildMinimalSvg(asset, selected) {
+  const palette = assetNtdsPalette(asset);
+  const representation = normalizeAssetRepresentation(asset.representation);
+  const stroke = selected ? '#f59e0b' : palette.stroke;
+  const fill = representation === 'track' ? 'rgba(15,23,42,.12)' : palette.fill;
+  const dash = representation === 'track' ? '5 3' : '0';
+  const label = assetDoctrineProfile(asset).short;
+  const path = assetMinimalShape(asset);
+  return `
+    <svg width="64" height="48" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="${path}" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="${dash}" />
+      <text x="34" y="27" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="800" fill="#f8fafc">${label}</text>
+    </svg>`;
+}
+
+function buildCommercialSvg(asset, selected) {
+  const palette = assetNtdsPalette(asset);
+  const representation = normalizeAssetRepresentation(asset.representation);
+  const stroke = selected ? '#f59e0b' : palette.stroke;
+  const fill = representation === 'track' ? 'rgba(2,6,23,.08)' : '#0f172a';
+  const dash = representation === 'track' ? '4 3' : '0';
+  const label = isCommercialAsset(asset) ? 'AIS' : assetDoctrineProfile(asset).short;
+  return `
+    <svg width="66" height="48" viewBox="0 0 68 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M7 25 L18 14 H50 L61 25 L50 34 H18 Z" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="${dash}" />
+      <path d="M18 14 L18 8 H30 V14" fill="none" stroke="${stroke}" stroke-width="2" opacity=".9" />
+      <text x="34" y="28" text-anchor="middle" dominant-baseline="middle" font-size="8.5" font-weight="800" fill="#f8fafc">${label}</text>
+    </svg>`;
+}
+
+function buildApp6Svg(asset, selected) {
+  if (typeof ms !== 'undefined' && ms.Symbol) {
+    try {
+      const representation = normalizeAssetRepresentation(asset.representation);
+      const sym = new ms.Symbol(assetDoctrineSidc(asset), {
+        size: 42,
+        uniqueDesignation: representation === 'track' ? 'TRK' : assetDoctrineProfile(asset).short,
+        type: 'friendly',
+        monoColor: selected ? '#f59e0b' : undefined,
+        fill: true,
+        infoFields: false,
+        strokeWidth: 5,
+      });
+      return sym.asSVG();
+    } catch (e) {}
+  }
+  const frame = assetDoctrineFrame(asset);
+  const representation = normalizeAssetRepresentation(asset.representation);
+  const dash = representation === 'track' ? '5 3' : '0';
+  const label = representation === 'track' ? 'TRK' : assetDoctrineProfile(asset).short;
+  return `
+    <svg width="68" height="52" viewBox="0 0 44 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="${frame.path}" fill="rgba(15,23,42,.18)" stroke="${selected ? '#f59e0b' : frame.color}" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="${dash}" />
+      <text x="22" y="19" text-anchor="middle" dominant-baseline="middle" font-size="7.5" font-weight="800" fill="#f8fafc">${label}</text>
+    </svg>`;
+}
+
 function assetIcon(asset) {
   const selected = state.selectedAssetId === asset.id;
   const profile = assetDoctrineProfile(asset);
   const palette = assetNtdsPalette(asset);
   const representation = normalizeAssetRepresentation(asset.representation);
-  const html = `<div class="ntds-marker-wrap ntds-${representation}"><div class="ntds-symbol-shell">${buildNtdsSvg(asset, selected)}</div><div class="ntds-asset-name" style="border-color:${palette.stroke}; background:${palette.chip}; color:${palette.text};">${asset.name}</div><div class="ntds-asset-meta">${assetRepresentationLabel(representation)} · ${profile.role} · ${assetAffiliationLabel(asset.affiliation)} · ${trackQualityShort(asset.trackQuality)}</div></div>`;
-  return L.divIcon({ className: 'ntds-div-icon', html, iconSize: [118, 92], iconAnchor: [38, 30], popupAnchor: [0, -14] });
+  const styleMode = currentSymbolStyle();
+  let svg = buildNtdsSvg(asset, selected);
+  let className = 'ntds-div-icon';
+  if (styleMode === 'app6' || styleMode === 'app-6' || styleMode === 'app6_nato') {
+    svg = buildApp6Svg(asset, selected);
+    className = 'app6-div-icon';
+  } else if (styleMode === 'minimal') {
+    svg = buildMinimalSvg(asset, selected);
+    className = 'minimal-div-icon';
+  } else if (styleMode === 'commercial') {
+    svg = buildCommercialSvg(asset, selected);
+    className = 'commercial-div-icon';
+  }
+  const html = `<div class="ntds-marker-wrap ntds-${representation} symbol-${styleMode}"><div class="ntds-symbol-shell">${svg}</div><div class="ntds-asset-name" style="border-color:${palette.stroke}; background:${palette.chip}; color:${palette.text};">${asset.name}</div><div class="ntds-asset-meta">${assetRepresentationLabel(representation)} · ${profile.role} · ${assetAffiliationLabel(asset.affiliation)} · ${trackQualityShort(asset.trackQuality)}</div></div>`;
+  return L.divIcon({ className, html, iconSize: [118, 92], iconAnchor: [38, 30], popupAnchor: [0, -14] });
 }
-
 
 function assetLatLng(asset, idx) {
   const explicitLat = normalizeCoord(asset?.lat);
@@ -2494,6 +2580,8 @@ function renderScenario() {
   if (scenarioSituationInput) scenarioSituationInput.value = state.scenario.currentSituation || '';
   const overlaySelect = document.getElementById('overlaySelect');
   if (overlaySelect) overlaySelect.value = state.scenario.overlayMode || 'openseamap';
+  const symbolStyleSelect = document.getElementById('symbolStyleSelect');
+  if (symbolStyleSelect) symbolStyleSelect.value = state.scenario.symbolStyle || 'ntds';
   const rememberLastMapView = document.getElementById('rememberLastMapView');
   if (rememberLastMapView) rememberLastMapView.checked = state.scenario.rememberLastMapView !== false;
   const turnDurationHoursInput = document.getElementById('turnDurationHoursInput');
@@ -2709,12 +2797,10 @@ function renderPlayerPage() {
   const myAssets = state.assets.filter(a => a.assignedCell === cellId);
   const sharedCommercial = state.assets.filter(a => isCommercialAssetType(a.type) || normalizeAssetAffiliation(a.affiliation) === 'neutral');
   const sharedContacts = playerVisibleContacts(cellId);
-  const playerScenarioPanel = document.getElementById('playerScenarioPanel');
-  if (playerScenarioPanel) playerScenarioPanel.innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">My assets: ${myAssets.length}</span><span class="tag">Shared map assets: ${state.assets.length}</span><span class="tag">Commercial: ${sharedCommercial.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Shared map mode</strong><br>The player map mirrors the facilitator battlespace, including commercial vessels and shared contacts, so everyone validates against the same chart picture.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
+  document.getElementById('playerScenarioPanel').innerHTML = `<div><strong>${cell?.name || 'Blue Cell'}</strong></div><div class="small">${cell?.domain || ''}</div><div class="row" style="margin-top:10px"><span class="tag">Scenario: ${state.scenario.name}</span><span class="tag">Zones: ${zoneIds().length}</span><span class="tag">My assets: ${myAssets.length}</span><span class="tag">Shared map assets: ${state.assets.length}</span><span class="tag">Commercial: ${sharedCommercial.length}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span></div><p><strong>Current situation</strong><br>${state.scenario.currentSituation}</p><p class="small"><strong>Shared map mode</strong><br>The player map mirrors the facilitator battlespace, including commercial vessels and shared contacts, so everyone validates against the same chart picture.</p><p class="small"><strong>Cell lock</strong><br>This player session is locked to <strong>${cell?.name || cellId}</strong> to prevent switching between cells during play.</p>`;
   if (!myAssets.find(a => a.id === playerSelectedAssetId)) playerSelectedAssetId = myAssets[0]?.id || '';
   const selected = selectedPlayerAsset();
-  const playerAssetsPanel = document.getElementById('playerAssetsPanel');
-  if (playerAssetsPanel) playerAssetsPanel.innerHTML = `
+  document.getElementById('playerAssetsPanel').innerHTML = `
     <div class="asset-section">
       <div class="section-title">Assigned to ${cell?.name || 'current cell'}</div>
       ${myAssets.length ? myAssets.map(a => `<div class="card ${a.id === playerSelectedAssetId ? 'zone-selected' : ''}"><strong>${a.name}</strong><div class="row"><span class="tag">${assetRepresentationLabel(a.representation)}</span><span class="tag">${assetTypeLabel(a.type)}</span><span class="tag">${assetAffiliationLabel(a.affiliation)}</span><span class="tag">${trackQualityShort(a.trackQuality)}</span><span class="tag">${a.status}</span><span class="tag">${prettyZone(a.zone)}</span><span class="tag">${normalizeHeading(a.heading)}° / ${normalizeSpeed(a.speed)} kt</span><span class="tag">${waypointSummary(a)}</span><span class="tag">Fuel ${Number(a.fuel ?? 0).toFixed(1)}</span><span class="tag">Readiness ${a.readiness}</span></div><button class="secondary player-select-btn" onclick="selectPlayerAsset('${a.id}')">Select</button></div>`).join('') : '<div class="small">No assets assigned to this cell yet.</div>'}
@@ -2737,11 +2823,9 @@ function renderPlayerPage() {
   updatePlayerWaypointUi();
   updatePlayerNavLinks();
   const feed = state.playerFeedByCell[cellId] || [];
-  const playerFeedPanel = document.getElementById('playerFeedPanel');
-  if (playerFeedPanel) playerFeedPanel.innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
+  document.getElementById('playerFeedPanel').innerHTML = feed.length ? feed.slice().reverse().map(f => `<div class="timeline-item"><strong>${f.time}</strong><br>${f.text}</div>`).join('') : '<div class="small">No facilitator updates yet for this cell.</div>';
   const log = state.actionLogByCell[cellId] || [];
-  const playerActionLog = document.getElementById('playerActionLog');
-  if (playerActionLog) playerActionLog.innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
+  document.getElementById('playerActionLog').innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
   initMaps(true);
 }
 
@@ -2756,6 +2840,8 @@ function renderAll() {
   bindAssetFilterControls();
   renderInjects();
   renderTimeline();
+  const legendLabel = document.getElementById('legendStyleLabel');
+  if (legendLabel) legendLabel.textContent = '(' + (state.scenario.symbolStyle || 'ntds').toUpperCase().replace('APP6','APP-6') + ')';
   renderPlayerPage();
 }
 
