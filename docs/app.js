@@ -741,7 +741,7 @@ function updatePlayerNavLinks() {
   if (mapLink) mapLink.href = `./player.html${suffix}`;
 }
 function renderPlayerCellSelector() {
-  const sel = document.getElementById('playerCellSelect');
+  const sel = document.querySelector('#playerCellSelect');
   if (!sel) return;
   const claimed = getStoredPlayerClaim();
   const requested = new URLSearchParams(window.location.search).get('cell') || '';
@@ -1568,15 +1568,18 @@ function bindEvents() {
   bindClick('deleteAssetBtn', deleteSelectedAsset);
   bindClick('clearAssetsBtn', clearAssets);
 
-  if (document.getElementById('playerCellSelect')) {
-    document.getElementById('playerCellSelect').onchange = (e) => {
-      const cellId = e.target.value;
-      if (!cellId) return;
-      if (!claimPlayerCell(cellId)) {
-        alert('This cell is already locked, or this browser tab has already claimed a different cell.');
-      }
-      renderPlayerPage(); initMaps(true);
-    };
+  const playerCellSelectors = Array.from(document.querySelectorAll('#playerCellSelect'));
+  if (playerCellSelectors.length) {
+    playerCellSelectors.forEach(sel => {
+      sel.onchange = (e) => {
+        const cellId = e.target.value;
+        if (!cellId) return;
+        if (!claimPlayerCell(cellId)) {
+          alert('This cell is already locked, or this browser tab has already claimed a different cell.');
+        }
+        renderPlayerPage(); initMaps(true);
+      };
+    });
     const playerSubmitBtn = document.getElementById('playerSubmitBtn');
     if (playerSubmitBtn) playerSubmitBtn.onclick = submitPlayerAction;
   }
@@ -2601,14 +2604,13 @@ function updateMeasurementOverlay(target) {
 function updateMeasurementControl(target) {
   const st = measurementStateFor(target);
   if (!st.controlNode) return;
-  const status = st.start && st.end ? measurementLabel(st.start, st.end) : st.start ? 'Select end point' : st.active ? 'Select start point' : 'Off';
+  const status = st.start && st.end ? measurementLabel(st.start, st.end) : st.start ? 'Click end point' : st.active ? 'Click start point' : 'Click the magnifier to measure';
   st.controlNode.innerHTML = `
-    <div class="measure-title">Measure</div>
-    <div class="measure-status">${status}</div>
-    <div class="measure-actions">
-      <button type="button" class="measure-btn ${st.active ? 'active' : ''}" data-action="toggle">${st.active ? 'Cancel' : 'Start'}</button>
-      <button type="button" class="measure-btn secondary" data-action="clear">Clear</button>
+    <div class="measure-toolbar">
+      <button type="button" class="measure-icon-btn ${st.active ? 'active' : ''}" data-action="toggle" aria-label="Measure distance" title="Measure distance">&#128269;</button>
+      <button type="button" class="measure-icon-btn secondary" data-action="clear" aria-label="Clear measurement" title="Clear measurement">&#10005;</button>
     </div>
+    <div class="measure-status">${status}</div>
   `;
   st.controlNode.querySelector('[data-action="toggle"]').onclick = () => {
     if (st.active) {
@@ -3099,7 +3101,7 @@ function submitPlayerAction() {
 }
 
 function renderPlayerPage() {
-  const sel = document.getElementById('playerCellSelect');
+  const sel = document.querySelector('#playerCellSelect');
   if (!sel) return;
   renderPlayerCellSelector();
   const cellId = getPlayerCell();
@@ -3165,6 +3167,18 @@ function renderPlayerPage() {
   const log = state.actionLogByCell[cellId] || [];
   const logPanel = document.getElementById('playerActionLog');
   if (logPanel) logPanel.innerHTML = log.length ? log.slice().reverse().map(a => `<div class="timeline-item"><strong>${a.time}</strong><br>${a.text}</div>`).join('') : '<div class="small">No submitted actions yet.</div>';
+  const scenarioSummaryPanel = document.getElementById('playerScenarioSummaryPanel');
+  if (scenarioSummaryPanel) {
+    const scenarioSummary = [];
+    const recentTimeline = state.timeline.slice(-5).reverse();
+    const recentFeed = feed.slice(-4).reverse();
+    const recentActions = log.slice(-4).reverse();
+    scenarioSummary.push(`<div class="card"><strong>Scenario summary</strong><div class="small" style="margin-top:8px">This page rolls up the latest turn resolutions, facilitator injects, and your own submitted actions for <strong>${cell?.name || cellId}</strong>.</div><div class="row" style="margin-top:10px"><span class="tag">${state.scenario.name}</span><span class="tag">${state.scenario.timeLabel || 'H+0'}</span><span class="tag">Turn ${Number(state.scenario.turn || 1)}</span><span class="tag">Assigned ${myAssets.length}</span><span class="tag">Visible contacts ${visibleContacts.length}</span></div></div>`);
+    scenarioSummary.push(`<div class="card"><strong>Latest turn resolutions</strong>${recentTimeline.length ? recentTimeline.map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small" style="margin-top:8px">No resolved-turn updates yet.</div>'}</div>`);
+    scenarioSummary.push(`<div class="card"><strong>Facilitator updates / injects</strong>${recentFeed.length ? recentFeed.map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small" style="margin-top:8px">No facilitator updates yet for this cell.</div>'}</div>`);
+    scenarioSummary.push(`<div class="card"><strong>Your latest actions</strong>${recentActions.length ? recentActions.map(item => `<div class="timeline-item"><strong>${item.time}</strong><br>${item.text}</div>`).join('') : '<div class="small" style="margin-top:8px">No player actions submitted yet.</div>'}</div>`);
+    scenarioSummaryPanel.innerHTML = scenarioSummary.join('');
+  }
   initMaps(true);
 }
 

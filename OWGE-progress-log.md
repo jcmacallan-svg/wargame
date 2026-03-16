@@ -49,3 +49,11 @@
 - Done: moved Scenario Authoring plus Templates and Scenario/Exercise Packages to Scenario tab.
 - Done: Map page now starts with chart controls (overlay, icon style, turn hours, remember view) followed by Blue Cells.
 - Open: verify whether Blue Cells should later also move to Scenario tab or remain on Map.
+
+
+## Update: player IA + measurement tool polish
+- Player Map restored as the place for assigned assets, orders, and visual contacts.
+- Player Ops trimmed to facilitator updates/injects and player action submission.
+- Player header now keeps the locked cell selector visible across player pages.
+- Player Scenario now includes a live scenario summary of turn resolutions, facilitator injects, and player actions.
+- Measurement tool changed to a visible magnifier-style map control with click-start / click-end behavior.

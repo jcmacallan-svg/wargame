@@ -8,25 +8,19 @@
 <body>
 <header>
   <h1>Open War Game Engine v16</h1>
+  <div class="player-header-cell row"><label class="small" style="font-weight:700;color:#cbd5e1;margin:0">Cell</label><select id="playerCellSelect" class="player-header-select"></select><span class="small">Choose once; lock remains active for this player session.</span></div>
   <div class="small">Player operations view for injects, orders, classification, and action submission</div>
   <div class="row" style="margin-top:10px"><a id="playerScenarioNavLink" class="nav-btn" href="./player-scenario.html">Player Scenario</a><a id="playerOpsNavLink" class="nav-btn" href="./player-ops.html">Player Ops</a><a id="playerMapNavLink" class="nav-btn" href="./player.html">Player Map</a></div>
   <div id="turnCounterBadge" class="turn-badge" aria-label="Current turn status"></div>
 </header>
 <div class="ops-container">
   <div class="panel">
-    <h2>Cell</h2>
-    <select id="playerCellSelect"></select>
-    <div class="small" style="margin-top:8px">Choose your cell once. After selection, that cell is locked to this player session and cannot be picked by another player at the same time.</div>
-    <div id="playerScenarioPanel"></div>
-    <h2 style="margin-top:18px">Assigned Assets</h2>
-    <div id="playerAssetsPanel"></div>
-    <h2 style="margin-top:18px">Selected Asset Orders / Contact Classification</h2>
-    <div id="playerWaypointStatus" class="small" style="margin-bottom:8px"></div>
-    <div id="playerAssetEditor"></div>
-  </div>
-  <div class="panel">
     <h2>Facilitator Updates / Injects</h2>
     <div id="playerFeedPanel"></div>
+  </div>
+  <div class="panel">
+    <h2>Player Actions</h2>
+    <div class="small" style="margin-bottom:10px">Use this page for player injects, action submission, and facilitator updates. Orders, assigned assets, and visual contacts live under Player Map.</div>
     <h2 style="margin-top:18px">Submit Action</h2>
     <textarea id="playerActionText" placeholder="Describe your intended action, intent, timing, and desired effect"></textarea>
     <button id="playerSubmitBtn" class="good">Submit Action</button>
