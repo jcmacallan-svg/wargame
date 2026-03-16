@@ -1845,35 +1845,6 @@ function bindEvents() {
       initMaps(true);
     } catch (_) {}
   });
-  document.addEventListener('input', (e) => {
-    const id = e.target?.id || '';
-    if (['scenarioNameInput', 'scenarioOverviewInput', 'scenarioSituationInput', 'turnDurationHoursInput'].includes(id)) {
-      debouncedSaveScenarioMeta();
-      return;
-    }
-    if (e.target?.closest?.('#cellsEditor')) {
-      debouncedSaveCells();
-      return;
-    }
-    if (['assetName','assetType','assetAffiliation','assetRepresentation','assetStatus','assetTrackQuality','assetZone','assetAssignedCell','assetHeading','assetSpeed','assetLat','assetLon','assetFuel','assetReadiness','assetWaypoints'].includes(id)) {
-      debouncedSaveSelectedAssetProps();
-    }
-  });
-  document.addEventListener('change', (e) => {
-    const id = e.target?.id || '';
-    if (['overlaySelect', 'symbolStyleSelect', 'turnDurationUnitSelect', 'rememberLastMapView'].includes(id)) {
-      saveScenarioMeta();
-      if (id === 'overlaySelect' || id === 'symbolStyleSelect') initMaps(true);
-      return;
-    }
-    if (e.target?.closest?.('#cellsEditor')) {
-      saveCells();
-      return;
-    }
-    if (['assetType','assetAffiliation','assetRepresentation','assetStatus','assetTrackQuality','assetZone','assetAssignedCell'].includes(id)) {
-      saveSelectedAssetProps();
-    }
-  });
 }
 
 function setMapMode(mode) {
@@ -1977,9 +1948,9 @@ function applyTemplate() {
 }
 
 function saveScenarioMeta() {
-  state.scenario.name = document.getElementById('scenarioNameInput')?.value.trim() || 'Untitled Scenario';
-  state.scenario.overview = document.getElementById('scenarioOverviewInput')?.value.trim() || 'Facilitator-authored scenario.';
-  state.scenario.currentSituation = document.getElementById('scenarioSituationInput')?.value.trim() || 'Facilitator-authored setup.';
+  state.scenario.name = document.getElementById('scenarioNameInput').value.trim() || 'Untitled Scenario';
+  state.scenario.overview = document.getElementById('scenarioOverviewInput').value.trim() || 'Facilitator-authored scenario.';
+  state.scenario.currentSituation = document.getElementById('scenarioSituationInput').value.trim() || 'Facilitator-authored setup.';
   const overlaySelect = document.getElementById('overlaySelect');
   state.scenario.overlayMode = overlaySelect ? overlaySelect.value : (state.scenario.overlayMode || 'openseamap');
   const symbolStyleSelect = document.getElementById('symbolStyleSelect');
@@ -1994,20 +1965,7 @@ function saveScenarioMeta() {
   if (map && state.scenario.rememberLastMapView) state.scenario.lastMapView = currentMapView(map);
   saveState();
   renderScenario();
-  renderGlobalStatusBadge();
 }
-
-function debounce(fn, wait = 250) {
-  let timer = null;
-  return (...args) => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => fn(...args), wait);
-  };
-}
-
-const debouncedSaveScenarioMeta = debounce(saveScenarioMeta, 200);
-const debouncedSaveCells = debounce(saveCells, 250);
-const debouncedSaveSelectedAssetProps = debounce(saveSelectedAssetProps, 250);
 
 function addCellRow(cell) {
   const container = document.getElementById('cellsEditor');
@@ -2023,15 +1981,11 @@ function addCellRow(cell) {
 function saveCells() {
   const rows = Array.from(document.querySelectorAll('.cell-row'));
   const existingByName = Object.fromEntries((state.session.cells || []).map(c => [String(c.name || '').toLowerCase(), c]));
-  const usedIds = new Set();
   const cells = rows.map((row, idx) => {
     const name = row.querySelector('.cell-name').value.trim() || ('Blue Cell ' + (idx + 1));
     const existing = existingByName[String(name).toLowerCase()];
     const fallback = defaultCellPosition(idx);
-    let id = existing?.id || uniqueId(name, Array.from(usedIds));
-    while (usedIds.has(id)) id = uniqueId(name, Array.from(usedIds));
-    usedIds.add(id);
-    return { id, name, domain: row.querySelector('.cell-domain').value, lat: existing?.lat ?? fallback[0], lon: existing?.lon ?? fallback[1] };
+    return { id: uniqueId(name, []), name, domain: row.querySelector('.cell-domain').value, lat: existing?.lat ?? fallback[0], lon: existing?.lon ?? fallback[1] };
   });
   state.session.cells = cells.length ? cells : clone(DEFAULT_STATE.session.cells);
   ensureCellLocations();
