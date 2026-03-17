@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'owge_v17_northern_shield_default';
+const STORAGE_KEY = 'owge_v18_blank_maritime_default';
 const PLAYER_CLAIM_KEY = `${STORAGE_KEY}_playerClaim`;
 const PLAYER_INSTANCE_KEY = `${STORAGE_KEY}_playerInstance`;
 const STATE_CHANNEL_NAME = `${STORAGE_KEY}_state_channel`;
@@ -965,6 +965,7 @@ function renderModernAssetLibraryInfo() {
   const preset = NAVAL_CLASS_LIBRARY_BY_KEY[select.value] || NAVAL_CLASS_LIBRARY[0];
   if (!preset) { panel.innerHTML = ''; return; }
   const tags = (preset.roleTags || []).map(tag => `<span class="tag">${tag}</span>`).join(' ');
+  const weaponTags = weaponSummaryTags({ type: preset.baseType, weaponProfile: preset.weaponProfile }).map(tag => `<span class="tag tag-warn">${tag}</span>`).join(' ');
   panel.innerHTML = `
     <div class="card" style="margin-top:8px">
       <strong>${preset.label}</strong>
@@ -976,7 +977,7 @@ function renderModernAssetLibraryInfo() {
         <span class="tag">Fuel 100% = ${preset.fuelCapacity} endurance units</span>
         <span class="tag">Readiness ${preset.readiness}%</span>
       </div>
-      <div class="row" style="margin-top:6px;flex-wrap:wrap">${tags}</div>
+      <div class="row" style="margin-top:6px;flex-wrap:wrap">${tags} ${weaponTags}</div>
       <div class="small" style="margin-top:8px">Sensors: radar ${preset.sensorProfile.radar} nm · visual ${preset.sensorProfile.visual} nm · EW ${preset.sensorProfile.ew} · boarding / inspection ${preset.sensorProfile.inspection}</div>
       <div class="small" style="margin-top:6px"><strong>Variant / class:</strong> ${preset.label}<br>${preset.notes}</div>
     </div>`;
@@ -1046,7 +1047,8 @@ function migrateState(pkg) {
       roleTags,
       faction: classPreset?.faction || '',
       classNotes: classPreset?.notes || '',
-      sensorProfile: clone(classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType))
+      sensorProfile: clone(classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType)),
+      weaponProfile: normalizeWeaponProfile(a?.weaponProfile, normalizedType)
     }, a, {
       type: normalizedType,
       classKey: a?.classKey || classPreset?.value || '',
@@ -1065,7 +1067,8 @@ function migrateState(pkg) {
       roleTags,
       faction: a?.faction || classPreset?.faction || '',
       classNotes: a?.classNotes || classPreset?.notes || '',
-      sensorProfile: Object.assign({}, classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), a?.sensorProfile || {})
+      sensorProfile: Object.assign({}, classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), a?.sensorProfile || {}),
+      weaponProfile: normalizeWeaponProfile(a?.weaponProfile, normalizedType)
     });
   });
   merged.boardingRequests = Array.isArray(pkg?.boardingRequests) ? pkg.boardingRequests.map(r => Object.assign({ status: 'pending', facilitatorModifier: 0, envDifficulty: 'moderate', rationale: '', adjudication: null }, r || {})) : [];
@@ -1562,6 +1565,53 @@ function defaultSensorProfileForAssetType(type) {
   if (['attack_submarine', 'ballistic_missile_submarine', 'submarine'].includes(normalized)) return { radar: 6, visual: 5, inspection: 0.2, ew: 6 };
   if (isCommercialAssetType(normalized)) return { radar: 12, visual: 8, inspection: 0.5, ew: 4 };
   return { radar: 10, visual: 8, inspection: 0.5, ew: 6 };
+}
+
+
+function defaultWeaponProfileForAssetType(type) {
+  const normalized = normalizeAssetType(type);
+  const zero = { antiShipMissiles: 0, samCells: 0, mainGunMounts: 0, torpedoes: 0, aswLaunchers: 0, ciws: 0, embarkedAir: 0 };
+  if (isCommercialAssetType(normalized) || ['pilot_boat','tug_workboat','dredger','research_survey_vessel','boarding_team','port_support_unit','command_element'].includes(normalized)) return clone(zero);
+  if (normalized === 'frigate') return { antiShipMissiles: 8, samCells: 32, mainGunMounts: 1, torpedoes: 8, aswLaunchers: 2, ciws: 1, embarkedAir: 1 };
+  if (normalized === 'air_defence_frigate') return { antiShipMissiles: 8, samCells: 32, mainGunMounts: 1, torpedoes: 8, aswLaunchers: 1, ciws: 1, embarkedAir: 1 };
+  if (normalized === 'corvette') return { antiShipMissiles: 6, samCells: 16, mainGunMounts: 1, torpedoes: 4, aswLaunchers: 1, ciws: 1, embarkedAir: 0 };
+  if (normalized === 'destroyer') return { antiShipMissiles: 16, samCells: 48, mainGunMounts: 1, torpedoes: 6, aswLaunchers: 2, ciws: 2, embarkedAir: 1 };
+  if (normalized === 'air_defence_destroyer') return { antiShipMissiles: 12, samCells: 64, mainGunMounts: 1, torpedoes: 4, aswLaunchers: 1, ciws: 2, embarkedAir: 1 };
+  if (normalized === 'cruiser') return { antiShipMissiles: 16, samCells: 64, mainGunMounts: 1, torpedoes: 8, aswLaunchers: 2, ciws: 2, embarkedAir: 1 };
+  if (normalized === 'patrol_vessel') return { antiShipMissiles: 0, samCells: 4, mainGunMounts: 1, torpedoes: 0, aswLaunchers: 0, ciws: 0, embarkedAir: 1 };
+  if (['attack_submarine','submarine'].includes(normalized)) return { antiShipMissiles: 4, samCells: 0, mainGunMounts: 0, torpedoes: 12, aswLaunchers: 0, ciws: 0, embarkedAir: 0 };
+  if (normalized === 'ballistic_missile_submarine') return { antiShipMissiles: 0, samCells: 0, mainGunMounts: 0, torpedoes: 8, aswLaunchers: 0, ciws: 0, embarkedAir: 0 };
+  if (normalized === 'aircraft_carrier') return { antiShipMissiles: 0, samCells: 24, mainGunMounts: 0, torpedoes: 0, aswLaunchers: 0, ciws: 3, embarkedAir: 24 };
+  if (normalized === 'amphibious_assault_ship') return { antiShipMissiles: 0, samCells: 16, mainGunMounts: 0, torpedoes: 0, aswLaunchers: 0, ciws: 2, embarkedAir: 12 };
+  if (normalized === 'amphibious_ship') return { antiShipMissiles: 0, samCells: 8, mainGunMounts: 1, torpedoes: 0, aswLaunchers: 0, ciws: 1, embarkedAir: 2 };
+  if (['auxiliary_ship','replenishment_ship','intelligence_ship'].includes(normalized)) return { antiShipMissiles: 0, samCells: 4, mainGunMounts: 1, torpedoes: 0, aswLaunchers: 0, ciws: 1, embarkedAir: 1 };
+  if (normalized === 'mine_warfare_vessel') return { antiShipMissiles: 0, samCells: 2, mainGunMounts: 1, torpedoes: 0, aswLaunchers: 0, ciws: 0, embarkedAir: 0 };
+  if (normalized === 'maritime_helicopter') return { antiShipMissiles: 2, samCells: 0, mainGunMounts: 0, torpedoes: 2, aswLaunchers: 0, ciws: 0, embarkedAir: 0 };
+  return clone(zero);
+}
+function normalizeWeaponProfile(profile, type) {
+  const base = defaultWeaponProfileForAssetType(type);
+  const src = Object.assign({}, base, profile || {});
+  const out = {};
+  Object.keys(base).forEach(key => {
+    const n = Number(src[key]);
+    out[key] = Number.isFinite(n) && n >= 0 ? Math.round(n) : base[key];
+  });
+  return out;
+}
+function weaponProfileForAsset(asset) {
+  return normalizeWeaponProfile(asset?.weaponProfile, asset?.type);
+}
+function weaponSummaryTags(asset) {
+  const wp = weaponProfileForAsset(asset);
+  const tags = [];
+  if (wp.antiShipMissiles) tags.push(`AShM ${wp.antiShipMissiles}`);
+  if (wp.samCells) tags.push(`SAM ${wp.samCells}`);
+  if (wp.torpedoes) tags.push(`Torp ${wp.torpedoes}`);
+  if (wp.mainGunMounts) tags.push(`Gun x${wp.mainGunMounts}`);
+  if (wp.ciws) tags.push(`CIWS ${wp.ciws}`);
+  if (wp.embarkedAir) tags.push(`Air ${wp.embarkedAir}`);
+  return tags;
 }
 
 function playerControllableAssets(cellId = getPlayerCell()) {
@@ -2613,6 +2663,7 @@ function createAssetBase(type, overrides = {}) {
     faction: overrides.faction != null ? overrides.faction : (classPreset?.faction || ''),
     classNotes: overrides.classNotes != null ? overrides.classNotes : (classPreset?.notes || ''),
     sensorProfile: Object.assign({}, classPreset?.sensorProfile || defaultSensorProfileForAssetType(normalizedType), overrides.sensorProfile || {}),
+    weaponProfile: normalizeWeaponProfile(overrides.weaponProfile || classPreset?.weaponProfile, normalizedType),
     waypoints: Array.isArray(overrides.waypoints) ? clone(overrides.waypoints) : []
   };
 }
@@ -2695,7 +2746,8 @@ function addModernAssetFromLibrary() {
     sensorProfile: clone(preset.sensorProfile || {}),
     roleTags: clone(preset.roleTags || []),
     faction: preset.faction || '',
-    classNotes: preset.notes || ''
+    classNotes: preset.notes || '',
+    weaponProfile: normalizeWeaponProfile(preset.weaponProfile, preset.baseType || preset.value)
   });
   asset.name = preset.label;
   asset.type = preset.baseType || normalizeAssetType(preset.value);
@@ -2737,8 +2789,10 @@ function onSelectedAssetTypeChanged() {
       asset.faction = preset.faction || asset.faction || '';
       asset.classNotes = preset.notes || asset.classNotes || '';
       asset.sensorProfile = Object.assign({}, preset.sensorProfile || defaultSensorProfileForAssetType(type));
+      asset.weaponProfile = normalizeWeaponProfile(preset.weaponProfile || asset.weaponProfile, type);
     } else {
       asset.sensorProfile = Object.assign({}, defaultSensorProfileForAssetType(type), asset.sensorProfile || {});
+      asset.weaponProfile = normalizeWeaponProfile(asset.weaponProfile, type);
     }
     const roleSelect = document.getElementById('assetRoleProfile');
     if (roleSelect && roleSelect.value) applyRoleProfileToAsset(asset, roleSelect.value);
@@ -2802,6 +2856,15 @@ function saveSelectedAssetProps() {
   asset.speed = normalizeSpeed(document.getElementById('assetSpeed').value);
   asset.lat = normalizeCoord(document.getElementById('assetLat').value);
   asset.lon = normalizeCoord(document.getElementById('assetLon').value);
+  asset.weaponProfile = normalizeWeaponProfile({
+    antiShipMissiles: document.getElementById('assetAntiShipMissiles')?.value,
+    samCells: document.getElementById('assetSamCells')?.value,
+    mainGunMounts: document.getElementById('assetMainGunMounts')?.value,
+    torpedoes: document.getElementById('assetTorpedoes')?.value,
+    aswLaunchers: document.getElementById('assetAswLaunchers')?.value,
+    ciws: document.getElementById('assetCiws')?.value,
+    embarkedAir: document.getElementById('assetEmbarkedAir')?.value
+  }, asset.type);
   asset.waypoints = parseWaypointText(document.getElementById('assetWaypoints')?.value || '');
   state.selectedAssetId = asset.id;
   saveState();
@@ -3886,7 +3949,7 @@ function renderAssets() {
       ${section.assets.map(a => `
         <div class="card asset ${a.id === state.selectedAssetId ? 'zone-selected' : ''}">
           <strong>${a.name}</strong>
-          <div class="row" style="margin-top:6px">
+          <div class="row" style="margin-top:6px">${weaponTags}
             <span class="tag">${assetRepresentationLabel(a.representation)}</span>
             <span class="tag">${assetTypeLabel(a.type)}</span>${assetClassLabel(a) ? `<span class="tag">${escapeHtml(assetClassLabel(a))}</span>` : ''}
             <span class="tag">${assetAffiliationLabel(a.affiliation)}</span>
@@ -3898,6 +3961,7 @@ function renderAssets() {
             <span class="tag">${waypointSummary(a)}</span>
             <span class="tag">${assetOwningGroupLabel(a)}</span>
             ${(roleTagsForAsset(a) || []).slice(0,3).map(tag => `<span class="tag">${tag}</span>`).join('')}
+            ${weaponSummaryTags(a).slice(0,3).map(tag => `<span class="tag tag-warn">${tag}</span>`).join('')}
           </div>
           <button class="secondary" onclick="selectAsset('${a.id}')">Select</button>
         </div>`).join('')}
@@ -3930,6 +3994,13 @@ function renderAssetEditor() {
   const assetLat = document.getElementById('assetLat');
   const assetLon = document.getElementById('assetLon');
   const assetWaypoints = document.getElementById('assetWaypoints');
+  const assetAntiShipMissiles = document.getElementById('assetAntiShipMissiles');
+  const assetSamCells = document.getElementById('assetSamCells');
+  const assetMainGunMounts = document.getElementById('assetMainGunMounts');
+  const assetTorpedoes = document.getElementById('assetTorpedoes');
+  const assetAswLaunchers = document.getElementById('assetAswLaunchers');
+  const assetCiws = document.getElementById('assetCiws');
+  const assetEmbarkedAir = document.getElementById('assetEmbarkedAir');
   if (!assetZone || !assetAssignedCell) return;
   assetZone.innerHTML = ['<option value="">Unplaced</option>'].concat(zoneIds().map(id => `<option value="${id}">${state.zones[id].name}</option>`)).join('');
   assetAssignedCell.innerHTML = ['<option value="">Unassigned / Commercial</option>'].concat(state.session.cells.map(c => `<option value="${c.id}">${c.name}</option>`)).join('');
@@ -3960,6 +4031,14 @@ function renderAssetEditor() {
   if (assetLat) assetLat.value = asset?.lat ?? '';
   if (assetLon) assetLon.value = asset?.lon ?? '';
   if (assetWaypoints) assetWaypoints.value = formatWaypointText(asset?.waypoints || []);
+  const wp = weaponProfileForAsset(asset || { type: assetType?.value });
+  if (assetAntiShipMissiles) assetAntiShipMissiles.value = wp.antiShipMissiles;
+  if (assetSamCells) assetSamCells.value = wp.samCells;
+  if (assetMainGunMounts) assetMainGunMounts.value = wp.mainGunMounts;
+  if (assetTorpedoes) assetTorpedoes.value = wp.torpedoes;
+  if (assetAswLaunchers) assetAswLaunchers.value = wp.aswLaunchers;
+  if (assetCiws) assetCiws.value = wp.ciws;
+  if (assetEmbarkedAir) assetEmbarkedAir.value = wp.embarkedAir;
   updateWaypointUi();
   populateLibrarySelect();
   renderModernAssetLibraryInfo();

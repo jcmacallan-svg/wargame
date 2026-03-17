@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Open War Game Engine v17 - Facilitator Assets</title><link rel="stylesheet" href="./style.css"></head><body><header><h1>Open War Game Engine v17</h1><div class="small">Facilitator asset roster and detailed selected-asset editor with class, role, fuel, readiness, and generic weaponsystems</div><div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
+    <a class="nav-btn" href="./facilitator-scenario.html">Scenario</a>
+    <a class="nav-btn" href="./facilitator-navigation.html">Navigation</a>
+    <a class="nav-btn" href="./facilitator-ops.html">Ops / Action</a>
+    <a class="nav-btn" href="./facilitator-status.html">Status Update</a>
+    <a class="nav-btn" href="./facilitator-weather.html">Weather Forecast</a>
+    <a class="nav-btn" href="./facilitator-assets.html">Assets</a>
+    <a class="nav-btn" href="./index.html">Full Map</a>
+  </div><div id="turnCounterBadge" class="turn-badge" aria-label="Current turn status"></div></header>
+<div class="ops-container player-page-scroll facilitator-assets-layout">
+  <div class="panel">
+    <div id="turnStatusPanel" class="turn-status-panel"></div>
+    <h2 style="margin-top:18px">Asset Roster</h2>
+    <div class="small">Review the full force package here. Filter, search, and group military and commercial assets, then select one to edit in detail on the right.</div>
+    <div class="row" style="margin-top:10px"><button id="addAssetBtn">Add Asset</button><button id="clearAssetsBtn" class="secondary">Clear All Assets</button></div>
+    <div class="row" style="margin-top:10px"><select id="modernAssetLibrarySelect"></select><button id="addModernAssetBtn" class="secondary">Add Library Asset</button></div>
+    <div class="small" style="margin-top:8px">Quick-add grouped naval combatants, auxiliaries, and commercial traffic classes.</div>
+    <div id="modernAssetLibraryInfo"></div>
+    <details class="asset-filter-box" open><summary>Asset list filters</summary><div class="small" id="assetFilterSummary" style="margin-top:6px"></div><div class="small" id="assetFilterCount" style="margin-top:4px"></div><label class="small" for="assetFilterSearch" style="margin-top:8px;display:block">Search</label><input id="assetFilterSearch" placeholder="Search by name, type, class, zone, or cell"><label class="small" for="assetScopeFilter" style="margin-top:8px;display:block">Scope</label><select id="assetScopeFilter"><option value="all">All assets</option><option value="commercial">Commercial only</option><option value="military">Non-commercial only</option></select><div class="small" style="margin-top:8px">Affiliation</div><div id="assetAffiliationFilters" class="filter-grid"></div><div class="small" style="margin-top:8px">Representation</div><div id="assetRepresentationFilters" class="filter-grid"></div><div class="row" style="margin-top:10px"><button id="resetAssetFiltersBtn" class="secondary">Reset Filters</button></div></details>
+    <div id="assetsPanel"></div>
+  </div>
+  <div class="panel">
+    <h2>Selected Asset</h2>
+    <div class="small">Edit the selected unit or vessel with generic, non-classified but plausible platform data.</div>
+    <input id="assetId" placeholder="asset-id"><input id="assetName" placeholder="Asset name"><select id="assetType"></select><input id="assetClassName" placeholder="Class / variant (optional)"><select id="assetRoleProfile"></select><input id="assetRoleTags" placeholder="Role tags, comma separated"><input id="assetFaction" placeholder="Faction / navy (optional)"><textarea id="assetClassNotes" placeholder="Class / role notes"></textarea><select id="assetAffiliation"></select><select id="assetRepresentation"></select><select id="assetStatus"><option value="available">available</option><option value="committed">committed</option><option value="delayed">delayed</option><option value="maintenance">maintenance</option></select><select id="assetTrackQuality"></select><select id="assetZone"></select><select id="assetAssignedCell"></select>
+    <div class="grid2" style="margin-top:8px"><input id="assetHeading" type="number" min="0" max="359.9" step="0.1" placeholder="Heading (deg)"><input id="assetSpeed" type="number" min="0" step="0.1" placeholder="Speed (kt)"><input id="assetLat" type="number" step="0.000001" placeholder="Latitude"><input id="assetLon" type="number" step="0.000001" placeholder="Longitude"><input id="assetFuel" type="number" min="0" max="100" step="1" placeholder="Fuel (%)"><input id="assetFuelCapacity" type="number" min="1" step="1" placeholder="Fuel cap (units @ 100%)"><input id="assetReadiness" type="number" min="0" max="100" step="1" placeholder="Readiness (%)"></div>
+    <h3 style="margin-top:18px">Weaponsystems</h3>
+    <div class="small">Generic, plausible, non-classified payload counts by class. Commercial vessels stay unarmed unless you deliberately change them.</div>
+    <div class="grid2" style="margin-top:8px"><input id="assetAntiShipMissiles" type="number" min="0" step="1" placeholder="Anti-ship missiles"><input id="assetSamCells" type="number" min="0" step="1" placeholder="SAM / VLS cells"><input id="assetMainGunMounts" type="number" min="0" step="1" placeholder="Main gun mounts"><input id="assetTorpedoes" type="number" min="0" step="1" placeholder="Torpedoes"><input id="assetAswLaunchers" type="number" min="0" step="1" placeholder="ASW launchers"><input id="assetCiws" type="number" min="0" step="1" placeholder="CIWS mounts"><input id="assetEmbarkedAir" type="number" min="0" step="1" placeholder="Embarked airframes"></div>
+    <textarea id="assetWaypoints" placeholder="Waypoints: one per line as lat,lon,label"></textarea>
+    <div class="row" style="margin-top:10px"><button id="saveAssetPropsBtn" class="good">Save Asset Properties</button><button id="deleteAssetBtn" class="warn">Delete Selected Asset</button></div>
+  </div>
+</div><script src="./app.js"></script></body></html>

@@ -1,0 +1,77 @@
+{
+  "version": 18,
+  "scenario": {
+    "name": "Blank Maritime Scenario",
+    "overview": "Start from an empty chart. Facilitator places zones and assets manually, then saves the setup as a scenario package.",
+    "turn": 1,
+    "timeLabel": "H+0",
+    "movementPressure": 0,
+    "timePressure": 0,
+    "assetPressure": 0,
+    "shippingConfidence": 6,
+    "zoneControlScore": 0,
+    "objectiveScore": 0,
+    "failureState": "",
+    "currentSituation": "No scenario geometry yet. Build the battlespace by placing zones and assets on the map.",
+    "overlayMode": "openseamap",
+    "redDoctrine": "manual",
+    "rememberLastMapView": false,
+    "lastMapView": {
+      "center": [
+        53.22741,
+        5.76508
+      ],
+      "zoom": 8
+    },
+    "pinnedMapView": {
+      "center": [
+        53.22741,
+        5.76508
+      ],
+      "zoom": 8
+    },
+    "turnDurationHours": 1,
+    "symbolStyle": "ntds",
+    "statusUpdateIntervalHours": 6
+  },
+  "zones": {},
+  "selectedZoneId": "",
+  "selectedAssetId": "",
+  "mapMode": "select",
+  "session": {
+    "cells": [
+      {
+        "id": "blue-maritime",
+        "name": "Blue Maritime",
+        "domain": "maritime",
+        "lat": 53.40298,
+        "lon": 5.01938
+      },
+      {
+        "id": "blue-port",
+        "name": "Blue Port Authority",
+        "domain": "logistics",
+        "lat": 53.48298,
+        "lon": 5.01938
+      }
+    ],
+    "initialStatusSentByCell": {},
+    "lastRoutineStatusBucketByCell": {},
+    "cellLocks": {}
+  },
+  "assets": [],
+  "incidents": [],
+  "releasedInjects": [],
+  "selectedActions": {},
+  "playerFeedByCell": {
+    "blue-maritime": [],
+    "blue-port": []
+  },
+  "actionLogByCell": {
+    "blue-maritime": [],
+    "blue-port": []
+  },
+  "timeline": [],
+  "boardingRequests": [],
+  "hailingRequests": []
+}

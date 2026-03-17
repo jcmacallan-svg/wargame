@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'owge_v17_northern_shield_default';
+const STORAGE_KEY = 'owge_v18_blank_maritime_default';
 const PLAYER_CLAIM_KEY = `${STORAGE_KEY}_playerClaim`;
 const PLAYER_INSTANCE_KEY = `${STORAGE_KEY}_playerInstance`;
 const STATE_CHANNEL_NAME = `${STORAGE_KEY}_state_channel`;
